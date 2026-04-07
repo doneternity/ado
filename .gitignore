@@ -7,6 +7,7 @@ backend/*.test
 frontend/node_modules
 frontend/dist
 frontend/.vite
+*.tsbuildinfo
 
 # Env
 .env

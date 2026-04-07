@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ado
+      POSTGRES_PASSWORD: ado
+      POSTGRES_DB: ado
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ado -d ado"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  api:
+    image: golang:1.23-alpine
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - go-mod-cache:/go/pkg/mod
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://ado:ado@postgres:5432/ado?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      PORT: "8081"
+    command: >
+      sh -c "go install github.com/air-verse/air@latest &&
+             go install github.com/pressly/goose/v3/cmd/goose@latest &&
+             goose -dir migrations postgres \"$$DATABASE_URL\" up &&
+             air -c .air.toml"
+    ports: ["8081:8081"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports: ["5173:5173"]
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    ports: ["8080:8080"]
+    depends_on: [api, web]
+
+volumes:
+  pgdata:
+  go-mod-cache:
+  frontend-node-modules:

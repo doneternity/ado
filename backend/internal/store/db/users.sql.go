@@ -7,7 +7,112 @@ package db
 
 import (
 	"context"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const consumeEmailVerificationToken = `-- name: ConsumeEmailVerificationToken :exec
+UPDATE email_verification_tokens SET consumed_at = now() WHERE token_hash = $1
+`
+
+func (q *Queries) ConsumeEmailVerificationToken(ctx context.Context, tokenHash []byte) error {
+	_, err := q.db.Exec(ctx, consumeEmailVerificationToken, tokenHash)
+	return err
+}
+
+const createEmailVerificationToken = `-- name: CreateEmailVerificationToken :exec
+INSERT INTO email_verification_tokens (token_hash, user_id, expires_at)
+VALUES ($1, $2, $3)
+`
+
+type CreateEmailVerificationTokenParams struct {
+	TokenHash []byte
+	UserID    uuid.UUID
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) error {
+	_, err := q.db.Exec(ctx, createEmailVerificationToken, arg.TokenHash, arg.UserID, arg.ExpiresAt)
+	return err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, email_verified, password_hash, google_sub, display_name, photo_url, role)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at
+`
+
+type CreateUserParams struct {
+	Email         string
+	EmailVerified bool
+	PasswordHash  *string
+	GoogleSub     *string
+	DisplayName   *string
+	PhotoUrl      *string
+	Role          string
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser,
+		arg.Email,
+		arg.EmailVerified,
+		arg.PasswordHash,
+		arg.GoogleSub,
+		arg.DisplayName,
+		arg.PhotoUrl,
+		arg.Role,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerified,
+		&i.PasswordHash,
+		&i.GoogleSub,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.Banned,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteEmailVerificationTokensForUser = `-- name: DeleteEmailVerificationTokensForUser :exec
+DELETE FROM email_verification_tokens WHERE user_id = $1
+`
+
+func (q *Queries) DeleteEmailVerificationTokensForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteEmailVerificationTokensForUser, userID)
+	return err
+}
+
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
+}
+
+const getEmailVerificationToken = `-- name: GetEmailVerificationToken :one
+SELECT token_hash, user_id, expires_at, consumed_at FROM email_verification_tokens WHERE token_hash = $1
+`
+
+func (q *Queries) GetEmailVerificationToken(ctx context.Context, tokenHash []byte) (EmailVerificationToken, error) {
+	row := q.db.QueryRow(ctx, getEmailVerificationToken, tokenHash)
+	var i EmailVerificationToken
+	err := row.Scan(
+		&i.TokenHash,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.ConsumedAt,
+	)
+	return i, err
+}
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at FROM users WHERE email = $1
@@ -30,4 +135,85 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUserByGoogleSub = `-- name: GetUserByGoogleSub :one
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at FROM users WHERE google_sub = $1
+`
+
+func (q *Queries) GetUserByGoogleSub(ctx context.Context, googleSub *string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByGoogleSub, googleSub)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerified,
+		&i.PasswordHash,
+		&i.GoogleSub,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.Banned,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at FROM users WHERE id = $1
+`
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerified,
+		&i.PasswordHash,
+		&i.GoogleSub,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.Banned,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const linkGoogleSub = `-- name: LinkGoogleSub :exec
+UPDATE users
+SET google_sub = $2,
+    photo_url = COALESCE(NULLIF($3,''), photo_url),
+    display_name = COALESCE(NULLIF($4,''), display_name),
+    updated_at = now()
+WHERE id = $1
+`
+
+type LinkGoogleSubParams struct {
+	ID        uuid.UUID
+	GoogleSub *string
+	Column3   interface{}
+	Column4   interface{}
+}
+
+func (q *Queries) LinkGoogleSub(ctx context.Context, arg LinkGoogleSubParams) error {
+	_, err := q.db.Exec(ctx, linkGoogleSub,
+		arg.ID,
+		arg.GoogleSub,
+		arg.Column3,
+		arg.Column4,
+	)
+	return err
+}
+
+const setEmailVerified = `-- name: SetEmailVerified :exec
+UPDATE users SET email_verified = TRUE, updated_at = now() WHERE id = $1
+`
+
+func (q *Queries) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setEmailVerified, id)
+	return err
 }

@@ -7,12 +7,13 @@ package db
 import (
 	"net/netip"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AdoKey struct {
-	ID         pgtype.UUID
-	UserID     pgtype.UUID
+	ID         uuid.UUID
+	UserID     uuid.UUID
 	KeyPrefix  string
 	KeyHash    []byte
 	DailyLimit int32
@@ -22,21 +23,21 @@ type AdoKey struct {
 }
 
 type DailyUsage struct {
-	KeyID pgtype.UUID
+	KeyID uuid.UUID
 	Day   pgtype.Date
 	Used  int32
 }
 
 type EmailVerificationToken struct {
 	TokenHash  []byte
-	UserID     pgtype.UUID
+	UserID     uuid.UUID
 	ExpiresAt  pgtype.Timestamptz
 	ConsumedAt pgtype.Timestamptz
 }
 
 type Session struct {
 	ID         []byte
-	UserID     pgtype.UUID
+	UserID     uuid.UUID
 	CsrfToken  []byte
 	CreatedAt  pgtype.Timestamptz
 	LastSeenAt pgtype.Timestamptz
@@ -46,7 +47,7 @@ type Session struct {
 }
 
 type User struct {
-	ID            pgtype.UUID
+	ID            uuid.UUID
 	Email         string
 	EmailVerified bool
 	PasswordHash  *string

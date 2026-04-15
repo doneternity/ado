@@ -213,3 +213,78 @@ func userDTO(u db.User) map[string]any {
 func base64URL(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
+
+func base64URLDecode(s string) ([]byte, error) {
+	return base64.RawURLEncoding.DecodeString(s)
+}
+
+type loginReq struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
+	var req loginReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "malformed JSON"))
+		return
+	}
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+
+	// Generic error to avoid leaking which part was wrong (email vs password).
+	user, err := a.d.Q.GetUserByEmail(r.Context(), req.Email)
+	if err != nil || user.PasswordHash == nil || !auth.VerifyPassword(req.Password, *user.PasswordHash) {
+		apperr.Write(w, apperr.Unauthorized("INVALID_CREDENTIALS", "invalid email or password"))
+		return
+	}
+	if user.Banned {
+		apperr.Write(w, apperr.Forbidden("BANNED", "account suspended"))
+		return
+	}
+	if !user.EmailVerified {
+		apperr.Write(w, apperr.Forbidden("EMAIL_NOT_VERIFIED", "verify your email").
+			WithExtra("email", user.Email))
+		return
+	}
+
+	sess, cookie, err := a.d.Sessions.Create(r.Context(), user.ID, r.UserAgent(), mw.ClientIP(r))
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "create session"))
+		return
+	}
+	a.d.Sessions.SetCookie(w, cookie)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"user":      userDTO(user),
+		"csrfToken": base64URL(sess.CSRFToken),
+	})
+}
+
+func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
+	if c, err := r.Cookie(auth.CookieName); err == nil {
+		if id, derr := base64URLDecode(c.Value); derr == nil {
+			_ = a.d.Sessions.Delete(r.Context(), id)
+		}
+	}
+	a.d.Sessions.ClearCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
+	sess, ok := mw.SessionFromContext(r.Context())
+	if !ok {
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		return
+	}
+	user, err := a.d.Q.GetUserByID(r.Context(), sess.UserID)
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "load user"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"user":      userDTO(user),
+		"csrfToken": base64URL(sess.CSRFToken),
+	})
+}

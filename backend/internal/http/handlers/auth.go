@@ -1,16 +1,20 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/ado/ado/backend/internal/apperr"
 	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/config"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/mailer"
 	"github.com/ado/ado/backend/internal/store/db"
 )
@@ -112,4 +116,100 @@ func validEmail(s string) bool {
 	}
 	at := strings.LastIndex(s, "@")
 	return at > 0 && at < len(s)-1 && !strings.Contains(s, " ")
+}
+
+type verifyReq struct {
+	Token string `json:"token"`
+}
+
+func (a *Auth) Verify(w http.ResponseWriter, r *http.Request) {
+	var req verifyReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "missing token"))
+		return
+	}
+	userID, err := a.d.Verifier.Claim(r.Context(), req.Token)
+	if err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID_TOKEN", "token invalid or expired"))
+		return
+	}
+	if err := a.d.Q.SetEmailVerified(r.Context(), userID); err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "verify"))
+		return
+	}
+	user, err := a.d.Q.GetUserByID(r.Context(), userID)
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "load user"))
+		return
+	}
+
+	sess, cookie, err := a.d.Sessions.Create(r.Context(), userID, r.UserAgent(), mw.ClientIP(r))
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "create session"))
+		return
+	}
+	a.d.Sessions.SetCookie(w, cookie)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"user":      userDTO(user),
+		"csrfToken": base64URL(sess.CSRFToken),
+	})
+}
+
+type resendReq struct {
+	Email string `json:"email"`
+}
+
+func (a *Auth) ResendVerify(rdb *redis.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req resendReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "missing email"))
+			return
+		}
+		req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+
+		// 60s cooldown per email (NX fails if key exists).
+		set, err := rdb.SetNX(r.Context(), "verify_cd:"+req.Email, 1, 60*time.Second).Result()
+		if err == nil && !set {
+			ttl, _ := rdb.TTL(r.Context(), "verify_cd:"+req.Email).Result()
+			apperr.Write(w, apperr.TooMany("COOLDOWN", "wait before resending").
+				WithExtra("retryAfter", int(ttl.Seconds())))
+			return
+		}
+
+		// Always 200 to avoid email enumeration. Only do work if user exists + unverified.
+		user, err := a.d.Q.GetUserByEmail(r.Context(), req.Email)
+		if err == nil && !user.EmailVerified {
+			_ = a.d.Verifier.Reset(r.Context(), user.ID)
+			rawTok, ierr := a.d.Verifier.Issue(r.Context(), user.ID)
+			if ierr == nil {
+				_ = a.d.Mailer.SendVerification(r.Context(), user.Email,
+					a.d.Cfg.AppBaseURL+"/verify?token="+rawTok)
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}
+}
+
+func userDTO(u db.User) map[string]any {
+	out := map[string]any{
+		"id":            u.ID.String(),
+		"email":         u.Email,
+		"emailVerified": u.EmailVerified,
+		"role":          u.Role,
+	}
+	if u.DisplayName != nil {
+		out["displayName"] = *u.DisplayName
+	}
+	if u.PhotoUrl != nil {
+		out["photoUrl"] = *u.PhotoUrl
+	}
+	return out
+}
+
+func base64URL(b []byte) string {
+	return base64.RawURLEncoding.EncodeToString(b)
 }

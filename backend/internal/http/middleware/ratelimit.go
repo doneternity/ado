@@ -39,7 +39,7 @@ func (l *Limiter) Check(ctx context.Context, key string, limit int, window time.
 func (l *Limiter) PerIP(prefix string, limit int, window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := clientIP(r)
+			ip := ClientIP(r)
 			ok, retry, err := l.Check(r.Context(), prefix+":"+ip, limit, window)
 			if err == nil && !ok {
 				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())))
@@ -51,7 +51,7 @@ func (l *Limiter) PerIP(prefix string, limit int, window time.Duration) func(htt
 	}
 }
 
-func clientIP(r *http.Request) string {
+func ClientIP(r *http.Request) string {
 	if xf := r.Header.Get("X-Forwarded-For"); xf != "" {
 		if i := strings.Index(xf, ","); i >= 0 {
 			return strings.TrimSpace(xf[:i])

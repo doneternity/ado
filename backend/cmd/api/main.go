@@ -9,8 +9,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/config"
+	"github.com/ado/ado/backend/internal/http/handlers"
 	httpapi "github.com/ado/ado/backend/internal/http"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/mailer"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/store/redis"
 )
@@ -42,7 +46,33 @@ func main() {
 	}
 	defer rdb.Close()
 
-	router := httpapi.NewRouter(httpapi.Deps{})
+	queries := db.New(pool)
+	sessions := auth.NewSessions(queries, auth.SessionConfig{
+		IdleDays:     cfg.SessionIdleDays,
+		AbsoluteDays: cfg.SessionAbsoluteDays,
+		CookieSecure: cfg.SessionCookieSecure,
+	})
+	verifier := auth.NewVerifier(queries)
+
+	var ml mailer.Mailer
+	switch cfg.Mailer {
+	case "resend":
+		ml = mailer.NewResend(cfg.ResendAPIKey, cfg.MailFrom)
+	default:
+		ml = mailer.NewConsole(os.Stdout)
+	}
+
+	authH := handlers.NewAuth(handlers.AuthDeps{
+		Cfg: cfg, Q: queries, Sessions: sessions, Verifier: verifier, Mailer: ml,
+	})
+	limiter := mw.NewLimiter(rdb)
+
+	router := httpapi.NewRouter(httpapi.Deps{
+		Sessions: sessions,
+		Auth:     authH,
+		Limiter:  limiter,
+		Rdb:      rdb,
+	})
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -17,11 +17,11 @@ UPDATE users SET email_verified = TRUE, updated_at = now() WHERE id = $1;
 
 -- name: LinkGoogleSub :exec
 UPDATE users
-SET google_sub = $2,
-    photo_url = COALESCE(NULLIF($3,''), photo_url),
-    display_name = COALESCE(NULLIF($4,''), display_name),
+SET google_sub = sqlc.arg(google_sub),
+    photo_url = COALESCE(NULLIF(sqlc.arg(photo_url),''), photo_url),
+    display_name = COALESCE(NULLIF(sqlc.arg(display_name),''), display_name),
     updated_at = now()
-WHERE id = $1;
+WHERE id = sqlc.arg(id);
 
 -- name: DeleteUser :exec
 DELETE FROM users WHERE id = $1;

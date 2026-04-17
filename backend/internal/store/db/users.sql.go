@@ -185,26 +185,26 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 
 const linkGoogleSub = `-- name: LinkGoogleSub :exec
 UPDATE users
-SET google_sub = $2,
-    photo_url = COALESCE(NULLIF($3,''), photo_url),
-    display_name = COALESCE(NULLIF($4,''), display_name),
+SET google_sub = $1,
+    photo_url = COALESCE(NULLIF($2,''), photo_url),
+    display_name = COALESCE(NULLIF($3,''), display_name),
     updated_at = now()
-WHERE id = $1
+WHERE id = $4
 `
 
 type LinkGoogleSubParams struct {
-	ID        uuid.UUID
-	GoogleSub *string
-	Column3   interface{}
-	Column4   interface{}
+	GoogleSub   *string
+	PhotoUrl    interface{}
+	DisplayName interface{}
+	ID          uuid.UUID
 }
 
 func (q *Queries) LinkGoogleSub(ctx context.Context, arg LinkGoogleSubParams) error {
 	_, err := q.db.Exec(ctx, linkGoogleSub,
-		arg.ID,
 		arg.GoogleSub,
-		arg.Column3,
-		arg.Column4,
+		arg.PhotoUrl,
+		arg.DisplayName,
+		arg.ID,
 	)
 	return err
 }

@@ -17,6 +17,7 @@ type Deps struct {
 	Auth     *handlers.Auth
 	Limiter  *mw.Limiter
 	Rdb      *redis.Client
+	Google   *handlers.Google
 }
 
 func NewRouter(d Deps) http.Handler {
@@ -39,6 +40,10 @@ func NewRouter(d Deps) http.Handler {
 		r.Post("/verify/resend", d.Auth.ResendVerify(d.Rdb))
 		r.With(mw.CSRF).Post("/logout", d.Auth.Logout)
 		r.Get("/me", d.Auth.Me)
+		if d.Google != nil {
+			r.Get("/google", d.Google.Start)
+			r.Get("/google/callback", d.Google.Callback)
+		}
 	})
 	return r
 }

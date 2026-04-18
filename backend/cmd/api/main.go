@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ado/ado/backend/internal/auth"
+	"github.com/ado/ado/backend/internal/auth/oauth"
 	"github.com/ado/ado/backend/internal/config"
 	"github.com/ado/ado/backend/internal/http/handlers"
 	httpapi "github.com/ado/ado/backend/internal/http"
@@ -67,11 +68,30 @@ func main() {
 	})
 	limiter := mw.NewLimiter(rdb)
 
+	var googleH *handlers.Google
+	if cfg.GoogleOAuthClientID == "" {
+		slog.Info("google oauth not configured")
+	} else {
+		googleClient, err := oauth.NewGoogle(ctx, oauth.Config{
+			ClientID:     cfg.GoogleOAuthClientID,
+			ClientSecret: cfg.GoogleOAuthClientSecret,
+			RedirectURL:  cfg.GoogleOAuthRedirectURL,
+		}, rdb)
+		if err != nil {
+			slog.Warn("google oauth disabled", "err", err)
+		} else {
+			googleH = handlers.NewGoogle(handlers.GoogleDeps{
+				Cfg: cfg, Q: queries, Sessions: sessions, Google: googleClient,
+			})
+		}
+	}
+
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions,
 		Auth:     authH,
 		Limiter:  limiter,
 		Rdb:      rdb,
+		Google:   googleH,
 	})
 
 	srv := &http.Server{

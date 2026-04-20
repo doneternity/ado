@@ -15,6 +15,7 @@ import (
 	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/config"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/mailer"
 	"github.com/ado/ado/backend/internal/store/db"
 )
@@ -25,6 +26,7 @@ type AuthDeps struct {
 	Sessions *auth.Sessions
 	Verifier *auth.Verifier
 	Mailer   mailer.Mailer
+	Keys     *keys.Service
 }
 
 type Auth struct{ d AuthDeps }
@@ -150,11 +152,19 @@ func (a *Auth) Verify(w http.ResponseWriter, r *http.Request) {
 	}
 	a.d.Sessions.SetCookie(w, cookie)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	resp := map[string]any{
 		"user":      userDTO(user),
 		"csrfToken": base64URL(sess.CSRFToken),
-	})
+	}
+	if issued, _ := a.d.Keys.EnsureForUser(r.Context(), user.ID); issued.Raw != "" {
+		resp["keyJustIssued"] = map[string]any{
+			"key":        issued.Raw,
+			"keyPrefix":  issued.Prefix,
+			"dailyLimit": issued.DailyLimit,
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 type resendReq struct {
@@ -254,11 +264,19 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	a.d.Sessions.SetCookie(w, cookie)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	resp := map[string]any{
 		"user":      userDTO(user),
 		"csrfToken": base64URL(sess.CSRFToken),
-	})
+	}
+	if issued, _ := a.d.Keys.EnsureForUser(r.Context(), user.ID); issued.Raw != "" {
+		resp["keyJustIssued"] = map[string]any{
+			"key":        issued.Raw,
+			"keyPrefix":  issued.Prefix,
+			"dailyLimit": issued.DailyLimit,
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {

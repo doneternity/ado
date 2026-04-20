@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/ado/ado/backend/internal/auth/oauth"
 	"github.com/ado/ado/backend/internal/config"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
@@ -20,6 +22,7 @@ type GoogleDeps struct {
 	Q        *db.Queries
 	Sessions *auth.Sessions
 	Google   *oauth.Google
+	Keys     *keys.Service
 }
 
 type Google struct{ d GoogleDeps }
@@ -117,7 +120,9 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g.d.Sessions.SetCookie(w, cookie)
-	_ = sess // sess.CSRFToken used by /me on next call
+	if issued, _ := g.d.Keys.EnsureForUser(r.Context(), user.ID); issued.Raw != "" {
+		_ = g.d.Keys.StashFlash(r.Context(), hex.EncodeToString(sess.ID), issued.Raw, issued.Prefix, issued.DailyLimit)
+	}
 
 	http.Redirect(w, r, g.d.Cfg.AppBaseURL+"/dashboard", http.StatusFound)
 }

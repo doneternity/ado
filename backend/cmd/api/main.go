@@ -15,6 +15,7 @@ import (
 	"github.com/ado/ado/backend/internal/http/handlers"
 	httpapi "github.com/ado/ado/backend/internal/http"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/mailer"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/store/redis"
@@ -48,6 +49,7 @@ func main() {
 	defer rdb.Close()
 
 	queries := db.New(pool)
+	keysSvc := keys.NewService(queries, rdb)
 	sessions := auth.NewSessions(queries, auth.SessionConfig{
 		IdleDays:     cfg.SessionIdleDays,
 		AbsoluteDays: cfg.SessionAbsoluteDays,
@@ -64,7 +66,7 @@ func main() {
 	}
 
 	authH := handlers.NewAuth(handlers.AuthDeps{
-		Cfg: cfg, Q: queries, Sessions: sessions, Verifier: verifier, Mailer: ml,
+		Cfg: cfg, Q: queries, Sessions: sessions, Verifier: verifier, Mailer: ml, Keys: keysSvc,
 	})
 	limiter := mw.NewLimiter(rdb)
 
@@ -81,7 +83,7 @@ func main() {
 			slog.Warn("google oauth disabled", "err", err)
 		} else {
 			googleH = handlers.NewGoogle(handlers.GoogleDeps{
-				Cfg: cfg, Q: queries, Sessions: sessions, Google: googleClient,
+				Cfg: cfg, Q: queries, Sessions: sessions, Google: googleClient, Keys: keysSvc,
 			})
 		}
 	}

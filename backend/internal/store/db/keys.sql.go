@@ -104,6 +104,19 @@ func (q *Queries) GetActiveKeyByUser(ctx context.Context, userID uuid.UUID) (Ado
 	return i, err
 }
 
+const getUsageForToday = `-- name: GetUsageForToday :one
+SELECT COALESCE(used, 0)::int4 AS used
+FROM daily_usage
+WHERE key_id = $1 AND day = CURRENT_DATE
+`
+
+func (q *Queries) GetUsageForToday(ctx context.Context, keyID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, getUsageForToday, keyID)
+	var used int32
+	err := row.Scan(&used)
+	return used, err
+}
+
 const revokeActiveKeyForUser = `-- name: RevokeActiveKeyForUser :exec
 UPDATE ado_keys SET revoked_at = now()
 WHERE user_id = $1 AND revoked_at IS NULL

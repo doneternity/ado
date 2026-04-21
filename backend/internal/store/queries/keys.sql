@@ -19,3 +19,8 @@ WHERE user_id = $1 AND revoked_at IS NULL;
 -- name: TouchKeyLastUsed :exec
 UPDATE ado_keys SET last_used_at = now()
 WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '30 seconds');
+
+-- name: GetUsageForToday :one
+SELECT COALESCE(used, 0)::int4 AS used
+FROM daily_usage
+WHERE key_id = $1 AND day = CURRENT_DATE;

@@ -18,6 +18,7 @@ type Deps struct {
 	Limiter  *mw.Limiter
 	Rdb      *redis.Client
 	Google   *handlers.Google
+	Keys     *handlers.Keys
 }
 
 func NewRouter(d Deps) http.Handler {
@@ -45,5 +46,12 @@ func NewRouter(d Deps) http.Handler {
 			r.Get("/google/callback", d.Google.Callback)
 		}
 	})
+
+	r.Route("/api/keys", func(r chi.Router) {
+		r.Get("/current", d.Keys.Current)
+		r.With(mw.CSRF).Post("/rotate", d.Keys.Rotate)
+		r.Get("/flash", d.Keys.Flash)
+	})
+
 	return r
 }

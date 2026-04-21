@@ -88,12 +88,14 @@ func main() {
 		}
 	}
 
+	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc})
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions,
 		Auth:     authH,
 		Limiter:  limiter,
 		Rdb:      rdb,
 		Google:   googleH,
+		Keys:     keysH,
 	})
 
 	srv := &http.Server{

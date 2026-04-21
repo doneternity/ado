@@ -23,6 +23,7 @@ import (
 	"github.com/ado/ado/backend/internal/http/handlers"
 	httpapi "github.com/ado/ado/backend/internal/http"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
@@ -102,12 +103,14 @@ func newFixture(t *testing.T) *fixture {
 	sessions := auth.NewSessions(q, auth.SessionConfig{IdleDays: 7, AbsoluteDays: 30, CookieSecure: false})
 	verifier := auth.NewVerifier(q)
 	cap := &captureMailer{}
+	keysSvc := keys.NewService(q, rdb)
 	authH := handlers.NewAuth(handlers.AuthDeps{
-		Cfg: cfg, Q: q, Sessions: sessions, Verifier: verifier, Mailer: cap,
+		Cfg: cfg, Q: q, Sessions: sessions, Verifier: verifier, Mailer: cap, Keys: keysSvc,
 	})
 	limiter := mw.NewLimiter(rdb)
+	keysH := handlers.NewKeys(handlers.KeysDeps{Q: q, Keys: keysSvc})
 	router := httpapi.NewRouter(httpapi.Deps{
-		Sessions: sessions, Auth: authH, Limiter: limiter, Rdb: rdb,
+		Sessions: sessions, Auth: authH, Limiter: limiter, Rdb: rdb, Keys: keysH,
 	})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)

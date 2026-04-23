@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAdoKey = `-- name: CreateAdoKey :one
@@ -47,23 +46,17 @@ func (q *Queries) CreateAdoKey(ctx context.Context, arg CreateAdoKeyParams) (Ado
 }
 
 const getActiveKeyByHash = `-- name: GetActiveKeyByHash :one
-SELECT k.id, k.user_id, k.key_prefix, k.key_hash, k.daily_limit, k.revoked_at, k.created_at, k.last_used_at, u.banned, u.id AS user_id_check
+SELECT k.id, k.user_id, k.daily_limit, u.banned
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
 WHERE k.key_hash = $1 AND k.revoked_at IS NULL
 `
 
 type GetActiveKeyByHashRow struct {
-	ID          uuid.UUID
-	UserID      uuid.UUID
-	KeyPrefix   string
-	KeyHash     []byte
-	DailyLimit  int32
-	RevokedAt   pgtype.Timestamptz
-	CreatedAt   pgtype.Timestamptz
-	LastUsedAt  pgtype.Timestamptz
-	Banned      bool
-	UserIDCheck uuid.UUID
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	DailyLimit int32
+	Banned     bool
 }
 
 func (q *Queries) GetActiveKeyByHash(ctx context.Context, keyHash []byte) (GetActiveKeyByHashRow, error) {
@@ -72,14 +65,8 @@ func (q *Queries) GetActiveKeyByHash(ctx context.Context, keyHash []byte) (GetAc
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.KeyPrefix,
-		&i.KeyHash,
 		&i.DailyLimit,
-		&i.RevokedAt,
-		&i.CreatedAt,
-		&i.LastUsedAt,
 		&i.Banned,
-		&i.UserIDCheck,
 	)
 	return i, err
 }

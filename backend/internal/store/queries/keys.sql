@@ -7,7 +7,7 @@ RETURNING *;
 SELECT * FROM ado_keys WHERE user_id = $1 AND revoked_at IS NULL;
 
 -- name: GetActiveKeyByHash :one
-SELECT k.*, u.banned, u.id AS user_id_check
+SELECT k.id, k.user_id, k.daily_limit, u.banned
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
 WHERE k.key_hash = $1 AND k.revoked_at IS NULL;

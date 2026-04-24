@@ -17,6 +17,8 @@ import (
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/mailer"
+	"github.com/ado/ado/backend/internal/proxy"
+	"github.com/ado/ado/backend/internal/quota"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/store/redis"
 )
@@ -89,6 +91,9 @@ func main() {
 	}
 
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc})
+	forwarder := proxy.New(cfg.GeminiBaseURL, cfg.GeminiAPIKey)
+	quotaSvc := quota.NewService(queries)
+	proxyH := handlers.NewProxy(handlers.ProxyDeps{Forwarder: forwarder, Quota: quotaSvc})
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions,
 		Auth:     authH,
@@ -96,6 +101,8 @@ func main() {
 		Rdb:      rdb,
 		Google:   googleH,
 		Keys:     keysH,
+		Proxy:    proxyH,
+		Queries:  queries,
 	})
 
 	srv := &http.Server{

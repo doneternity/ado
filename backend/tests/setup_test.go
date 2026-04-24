@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -24,14 +25,17 @@ import (
 	httpapi "github.com/ado/ado/backend/internal/http"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keys"
+	"github.com/ado/ado/backend/internal/proxy"
+	"github.com/ado/ado/backend/internal/quota"
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
 type fixture struct {
-	server *httptest.Server
-	pool   *pgxpool.Pool
-	rdb    *redis.Client
-	mailer *captureMailer
+	server     *httptest.Server
+	pool       *pgxpool.Pool
+	rdb        *redis.Client
+	mailer     *captureMailer
+	fakeGemini *httptest.Server
 }
 
 type captureMailer struct{ Last string }
@@ -109,15 +113,28 @@ func newFixture(t *testing.T) *fixture {
 	})
 	limiter := mw.NewLimiter(rdb)
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: q, Keys: keysSvc})
+
+	fakeGemini := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-test","object":"chat.completion","model":"gemini-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}]}`))
+	}))
+	t.Cleanup(fakeGemini.Close)
+
+	forwarder := proxy.New(fakeGemini.URL, "test-upstream-key")
+	quotaSvc := quota.NewService(q)
+	proxyH := handlers.NewProxy(handlers.ProxyDeps{Forwarder: forwarder, Quota: quotaSvc})
+
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions, Auth: authH, Limiter: limiter, Rdb: rdb, Keys: keysH,
+		Proxy: proxyH, Queries: q,
 	})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
 
 	_ = os.Setenv("APP_BASE_URL", srv.URL)
 
-	return &fixture{server: srv, pool: pool, rdb: rdb, mailer: cap}
+	return &fixture{server: srv, pool: pool, rdb: rdb, mailer: cap, fakeGemini: fakeGemini}
 }
 
 func mustToken(s string) string {

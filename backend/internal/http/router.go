@@ -10,6 +10,7 @@ import (
 	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/http/handlers"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/store/db"
 )
 
 type Deps struct {
@@ -19,6 +20,8 @@ type Deps struct {
 	Rdb      *redis.Client
 	Google   *handlers.Google
 	Keys     *handlers.Keys
+	Proxy    *handlers.Proxy
+	Queries  *db.Queries
 }
 
 func NewRouter(d Deps) http.Handler {
@@ -51,6 +54,13 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/current", d.Keys.Current)
 		r.With(mw.CSRF).Post("/rotate", d.Keys.Rotate)
 		r.Get("/flash", d.Keys.Flash)
+	})
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(mw.CORSPublic)
+		r.Use(mw.Bearer(d.Queries))
+		r.Get("/models", d.Proxy.Models)
+		r.Post("/chat/completions", d.Proxy.ChatCompletions)
 	})
 
 	return r

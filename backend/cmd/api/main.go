@@ -94,6 +94,21 @@ func main() {
 	forwarder := proxy.New(cfg.GeminiBaseURL, cfg.GeminiAPIKey)
 	quotaSvc := quota.NewService(queries)
 	proxyH := handlers.NewProxy(handlers.ProxyDeps{Forwarder: forwarder, Quota: quotaSvc})
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				if err := queries.DeleteExpiredSessions(ctx); err != nil {
+					slog.Warn("delete expired sessions", "err", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions,
 		Auth:     authH,

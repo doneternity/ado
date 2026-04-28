@@ -20,8 +20,8 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 	tok := mustToken(fx.mailer.Last)
 	r, _ := c.Post(fx.server.URL+"/api/auth/verify", "application/json", strings.NewReader(`{"token":"`+tok+`"}`))
 	var verifyResp struct {
-		User      map[string]any `json:"user"`
-		CSRFToken string         `json:"csrfToken"`
+		User          map[string]any `json:"user"`
+		CSRFToken     string         `json:"csrfToken"`
 		KeyJustIssued *struct {
 			Key        string `json:"key"`
 			KeyPrefix  string `json:"keyPrefix"`

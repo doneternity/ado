@@ -13,7 +13,7 @@ func Recover(next http.Handler) http.Handler {
 				slog.Error("panic", "err", rec, "stack", string(debug.Stack()))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`{"error":{"code":"INTERNAL","message":"internal error"}}`))
+				_, _ = w.Write([]byte(`{"error":{"code":"INTERNAL","message":"internal error"}}`))
 			}
 		}()
 		next.ServeHTTP(w, r)

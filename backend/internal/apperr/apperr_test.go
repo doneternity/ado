@@ -37,4 +37,5 @@ func TestWrite_UnknownErrorIs500(t *testing.T) {
 }
 
 type errBoom struct{}
+
 func (errBoom) Error() string { return "boom" }

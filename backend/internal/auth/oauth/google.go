@@ -72,7 +72,7 @@ type Identity struct {
 }
 
 var (
-	ErrInvalidState   = errors.New("invalid oauth state")
+	ErrInvalidState    = errors.New("invalid oauth state")
 	ErrEmailUnverified = errors.New("google email not verified")
 )
 

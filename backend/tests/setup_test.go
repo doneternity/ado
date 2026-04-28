@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
@@ -21,8 +21,8 @@ import (
 
 	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/config"
-	"github.com/ado/ado/backend/internal/http/handlers"
 	httpapi "github.com/ado/ado/backend/internal/http"
+	"github.com/ado/ado/backend/internal/http/handlers"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/proxy"

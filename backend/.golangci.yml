@@ -1,0 +1,36 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    - path: internal/store/db/
+      linters:
+        - unused
+        - errcheck
+    # Body.Close() in defer is idiomatic; the error is not actionable.
+    - linters: [errcheck]
+      text: "Error return value of `.*\\.Body\\.Close` is not checked"
+    # os.Setenv in tests is acceptable to ignore.
+    - path: _test\.go
+      linters:
+        - errcheck
+    # Ignore tests/ dir (integration tests with testcontainers).
+    - path: "^tests/"
+      linters:
+        - errcheck
+    # rdb.Close is a best-effort deferred cleanup.
+    - linters: [errcheck]
+      text: "Error return value of `.*\\.Close` is not checked"
+      source: "defer "

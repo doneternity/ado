@@ -1,0 +1,40 @@
+@mixin card-light {
+  background: #fff;
+  border: 3px solid var(--border);
+  padding: 24px;
+  box-shadow: var(--shadow-hard);
+}
+
+@mixin card-dark {
+  background: #111;
+  border: 3px solid #333;
+  padding: 24px;
+  box-shadow: 10px 10px 0 rgba(0,0,0,.22);
+  color: #f8f8f8;
+}
+
+@mixin pill-btn($bg: var(--black), $color: #f8f8f8) {
+  border: 2px solid var(--border);
+  background: $bg;
+  color: $color;
+  border-radius: var(--r-pill);
+  padding: 12px 22px;
+  font-weight: 900;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
+  &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+  &:disabled { opacity: .55; cursor: not-allowed; }
+}
+
+@mixin eyebrow {
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--purple);
+}
+
+@mixin breakpoint-md { @media (min-width: 768px)  { @content; } }
+@mixin breakpoint-lg { @media (min-width: 1024px) { @content; } }

@@ -1,0 +1,44 @@
+@use "../styles/mixins" as *;
+
+.form { display: flex; flex-direction: column; gap: 16px; }
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  span {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  input {
+    border: 2px solid var(--border);
+    background: #fff;
+    padding: 12px;
+    color: var(--black);
+    font-size: .95rem;
+    width: 100%;
+
+    &:focus { border-color: var(--purple); outline: none; }
+    &:disabled { opacity: .6; }
+  }
+}
+
+.error {
+  font-size: .85rem;
+  color: var(--error);
+  border: 2px solid var(--error);
+  padding: 10px 14px;
+  background: rgba(225,29,72,.06);
+}
+
+.submit {
+  @include pill-btn;
+  width: 100%;
+  font-size: .95rem;
+  padding: 14px 22px;
+}

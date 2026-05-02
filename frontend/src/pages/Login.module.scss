@@ -1,0 +1,148 @@
+@use "../styles/mixins" as *;
+
+.page {
+  min-height: calc(100vh - 92px);
+  display: flex;
+  flex-direction: column;
+  gap: 4vw;
+  padding: 48px 5vw 64px;
+  animation: viewIn .28s ease both;
+
+  @include breakpoint-lg {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, .8fr);
+    align-items: center;
+  }
+}
+
+.formCol {
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.eyebrow { @include eyebrow; }
+
+.headline {
+  font-size: clamp(2.8rem, 6vw, 5rem);
+  font-weight: 1000;
+  letter-spacing: -.07em;
+  line-height: .88;
+}
+
+.tabs {
+  display: flex;
+  border: 2px solid var(--border);
+  background: #fff;
+  padding: 3px;
+  width: fit-content;
+}
+
+.tab, .tabActive {
+  padding: 8px 18px;
+  border: none;
+  font-weight: 900;
+  font-size: .82rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-family: var(--font-mono);
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+}
+.tabActive { background: var(--black); color: #f8f8f8; }
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #999;
+  &::before, &::after { content: ""; flex: 1; height: 2px; background: var(--border); }
+}
+
+.terminalCol {
+  display: none;
+  @include breakpoint-lg { display: block; }
+}
+
+.terminalCard {
+  background: #050505;
+  color: #f8f8f8;
+  border: 4px solid var(--border);
+  box-shadow: 18px 18px 0 var(--silver), 0 30px 80px rgba(5,5,5,.28);
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 70% 20%, rgba(110,90,253,.38), transparent 34%),
+      linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px);
+    background-size: auto, 100% 9px;
+    pointer-events: none;
+  }
+}
+
+.terminalTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(248,248,248,.2);
+  padding-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.terminalDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 22px var(--green);
+}
+
+.terminalLabel { color: #d9dde3; }
+
+.kineticWord {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: .02em;
+  padding: 48px 0 36px;
+  perspective: 600px;
+
+  span {
+    display: inline-block;
+    font-size: clamp(4rem, 8vw, 7rem);
+    font-weight: 1000;
+    text-shadow: 0 0 34px rgba(110,90,253,.5);
+  }
+}
+
+.bootLines {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #d9dde3;
+
+  p { margin: 10px 0; }
+}
+
+.operational { color: var(--green); }
+.cursor { animation: blink .85s step-end infinite; }

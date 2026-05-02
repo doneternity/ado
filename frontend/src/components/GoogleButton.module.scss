@@ -1,0 +1,26 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 22px;
+  border: 2px solid var(--border);
+  background: #fff;
+  color: var(--black);
+  border-radius: var(--r-pill);
+  font-weight: 900;
+  font-size: .95rem;
+  text-decoration: none;
+  transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
+  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); text-decoration: none; }
+}
+
+.g {
+  font-weight: 800;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #ea4335 25%, #4285f4 75%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

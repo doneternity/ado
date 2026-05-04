@@ -1,0 +1,21 @@
+.section {
+  background: #050505;
+  min-height: calc(100vh - 92px);
+  padding: 48px 5vw 64px;
+  animation: viewIn .28s ease both;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  max-width: 860px;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.actions {
+  grid-column: 1 / -1;
+}

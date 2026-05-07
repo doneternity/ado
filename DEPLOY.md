@@ -16,14 +16,22 @@ ADO runs as a single co-located container (nginx + Go API) on Fly.io, with Cloud
 flyctl apps create ado
 ```
 
-## 2. Provision Fly Postgres
+## 2. Provision Postgres (Neon)
+
+Sign up at [neon.tech](https://neon.tech) (free, no card required):
+1. Create a project — name `ado`, Postgres 16, region **AWS US East 1 (N. Virginia)**
+2. Copy the **pooled connection string** from the project dashboard
+3. Set the secret:
 
 ```bash
-flyctl postgres create --name ado-pg --region iad --vm-size shared-cpu-1x --volume-size 1
-flyctl postgres attach ado-pg --app ado
+flyctl secrets set DATABASE_URL='postgresql://...'
 ```
 
-This sets the `DATABASE_URL` secret automatically.
+Then run migrations locally (install goose once: `go install github.com/pressly/goose/v3/cmd/goose@latest`):
+
+```bash
+goose -dir backend/migrations postgres "$DATABASE_URL" up
+```
 
 ## 3. Provision Redis (Upstash)
 

@@ -9,7 +9,7 @@ primary_region = "iad"
   APP_ENV = "production"
   SESSION_COOKIE_SECURE = "true"
   GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
-  MAILER = "resend"
+  MAILER = "console"
   LOG_LEVEL = "info"
 
 [processes]

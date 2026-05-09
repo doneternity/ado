@@ -6,6 +6,7 @@ import { Verify } from "./pages/Verify";
 import { VerifyPending } from "./pages/VerifyPending";
 import { Dashboard } from "./pages/Dashboard";
 import { NotFound } from "./pages/NotFound";
+import { Landing } from "./pages/Landing";
 import { useMe } from "./api/queries";
 
 function Root() {
@@ -34,7 +35,7 @@ export const router = createBrowserRouter([
   {
     element: <Root />,
     children: [
-      { path: "/", element: <Navigate to="/dashboard" replace /> },
+      { path: "/", element: <Landing /> },
       { path: "/login", element: <RedirectIfAuthed><Login /></RedirectIfAuthed> },
       { path: "/verify", element: <Verify /> },
       { path: "/verify-pending", element: <VerifyPending /> },

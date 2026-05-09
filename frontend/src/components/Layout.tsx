@@ -12,18 +12,23 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className={styles.frame}>
       <header className={styles.nav}>
         <Link to="/" className={styles.wordmark}>ADO</Link>
-        {me && (
-          <div className={styles.actions}>
-            <span className={styles.email}>{me.user.email}</span>
-            <button
-              className={styles.signOut}
-              onClick={() => logout.mutate()}
-              disabled={logout.isPending}
-            >
-              sign out
-            </button>
-          </div>
-        )}
+        <div className={styles.actions}>
+          {me ? (
+            <>
+              <span className={styles.email}>{me.user.email}</span>
+              <Link to="/dashboard" className={styles.navLink}>dashboard</Link>
+              <button
+                className={styles.signOut}
+                onClick={() => logout.mutate()}
+                disabled={logout.isPending}
+              >
+                sign out
+              </button>
+            </>
+          ) : (
+            <Link to="/login" className={styles.getStarted}>get started</Link>
+          )}
+        </div>
       </header>
       <div className={styles.shell}>{children}</div>
       <Toast />

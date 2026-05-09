@@ -46,3 +46,28 @@
 }
 
 .shell { padding-top: 92px; }
+
+.navLink {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--black);
+  font-weight: 900;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  &:hover { border-color: var(--border); }
+}
+
+.getStarted {
+  border: 2px solid var(--border);
+  background: var(--black);
+  color: #f8f8f8;
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  font-weight: 900;
+  font-size: .82rem;
+  text-decoration: none;
+  transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
+  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+}

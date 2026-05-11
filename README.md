@@ -15,4 +15,4 @@ docker compose up
 - `backend/` — Go API (chi, pgx, sqlc).
 - `backend/migrations/` — goose SQL.
 - `frontend/` — React + Vite + TanStack Query + Zustand + SCSS Modules.
-- `nginx/` — front-door config (dev + prod variants).
+- `nginx/` — front-door config (dev + prod variants). 

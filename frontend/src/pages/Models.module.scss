@@ -1,0 +1,240 @@
+@use "../styles/mixins" as *;
+
+.page {}
+
+.header {
+  padding: 48px 5vw 0;
+  max-width: 860px;
+  animation: viewIn .28s ease both;
+}
+
+.eyebrow { @include eyebrow; margin-bottom: 16px; }
+
+.headline {
+  font-size: clamp(3rem, 7vw, 6.4rem);
+  font-weight: 1000;
+  letter-spacing: -.07em;
+  line-height: .88;
+  margin: 0 0 20px;
+}
+
+.lede {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  max-width: 560px;
+  color: #333;
+  margin-bottom: 28px;
+}
+
+/* ── filters ── */
+.filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+
+.filterBtn {
+  @include pill-btn(#fff, var(--black));
+  font-size: .82rem;
+  padding: 8px 18px;
+  border: 2px solid var(--border);
+
+  &.active {
+    background: var(--black);
+    color: #f8f8f8;
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+/* ── grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 0 5vw 64px;
+
+  @media (max-width: 1023px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 640px)  { grid-template-columns: 1fr; }
+}
+
+/* ── card ── */
+.card {
+  @include card-light;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
+
+  &:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 15px 15px 0 var(--silver);
+  }
+
+  &.featured {
+    border-color: var(--purple);
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 3px;
+      background: var(--purple);
+    }
+  }
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── badges ── */
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.familyBadge,
+.tierBadge,
+.tagBadge {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+}
+
+.familyBadge { border: 1.5px solid transparent; }
+.family25 { background: var(--purple); color: #fff; }
+.family20 { background: var(--green);  color: #050505; }
+.family15 { background: var(--silver); color: #050505; }
+
+.tierBadge { border: 1.5px solid var(--border); }
+.tierPro   { background: #050505; color: #f8f8f8; }
+.tierFlash { background: #fff; color: var(--black); }
+
+.tagBadge { border: 1.5px solid var(--orange); color: var(--orange); }
+
+/* ── speed bar ── */
+.speedBar { display: flex; gap: 4px; align-items: center; }
+
+.speedDot {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid #ccc;
+  background: transparent;
+  transition: background var(--t-fast) ease;
+}
+
+.speedOn { background: var(--green); border-color: var(--green); }
+
+/* ── body ── */
+.modelName {
+  font-size: 1.15rem;
+  font-weight: 1000;
+  letter-spacing: -.04em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.modelDesc {
+  font-size: .88rem;
+  color: #555;
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* ── meta ── */
+.meta { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+
+.context {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #666;
+}
+
+.caps { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: #444;
+  border: 1px solid #ddd;
+  padding: 2px 7px 2px 5px;
+  background: #fafafa;
+}
+
+/* ── copy button ── */
+.copyBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid var(--border);
+  background: #050505;
+  color: #f8f8f8;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  text-align: left;
+  transition: box-shadow var(--t-base) ease;
+
+  &:hover { box-shadow: 4px 4px 0 var(--purple); }
+}
+
+.modelId {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+/* ── cta strip ── */
+.ctaStrip {
+  background: #050505;
+  padding: 72px 5vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+  border-top: 3px solid var(--border);
+}
+
+.ctaEyebrow {
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--green);
+}
+
+.ctaHeadline {
+  font-size: clamp(2.4rem, 5vw, 5rem);
+  font-weight: 1000;
+  letter-spacing: -.07em;
+  line-height: .88;
+  color: #f8f8f8;
+}
+
+.ctaBtn {
+  @include pill-btn(var(--purple), #fff);
+  font-size: 1rem;
+  padding: 14px 32px;
+  text-decoration: none;
+  border-color: var(--purple);
+
+  &:hover { box-shadow: 5px 5px 0 var(--green); }
+}

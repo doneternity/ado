@@ -12,6 +12,9 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className={styles.frame}>
       <header className={styles.nav}>
         <Link to="/" className={styles.wordmark}>ADO</Link>
+        <nav className={styles.navLinks}>
+          <Link to="/models" className={styles.navLink}>models</Link>
+        </nav>
         <div className={styles.actions}>
           {me ? (
             <>

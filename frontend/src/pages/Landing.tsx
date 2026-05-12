@@ -115,7 +115,7 @@ export function Landing() {
       </section>
 
       <section className={styles.ctaStrip}>
-        <span className={styles.eyebrow}>IT'S FREE</span>
+        <span className={styles.eyebrow}>{"IT'S FREE"}</span>
         <h2 className={styles.ctaHeadline}>start in 30 seconds.</h2>
         <Link to="/login" className={styles.ctaBtn}>Create free account</Link>
       </section>

@@ -14,6 +14,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <Link to="/" className={styles.wordmark}>ADO</Link>
         <nav className={styles.navLinks}>
           <Link to="/models" className={styles.navLink}>models</Link>
+          <Link to="/docs"   className={styles.navLink}>docs</Link>
         </nav>
         <div className={styles.actions}>
           {me ? (

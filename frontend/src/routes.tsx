@@ -8,6 +8,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { NotFound } from "./pages/NotFound";
 import { Landing } from "./pages/Landing";
 import { Models } from "./pages/Models";
+import { Docs } from "./pages/Docs";
 import { useMe } from "./api/queries";
 
 function Root() {
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
     children: [
       { path: "/", element: <Landing /> },
       { path: "/models", element: <Models /> },
+      { path: "/docs",   element: <Docs /> },
       { path: "/login", element: <RedirectIfAuthed><Login /></RedirectIfAuthed> },
       { path: "/verify", element: <Verify /> },
       { path: "/verify-pending", element: <VerifyPending /> },

@@ -1,6 +1,6 @@
 module github.com/ado/ado/backend
 
-go 1.24
+go 1.25.7
 
 require (
 	github.com/caarlos0/env/v10 v10.0.0

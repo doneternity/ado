@@ -33,10 +33,9 @@ jobs:
       - name: Vet
         run: cd backend && go vet ./...
       - name: Lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          working-directory: backend
-          version: latest
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          cd backend && golangci-lint run
       - name: Test
         env:
           DATABASE_URL: postgres://ado:ado@localhost:5432/ado?sslmode=disable

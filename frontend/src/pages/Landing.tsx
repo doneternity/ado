@@ -119,6 +119,12 @@ export function Landing() {
         <h2 className={styles.ctaHeadline}>start in 30 seconds.</h2>
         <Link to="/login" className={styles.ctaBtn}>Create free account</Link>
       </section>
+
+      {!me && (
+        <div className={styles.mobileCtaBar}>
+          <Link to="/login" className={styles.mobileCtaBtn}>Get your free key →</Link>
+        </div>
+      )}
     </div>
   );
 }

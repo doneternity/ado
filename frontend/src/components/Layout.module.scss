@@ -1,4 +1,9 @@
-.frame { min-height: 100vh; background: var(--bg); }
+.frame {
+  min-height: 100vh;
+  background: var(--bg);
+  /* extra padding-bottom on mobile so content clears the bottom nav */
+  @media (max-width: 859px) { padding-bottom: 64px; }
+}
 
 .nav {
   position: fixed;
@@ -22,16 +27,25 @@
   color: var(--black);
 }
 
-.navLinks { display: flex; align-items: center; gap: 4px; }
+.navLinks {
+  display: none;
+  align-items: center;
+  gap: 4px;
+
+  @media (min-width: 860px) { display: flex; }
+}
 
 .actions { display: flex; align-items: center; gap: 10px; }
 
 .email {
+  display: none;
   font-family: var(--font-mono);
   font-size: .72rem;
   text-transform: uppercase;
   letter-spacing: .04em;
   color: #666;
+
+  @media (min-width: 640px) { display: inline; }
 }
 
 .signOut {
@@ -72,4 +86,47 @@
   text-decoration: none;
   transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
   &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+}
+
+/* ── mobile bottom nav ── */
+.mobileBottomNav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  border-top: 2px solid rgba(17,17,17,.2);
+  background: rgba(248,248,248,.94);
+  backdrop-filter: blur(18px);
+
+  @media (min-width: 860px) { display: none; }
+}
+
+.mobileNavItem {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 4px;
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #888;
+  transition: color var(--t-fast) ease;
+  min-height: 52px; /* thumb-friendly tap area */
+
+  &:hover { color: var(--black); }
+}
+
+.mobileNavActive {
+  color: var(--purple) !important;
+}
+
+.mobileNavCta {
+  background: var(--black);
+  color: #f8f8f8 !important;
+  &:hover { color: #f8f8f8 !important; }
 }

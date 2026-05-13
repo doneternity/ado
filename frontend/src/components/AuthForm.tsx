@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { ApiError } from "../api/client";
 import styles from "./AuthForm.module.scss";
 
@@ -10,10 +11,10 @@ type Props = {
 };
 
 export function AuthForm({ mode, onSubmit, isPending }: Props) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [displayName, setDisplay] = useState("");
+  const [error, setError]         = useState<string | null>(null);
 
   return (
     <form
@@ -22,50 +23,80 @@ export function AuthForm({ mode, onSubmit, isPending }: Props) {
         e.preventDefault();
         setError(null);
         try {
-          await onSubmit({ email, password, displayName: displayName || undefined });
+          await onSubmit({ email, password, displayName: displayName.trim() || undefined });
         } catch (err) {
           setError(err instanceof ApiError ? err.message : "Something went wrong");
         }
       }}
     >
-      <label className={styles.field}>
-        <span>Email</span>
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="auth-email">Email</label>
         <input
+          id="auth-email"
+          className={styles.input}
           type="email"
           autoComplete="email"
           required
+          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isPending}
         />
-      </label>
-      <label className={styles.field}>
-        <span>Password</span>
+      </div>
+
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="auth-password">Password</label>
         <input
+          id="auth-password"
+          className={styles.input}
           type="password"
           autoComplete={mode === "login" ? "current-password" : "new-password"}
           required
           minLength={8}
           maxLength={128}
+          placeholder={mode === "signup" ? "at least 8 characters" : "your password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isPending}
         />
-      </label>
+        {mode === "signup" && (
+          <span className={styles.hint}>8–128 characters</span>
+        )}
+      </div>
+
       {mode === "signup" && (
-        <label className={styles.field}>
-          <span>Display name (optional)</span>
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="auth-name">
+            Display name{" "}
+            <span className={styles.optional}>(optional)</span>
+          </label>
           <input
+            id="auth-name"
+            className={styles.input}
             type="text"
+            autoComplete="name"
+            placeholder="how others see you"
+            maxLength={80}
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => setDisplay(e.target.value)}
             disabled={isPending}
           />
-        </label>
+        </div>
       )}
-      {error && <div className={styles.error}>⚠ {error}</div>}
+
+      {error && (
+        <div className={styles.error} role="alert">
+          <AlertCircle size={15} />
+          <span>{error}</span>
+        </div>
+      )}
+
       <button type="submit" className={styles.submit} disabled={isPending}>
-        {isPending ? "Working…" : mode === "login" ? "Sign in" : "Create account"}
+        {isPending
+          ? "Working…"
+          : mode === "login"
+            ? "Sign in"
+            : "Create account — it's free"}
       </button>
     </form>
   );

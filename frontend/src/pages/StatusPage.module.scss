@@ -1,0 +1,126 @@
+@use "../styles/mixins" as *;
+
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 80px 5vw 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.centered {
+  align-items: center;
+  text-align: center;
+  padding-top: 120px;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--border);
+  background: #fff;
+  color: var(--black);
+  margin-bottom: 8px;
+}
+
+.iconError { color: var(--error); border-color: var(--error); }
+
+.code {
+  font-family: var(--font-mono);
+  font-size: 5rem;
+  font-weight: 1000;
+  letter-spacing: -.08em;
+  line-height: 1;
+  color: var(--purple);
+  display: block;
+}
+
+.title {
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 1000;
+  letter-spacing: -.06em;
+  line-height: .9;
+  margin: 0;
+}
+
+.body {
+  font-size: .95rem;
+  line-height: 1.65;
+  color: #444;
+  max-width: 380px;
+
+  strong { color: var(--black); }
+}
+
+.sub {
+  font-size: .85rem;
+  color: #888;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.primary {
+  @include pill-btn;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 13px 24px;
+  font-size: .9rem;
+}
+
+.secondary {
+  @include pill-btn(#fff, var(--black));
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 13px 24px;
+  font-size: .9rem;
+  border-color: var(--border);
+}
+
+.statusMsg {
+  font-size: .85rem;
+  color: var(--black);
+  border: 2px solid var(--border);
+  background: #fff;
+  padding: 11px 14px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #888;
+  margin-top: 8px;
+  transition: color var(--t-fast) ease;
+  &:hover { color: var(--black); }
+}
+
+.spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.spin {
+  color: var(--purple);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

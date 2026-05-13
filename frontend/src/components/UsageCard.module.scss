@@ -1,14 +1,11 @@
 .card {
-  background:
-    radial-gradient(circle at 100% 0, rgba(110,90,253,.24), transparent 34%),
-    #111;
-  border: 3px solid #333;
+  background: #111;
+  border: 2px solid #2a2a2a;
   padding: 24px;
-  box-shadow: 10px 10px 0 rgba(0,0,0,.22);
   color: #f8f8f8;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   min-height: 172px;
   justify-content: space-between;
 }
@@ -17,33 +14,56 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+}
+
+.label {
   font-family: var(--font-mono);
-  font-size: .72rem;
+  font-size: .68rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
-  color: #9ca3af;
+  letter-spacing: .06em;
+  color: #4a4a4a;
 }
 
 .count {
-  font-size: clamp(2rem, 4vw, 3.2rem);
-  letter-spacing: -.08em;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  letter-spacing: -.07em;
   line-height: .9;
-  color: #f8f8f8;
+  color: #d4d4d4;
   font-weight: 1000;
 }
 
-.timer { color: var(--green); }
+.warn { color: #fb923c; }
+
+.of {
+  font-size: .5em;
+  letter-spacing: -.04em;
+  color: #4a4a4a;
+  font-weight: 700;
+}
+
+.timer {
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  font-weight: 700;
+  color: #4a9d6f;
+  letter-spacing: .02em;
+}
 
 .bar {
-  height: 11px;
-  border: 1px solid #333;
-  background: #050505;
+  height: 8px;
+  border: 1px solid #2a2a2a;
+  background: #0a0a0a;
   overflow: hidden;
 }
 
 .fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--green), var(--purple));
+  background: linear-gradient(90deg, #3d8a5e, #5a48c8);
   transition: width var(--t-base);
+}
+
+.fillWarn {
+  background: linear-gradient(90deg, #c2410c, #fb923c);
 }

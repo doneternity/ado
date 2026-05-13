@@ -42,7 +42,22 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
+
       <div className={styles.shell}>{children}</div>
+
+      {/* Mobile bottom nav — visible only on small screens, hidden on dark pages */}
+      {!isDark && (
+        <nav className={styles.mobileBottomNav}>
+          <Link to="/models"     className={`${styles.mobileNavItem}${pathname === "/models"     ? ` ${styles.mobileNavActive}` : ""}`}>models</Link>
+          <Link to="/docs"       className={`${styles.mobileNavItem}${pathname === "/docs"       ? ` ${styles.mobileNavActive}` : ""}`}>docs</Link>
+          <Link to="/pricing"    className={`${styles.mobileNavItem}${pathname === "/pricing"    ? ` ${styles.mobileNavActive}` : ""}`}>pricing</Link>
+          <Link to="/playground" className={`${styles.mobileNavItem}${pathname === "/playground" ? ` ${styles.mobileNavActive}` : ""}`}>play</Link>
+          <Link to={me ? "/dashboard" : "/login"} className={`${styles.mobileNavItem} ${styles.mobileNavCta}`}>
+            {me ? "dash" : "sign in"}
+          </Link>
+        </nav>
+      )}
+
       {!isDark && <Footer />}
       <Toast />
     </div>

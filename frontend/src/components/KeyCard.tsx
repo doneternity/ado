@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Copy, Check, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useCurrentKey, useRawKey } from "../api/queries";
 import { useRotateKey } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
+import { Skeleton } from "./Skeleton";
 import styles from "./KeyCard.module.scss";
 
 export function KeyCard() {
@@ -10,46 +12,78 @@ export function KeyCard() {
   const rotate = useRotateKey();
   const showToast = useUiStore((s) => s.showToast);
   const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  if (isLoading) return <div className={styles.card}>Loading key…</div>;
-  if (!current) return <div className={styles.card}>No key yet.</div>;
+  if (isLoading) {
+    return (
+      <div className={styles.card}>
+        <Skeleton height="0.7rem" width="6rem" />
+        <Skeleton height="2rem" />
+        <div className={styles.skeletonRow}>
+          <Skeleton height="2.2rem" width="40%" />
+          <Skeleton height="2.2rem" width="30%" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!current) return null;
 
   const display = revealed && raw ? raw.key : current.keyPrefix + "…";
 
+  function copy() {
+    const text = raw?.key ?? current?.keyPrefix + "…";
+    void navigator.clipboard.writeText(text);
+    setCopied(true);
+    showToast("Key copied");
+    setTimeout(() => setCopied(false), 1800);
+  }
+
   return (
     <div className={styles.card}>
-      <h2 className={styles.title}>Your ADO Key</h2>
-      <code className={styles.key}>{display}</code>
-      <div className={styles.row}>
+      <span className={styles.title}>Your ADO key</span>
+
+      <div className={styles.keyWrap}>
+        <code className={styles.key}>{display}</code>
         {raw && (
-          <button onClick={() => setRevealed((r) => !r)}>
-            {revealed ? "Hide" : "Reveal"}
+          <button
+            className={styles.revealBtn}
+            onClick={() => setRevealed((r) => !r)}
+            title={revealed ? "Hide key" : "Show key"}
+            aria-label={revealed ? "Hide key" : "Show key"}
+          >
+            {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         )}
+      </div>
+
+      {/* Primary action */}
+      <button className={styles.copyBtn} onClick={copy}>
+        {copied ? <Check size={15} /> : <Copy size={15} />}
+        {copied ? "Copied!" : "Copy key"}
+      </button>
+
+      {/* Danger zone */}
+      <div className={styles.danger}>
         <button
-          disabled={!raw}
-          onClick={() => {
-            if (!raw) return;
-            void navigator.clipboard.writeText(raw.key);
-            showToast("Copied!");
-          }}
-        >
-          Copy
-        </button>
-        <button
-          className={styles.rotate}
+          className={styles.rotateBtn}
           disabled={rotate.isPending}
           onClick={() => {
-            if (!confirm("Rotate your key? The current key will stop working.")) return;
+            if (!confirm("Rotate key? The current key stops working immediately.")) return;
             rotate.mutate(undefined, {
-              onSuccess: () => { setRevealed(true); showToast("Key rotated."); },
+              onSuccess: () => { setRevealed(true); showToast("New key ready — copy it now."); },
             });
           }}
         >
-          {rotate.isPending ? "Rotating…" : "Rotate"}
+          <RefreshCw size={13} />
+          {rotate.isPending ? "Rotating…" : "Rotate key"}
         </button>
+        {!raw && (
+          <span className={styles.note}>
+            Raw key not visible — rotate to reveal a new one.
+          </span>
+        )}
       </div>
-      {!raw && <p className={styles.note}>Raw key is only available right after issuance or rotation. Hit Rotate to get a fresh one.</p>}
     </div>
   );
 }

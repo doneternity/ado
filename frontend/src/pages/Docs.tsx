@@ -50,7 +50,7 @@ function Code({ children, lang }: { children: string; lang?: string }) {
       <div className={styles.codeTop}>
         {lang && <span className={styles.codeLang}>{lang}</span>}
         <button className={styles.codeCopy} onClick={copy}>
-          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? <Check size={14} /> : <Copy size={14} />}
           {copied ? "copied" : "copy"}
         </button>
       </div>

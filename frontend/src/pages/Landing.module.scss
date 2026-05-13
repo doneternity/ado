@@ -292,3 +292,29 @@
   align-items: center;
   &:hover:not(:disabled) { box-shadow: 5px 5px 0 var(--green); }
 }
+
+/* mobile-only sticky CTA above the bottom nav */
+.mobileCtaBar {
+  display: none;
+  position: fixed;
+  bottom: 64px; /* sits above mobile bottom nav */
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 10px 16px;
+  background: rgba(248,248,248,.94);
+  backdrop-filter: blur(12px);
+  border-top: 2px solid var(--border);
+
+  @media (max-width: 859px) { display: block; }
+}
+
+.mobileCtaBtn {
+  @include pill-btn;
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  padding: 15px 24px;
+  font-size: 1rem;
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
 import styles from "./Docs.module.scss";
 
@@ -105,7 +106,12 @@ export function Docs() {
   }, []);
 
   return (
-    <div className={styles.page}>
+    <motion.div
+      className={styles.page}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+    >
 
       {/* ── sidebar ── */}
       <aside className={styles.sidebar}>
@@ -427,6 +433,6 @@ with client.chat.completions.stream(
         </section>
 
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -1,0 +1,300 @@
+@use "../styles/mixins" as *;
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 80px 5vw 120px;
+}
+
+/* hero */
+.hero { max-width: 680px; margin-bottom: 56px; }
+
+.eyebrow { @include eyebrow; margin-bottom: 18px; display: block; }
+
+.headline {
+  font-size: clamp(3.6rem, 9vw, 8rem);
+  font-weight: 1000;
+  letter-spacing: -.08em;
+  line-height: .85;
+  margin-bottom: 24px;
+}
+
+.lead {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #444;
+  max-width: 560px;
+}
+
+/* stats row */
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 3px solid var(--border);
+  background: #fff;
+  box-shadow: 10px 10px 0 var(--silver);
+  margin-bottom: 56px;
+
+  @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stat {
+  padding: 20px 16px;
+  border-right: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+
+  &:last-child { border-right: none; }
+}
+
+.statIcon { color: var(--purple); }
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: 1000;
+  letter-spacing: -.05em;
+  line-height: 1;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: .66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #888;
+}
+
+/* cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  max-width: 780px;
+  margin-bottom: 80px;
+}
+
+.cardFree {
+  @include card-light;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border-color: var(--purple);
+  border-width: 3px;
+  box-shadow: 16px 16px 0 var(--silver);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--purple);
+  }
+}
+
+.cardPro {
+  @include card-light;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  opacity: .55;
+  border-width: 3px;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.tierLabel {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--purple);
+  margin-bottom: 8px;
+}
+
+.tierLabelPro {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.priceAmount {
+  font-size: 3.4rem;
+  font-weight: 1000;
+  letter-spacing: -.08em;
+  line-height: 1;
+}
+
+.pricePeriod {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  color: #888;
+}
+
+.badge {
+  background: var(--purple);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: .66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 4px 10px;
+  border: 2px solid var(--purple);
+}
+
+.badgeSoon {
+  background: #f4f4f4;
+  color: #888;
+  font-family: var(--font-mono);
+  font-size: .66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 4px 10px;
+  border: 2px solid #ddd;
+}
+
+.features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: .9rem;
+  color: #333;
+}
+
+.checkIcon { color: var(--green); flex-shrink: 0; }
+
+.ctaFree {
+  @include pill-btn;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  font-size: .95rem;
+  margin-top: auto;
+}
+
+.proTeaser {
+  font-size: .9rem;
+  color: #666;
+  line-height: 1.55;
+  flex: 1;
+}
+
+.ctaWaitlist {
+  @include pill-btn(#eee, #999);
+  border-color: #ddd;
+  cursor: not-allowed;
+  padding: 14px 24px;
+  font-size: .95rem;
+}
+
+/* FAQ */
+.faqSection { max-width: 720px; margin-bottom: 80px; }
+
+.faqHeading {
+  font-size: 2rem;
+  font-weight: 1000;
+  letter-spacing: -.05em;
+  margin-bottom: 36px;
+}
+
+.faqList { display: flex; flex-direction: column; }
+
+.faqItem {
+  border-top: 2px solid #eee;
+  padding: 24px 0;
+
+  &:last-child { border-bottom: 2px solid #eee; }
+}
+
+.faqQ {
+  font-weight: 900;
+  font-size: 1rem;
+  letter-spacing: -.02em;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.faqA {
+  font-size: .9rem;
+  line-height: 1.65;
+  color: #555;
+  display: block;
+}
+
+/* bottom CTA */
+.bottomCta {
+  background: #050505;
+  color: #f8f8f8;
+  padding: 72px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  border: 3px solid var(--border);
+  box-shadow: 16px 16px 0 var(--silver);
+}
+
+.ctaHeadline {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 1000;
+  letter-spacing: -.07em;
+  line-height: .9;
+  margin: 0;
+}
+
+.ctaBtn {
+  @include pill-btn(var(--green), #050505);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 14px 28px;
+  font-size: .95rem;
+  border-color: var(--green);
+}
+
+.ctaSecondary {
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #666;
+  text-decoration: none;
+  transition: color var(--t-fast) ease;
+  &:hover { color: var(--green); }
+}

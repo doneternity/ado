@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Copy, Check, Zap, Brain, Eye, Wrench, Layers } from "lucide-react";
 import styles from "./Models.module.scss";
@@ -115,12 +116,26 @@ function CopyId({ id }: { id: string }) {
   );
 }
 
+const cardVariants = {
+  hidden: { opacity: 0, y: 18 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, ease: "easeOut" as const, delay: i * 0.05 },
+  }),
+};
+
 export function Models() {
   const [filter, setFilter] = useState<Filter>("all");
   const visible = filter === "all" ? MODELS : MODELS.filter(m => m.tier === filter);
 
   return (
-    <div className={styles.page}>
+    <motion.div
+      className={styles.page}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+    >
       <div className={styles.header}>
         <span className={styles.eyebrow}>GOOGLE GEMINI // ALL ROUTES</span>
         <h1 className={styles.headline}>all models.<br />one key.</h1>
@@ -141,10 +156,16 @@ export function Models() {
         </div>
       </div>
 
-      <div className={styles.grid}>
-        {visible.map(model => (
-          <div
+      <motion.div
+        className={styles.grid}
+        initial="hidden"
+        animate="show"
+      >
+        {visible.map((model, i) => (
+          <motion.div
             key={model.id}
+            custom={i}
+            variants={cardVariants}
             className={`${styles.card}${model.tag === "Newest" || model.tag === "Most capable" ? ` ${styles.featured}` : ""}`}
           >
             <div className={styles.cardTop}>
@@ -182,15 +203,15 @@ export function Models() {
             </div>
 
             <CopyId id={model.id} />
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <section className={styles.ctaStrip}>
         <span className={styles.ctaEyebrow}>FREE ACCESS</span>
         <h2 className={styles.ctaHeadline}>one key for all of them.</h2>
         <Link to="/login" className={styles.ctaBtn}>Get your free key</Link>
       </section>
-    </div>
+    </motion.div>
   );
 }

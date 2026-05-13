@@ -9,6 +9,10 @@ import { NotFound } from "./pages/NotFound";
 import { Landing } from "./pages/Landing";
 import { Models } from "./pages/Models";
 import { Docs } from "./pages/Docs";
+import { Pricing } from "./pages/Pricing";
+import { Playground } from "./pages/Playground";
+import { Privacy } from "./pages/Privacy";
+import { Terms } from "./pages/Terms";
 import { useMe } from "./api/queries";
 
 function Root() {
@@ -37,14 +41,18 @@ export const router = createBrowserRouter([
   {
     element: <Root />,
     children: [
-      { path: "/", element: <Landing /> },
-      { path: "/models", element: <Models /> },
-      { path: "/docs",   element: <Docs /> },
-      { path: "/login", element: <RedirectIfAuthed><Login /></RedirectIfAuthed> },
-      { path: "/verify", element: <Verify /> },
+      { path: "/",            element: <Landing /> },
+      { path: "/models",      element: <Models /> },
+      { path: "/docs",        element: <Docs /> },
+      { path: "/pricing",     element: <Pricing /> },
+      { path: "/playground",  element: <Playground /> },
+      { path: "/privacy",     element: <Privacy /> },
+      { path: "/terms",       element: <Terms /> },
+      { path: "/login",       element: <RedirectIfAuthed><Login /></RedirectIfAuthed> },
+      { path: "/verify",      element: <Verify /> },
       { path: "/verify-pending", element: <VerifyPending /> },
-      { path: "/dashboard", element: <RequireAuth><Dashboard /></RequireAuth> },
-      { path: "*", element: <NotFound /> },
+      { path: "/dashboard",   element: <RequireAuth><Dashboard /></RequireAuth> },
+      { path: "*",            element: <NotFound /> },
     ],
   },
 ]);

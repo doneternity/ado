@@ -49,30 +49,49 @@ func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	ctx := context.Background()
 
-	pgC, err := postgres.Run(ctx, "postgres:16-alpine",
-		postgres.WithDatabase("ado"),
-		postgres.WithUsername("ado"),
-		postgres.WithPassword("ado"),
-		testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp").WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = pgC.Terminate(ctx) })
+	var dsn string
+	var rURL string
 
-	dsn, err := pgC.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
-	}
+	if envDSN := os.Getenv("DATABASE_URL"); envDSN != "" {
+		// CI: use the service container. Reset schema between tests for isolation.
+		dsn = envDSN
+		sqlDB, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := goose.Reset(sqlDB, "../migrations"); err != nil {
+			t.Fatal(err)
+		}
+		if err := goose.Up(sqlDB, "../migrations"); err != nil {
+			t.Fatal(err)
+		}
+		sqlDB.Close()
+	} else {
+		// Local: spin up a dedicated container.
+		pgC, err := postgres.Run(ctx, "postgres:16-alpine",
+			postgres.WithDatabase("ado"),
+			postgres.WithUsername("ado"),
+			postgres.WithPassword("ado"),
+			testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp").WithStartupTimeout(60*time.Second)),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = pgC.Terminate(ctx) })
 
-	// Migrate.
-	sqlDB, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer sqlDB.Close()
-	if err := goose.Up(sqlDB, "../migrations"); err != nil {
-		t.Fatal(err)
+		dsn, err = pgC.ConnectionString(ctx, "sslmode=disable")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		sqlDB, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sqlDB.Close()
+		if err := goose.Up(sqlDB, "../migrations"); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	pool, err := pgxpool.New(ctx, dsn)
@@ -81,19 +100,38 @@ func newFixture(t *testing.T) *fixture {
 	}
 	t.Cleanup(pool.Close)
 
-	rC, err := tcredis.Run(ctx, "redis:7-alpine",
-		testcontainers.WithWaitStrategy(wait.ForListeningPort("6379/tcp").WithStartupTimeout(30*time.Second)),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = rC.Terminate(ctx) })
+	if envRedis := os.Getenv("REDIS_URL"); envRedis != "" {
+		// CI: use the service container. Flush before each test.
+		rURL = envRedis
+		opt, err := redis.ParseURL(rURL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tmp := redis.NewClient(opt)
+		if err := tmp.FlushDB(ctx).Err(); err != nil {
+			t.Fatal(err)
+		}
+		tmp.Close()
+	} else {
+		// Local: spin up a dedicated container.
+		rC, err := tcredis.Run(ctx, "redis:7-alpine",
+			testcontainers.WithWaitStrategy(wait.ForListeningPort("6379/tcp").WithStartupTimeout(30*time.Second)),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = rC.Terminate(ctx) })
 
-	rURL, err := rC.ConnectionString(ctx)
+		rURL, err = rC.ConnectionString(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	rOpt, err := redis.ParseURL(rURL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rOpt, _ := redis.ParseURL(rURL)
 	rdb := redis.NewClient(rOpt)
 	t.Cleanup(func() { _ = rdb.Close() })
 

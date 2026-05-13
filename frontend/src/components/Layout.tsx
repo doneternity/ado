@@ -6,7 +6,7 @@ import { Toast } from "./Toast";
 import { Footer } from "./Footer";
 import styles from "./Layout.module.scss";
 
-const DARK_PAGES = new Set(["/dashboard", "/playground"]);
+const DARK_PAGES = new Set(["/dashboard", "/playground", "/admin"]);
 
 export function Layout({ children }: { children: ReactNode }) {
   const { data: me } = useMe();

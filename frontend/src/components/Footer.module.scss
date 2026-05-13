@@ -1,6 +1,6 @@
 .footer {
   border-top: 2px solid var(--border);
-  background: #fff;
+  background: var(--bg-card);
   padding: 32px 5vw;
 }
 
@@ -34,7 +34,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #666;
+  color: var(--silver);
   padding: 6px 10px;
   border: 1px solid transparent;
   transition: color var(--t-fast) ease, border-color var(--t-fast) ease;
@@ -51,5 +51,5 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #aaa;
+  color: var(--silver);
 }

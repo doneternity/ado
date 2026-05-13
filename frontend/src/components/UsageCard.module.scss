@@ -1,8 +1,8 @@
 .card {
-  background: #111;
-  border: 2px solid #2a2a2a;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
   padding: 24px;
-  color: #f8f8f8;
+  color: var(--black);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -22,14 +22,14 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: #4a4a4a;
+  color: var(--silver);
 }
 
 .count {
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   letter-spacing: -.07em;
   line-height: .9;
-  color: #d4d4d4;
+  color: var(--black);
   font-weight: 1000;
 }
 
@@ -38,7 +38,7 @@
 .of {
   font-size: .5em;
   letter-spacing: -.04em;
-  color: #4a4a4a;
+  color: var(--silver);
   font-weight: 700;
 }
 
@@ -52,8 +52,8 @@
 
 .bar {
   height: 8px;
-  border: 1px solid #2a2a2a;
-  background: #0a0a0a;
+  border: 1px solid var(--border);
+  background: var(--bg);
   overflow: hidden;
 }
 

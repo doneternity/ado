@@ -14,10 +14,10 @@
   justify-content: space-between;
   gap: 16px;
   padding: 10px 12px 10px 18px;
-  border: 2px solid rgba(17,17,17,.24);
-  background: rgba(248,248,248,.86);
+  border: 2px solid rgba(0,180,255,.18);
+  background: rgba(5,13,26,.86);
   backdrop-filter: blur(18px);
-  box-shadow: 0 14px 40px rgba(5,5,5,.08);
+  box-shadow: 0 14px 40px rgba(0,0,0,.4);
 }
 
 .wordmark {
@@ -43,14 +43,14 @@
   font-size: .72rem;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #666;
+  color: var(--silver);
 
   @media (min-width: 640px) { display: inline; }
 }
 
 .signOut {
   border: 2px solid var(--border);
-  background: #fff;
+  background: var(--bg-raised);
   color: var(--black);
   padding: 8px 16px;
   border-radius: var(--r-pill);
@@ -77,8 +77,8 @@
 
 .getStarted {
   border: 2px solid var(--border);
-  background: var(--black);
-  color: #f8f8f8;
+  background: var(--electric);
+  color: var(--bg);
   padding: 8px 18px;
   border-radius: var(--r-pill);
   font-weight: 900;
@@ -96,8 +96,8 @@
   left: 0;
   right: 0;
   z-index: 50;
-  border-top: 2px solid rgba(17,17,17,.2);
-  background: rgba(248,248,248,.94);
+  border-top: 2px solid rgba(0,180,255,.15);
+  background: rgba(5,13,26,.94);
   backdrop-filter: blur(18px);
 
   @media (min-width: 860px) { display: none; }
@@ -114,7 +114,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #888;
+  color: var(--silver);
   transition: color var(--t-fast) ease;
   min-height: 52px; /* thumb-friendly tap area */
 
@@ -126,7 +126,7 @@
 }
 
 .mobileNavCta {
-  background: var(--black);
-  color: #f8f8f8 !important;
-  &:hover { color: #f8f8f8 !important; }
+  background: var(--electric);
+  color: var(--bg) !important;
+  &:hover { color: var(--bg) !important; }
 }

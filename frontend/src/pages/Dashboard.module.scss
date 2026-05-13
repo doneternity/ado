@@ -1,7 +1,7 @@
 @use "../styles/mixins" as *;
 
 .page {
-  background: #050505;
+  background: var(--bg);
   min-height: calc(100vh - 92px);
   padding: 56px 5vw 80px;
 }
@@ -14,7 +14,7 @@
 }
 
 .header {
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 1px solid var(--border-sub);
   padding-bottom: 28px;
 }
 
@@ -34,13 +34,13 @@
   font-weight: 1000;
   letter-spacing: -.06em;
   line-height: .95;
-  color: #f8f8f8;
+  color: var(--black);
   margin-bottom: 10px;
 }
 
 .subtext {
   font-size: .88rem;
-  color: #666;
+  color: var(--silver);
   line-height: 1.5;
 }
 
@@ -48,7 +48,7 @@
   color: var(--purple);
   font-weight: 700;
   transition: color var(--t-fast) ease;
-  &:hover { color: #f8f8f8; }
+  &:hover { color: var(--black); }
 }
 
 .grid {

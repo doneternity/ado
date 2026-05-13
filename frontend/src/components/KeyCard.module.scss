@@ -1,8 +1,8 @@
 .card {
-  background: #111;
-  border: 2px solid #2a2a2a;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
   padding: 24px;
-  color: #f8f8f8;
+  color: var(--black);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -21,8 +21,8 @@
 .keyWrap {
   display: flex;
   align-items: stretch;
-  border: 1px solid #2a2a2a;
-  background: #0a0a0a;
+  border: 1px solid var(--border);
+  background: var(--bg);
 }
 
 .key {
@@ -30,7 +30,7 @@
   font-family: var(--font-mono);
   font-size: .82rem;
   padding: 11px 12px;
-  color: #b8c0cc;
+  color: var(--silver);
   word-break: break-all;
   line-height: 1.45;
   min-width: 0;
@@ -38,16 +38,16 @@
 
 .revealBtn {
   flex-shrink: 0;
-  background: #111;
+  background: var(--bg-card);
   border: none;
-  border-left: 1px solid #2a2a2a;
-  color: #555;
+  border-left: 1px solid var(--border);
+  color: var(--silver);
   padding: 0 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   transition: color var(--t-fast) ease;
-  &:hover { color: #aaa; }
+  &:hover { color: var(--black); }
 }
 
 /* primary CTA */
@@ -58,15 +58,15 @@
   gap: 8px;
   width: 100%;
   padding: 13px 18px;
-  background: #f8f8f8;
-  border: 2px solid #f8f8f8;
-  color: #050505;
+  background: var(--electric);
+  border: 2px solid var(--electric);
+  color: var(--bg);
   font-weight: 900;
   font-size: .88rem;
   cursor: pointer;
   transition: background var(--t-fast) ease, box-shadow var(--t-base) ease, transform var(--t-base) ease;
 
-  &:hover { transform: translateY(-2px); box-shadow: 5px 5px 0 rgba(110,90,253,.4); }
+  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
 }
 
 /* skeleton placeholder row */
@@ -81,7 +81,7 @@
   flex-direction: column;
   gap: 8px;
   padding-top: 4px;
-  border-top: 1px solid #1a1a1a;
+  border-top: 1px solid var(--border-sub);
 }
 
 .rotateBtn {
@@ -89,8 +89,8 @@
   align-items: center;
   gap: 7px;
   background: none;
-  border: 1px solid #2a2a2a;
-  color: #5a5a5a;
+  border: 1px solid var(--border);
+  color: var(--silver);
   padding: 8px 14px;
   font-size: .78rem;
   font-weight: 700;
@@ -107,6 +107,6 @@
   font-size: .66rem;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #3d3d3d;
+  color: var(--silver);
   line-height: 1.4;
 }

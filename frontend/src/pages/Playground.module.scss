@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - 92px);
-  background: #050505;
-  color: #f8f8f8;
+  background: var(--bg);
+  color: var(--black);
   overflow: hidden;
 }
 
@@ -13,7 +13,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px;
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 1px solid var(--border-sub);
   flex-shrink: 0;
   gap: 12px;
   flex-wrap: wrap;
@@ -39,7 +39,7 @@
   font-size: .66rem;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #555;
+  color: var(--silver);
 }
 
 .controls {
@@ -56,9 +56,9 @@
 
 .select {
   appearance: none;
-  background: #111;
-  border: 1px solid #2a2a2a;
-  color: #d4d4d4;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--black);
   font-family: var(--font-mono);
   font-size: .72rem;
   font-weight: 700;
@@ -74,14 +74,14 @@
 .selectCaret {
   position: absolute;
   right: 10px;
-  color: #555;
+  color: var(--silver);
   pointer-events: none;
 }
 
 .iconBtn {
-  background: #111;
-  border: 1px solid #2a2a2a;
-  color: #666;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--silver);
   padding: 7px 10px;
   font-family: var(--font-mono);
   font-size: .66rem;
@@ -94,7 +94,7 @@
   gap: 5px;
   transition: color var(--t-fast) ease, border-color var(--t-fast) ease;
 
-  &:hover:not(:disabled) { color: #d4d4d4; border-color: #444; }
+  &:hover:not(:disabled) { color: var(--black); border-color: var(--border); }
   &:disabled { opacity: .35; cursor: not-allowed; }
 }
 
@@ -106,7 +106,7 @@
 
 /* ── key banner ── */
 .keyBanner {
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 1px solid var(--border-sub);
   background: rgba(255, 138, 61, .04);
   border-bottom-color: rgba(255, 138, 61, .2);
   flex-shrink: 0;
@@ -134,22 +134,22 @@
 .keyInput {
   flex: 1;
   min-width: 260px;
-  background: #0d0d0d;
-  border: 1px solid #333;
-  color: #d4d4d4;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--black);
   font-family: var(--font-mono);
   font-size: .82rem;
   padding: 8px 12px;
   outline: none;
   transition: border-color var(--t-fast) ease;
 
-  &:focus { border-color: var(--purple); }
-  &::placeholder { color: #444; }
+  &:focus { border-color: var(--electric); }
+  &::placeholder { color: var(--silver); }
 }
 
 .keyHint {
   font-size: .78rem;
-  color: #555;
+  color: var(--silver);
   flex-shrink: 0;
   max-width: 300px;
   line-height: 1.4;
@@ -157,8 +157,8 @@
 
 /* ── system prompt ── */
 .sysWrap {
-  border-bottom: 1px solid #1a1a1a;
-  background: #0a0a0a;
+  border-bottom: 1px solid var(--border-sub);
+  background: var(--bg-card);
   padding: 14px 20px;
   flex-shrink: 0;
   display: flex;
@@ -176,9 +176,9 @@
 }
 
 .sysArea {
-  background: #050505;
-  border: 1px solid #222;
-  color: #d4d4d4;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--black);
   font-family: var(--font-mono);
   font-size: .82rem;
   line-height: 1.5;
@@ -188,8 +188,8 @@
   min-height: 64px;
   transition: border-color var(--t-fast) ease;
 
-  &:focus { border-color: var(--purple); }
-  &::placeholder { color: #333; }
+  &:focus { border-color: var(--electric); }
+  &::placeholder { color: var(--silver); }
 }
 
 /* ── messages ── */
@@ -202,7 +202,7 @@
   gap: 0;
 
   scrollbar-width: thin;
-  scrollbar-color: #222 transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .emptyState {
@@ -230,13 +230,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: #555;
+  color: var(--silver);
 }
 
 .emptyModel {
   font-family: var(--font-mono);
   font-size: .72rem;
-  color: #444;
+  color: var(--silver);
   span { color: var(--purple); }
 }
 
@@ -245,7 +245,7 @@
   grid-template-columns: 80px 1fr;
   gap: 16px;
   padding: 16px 0;
-  border-bottom: 1px solid #111;
+  border-bottom: 1px solid var(--border-sub);
   animation: msgIn .18s ease;
 }
 
@@ -270,7 +270,7 @@
 .msgContent {
   font-size: .9rem;
   line-height: 1.7;
-  color: #d4d4d4;
+  color: var(--black);
   white-space: pre-wrap;
   word-break: break-word;
   min-height: 1.5em;
@@ -287,7 +287,7 @@
   grid-template-columns: 80px 1fr;
   gap: 16px;
   padding: 16px 0;
-  border-bottom: 1px solid #111;
+  border-bottom: 1px solid var(--border-sub);
 }
 
 .errorLabel {
@@ -304,16 +304,16 @@
 .inputRow {
   display: flex;
   gap: 0;
-  border-top: 2px solid #1a1a1a;
+  border-top: 2px solid var(--border-sub);
   flex-shrink: 0;
 }
 
 .input {
   flex: 1;
-  background: #0a0a0a;
+  background: var(--bg-card);
   border: none;
-  border-right: 1px solid #1a1a1a;
-  color: #f8f8f8;
+  border-right: 1px solid var(--border-sub);
+  color: var(--black);
   font-family: var(--font-body);
   font-size: .9rem;
   line-height: 1.55;
@@ -324,11 +324,11 @@
   max-height: 200px;
   overflow-y: auto;
 
-  &::placeholder { color: #333; }
+  &::placeholder { color: var(--silver); }
   &:disabled { opacity: .4; cursor: not-allowed; }
 
   scrollbar-width: thin;
-  scrollbar-color: #222 transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .sendBtn {
@@ -344,5 +344,5 @@
   transition: background var(--t-fast) ease;
 
   &:hover:not(:disabled) { background: #5a48e8; }
-  &:disabled { background: #1a1a1a; color: #333; cursor: not-allowed; }
+  &:disabled { background: var(--bg-card); color: var(--silver); cursor: not-allowed; }
 }

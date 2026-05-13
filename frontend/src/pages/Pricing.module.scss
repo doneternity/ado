@@ -22,7 +22,7 @@
 .lead {
   font-size: 1.1rem;
   line-height: 1.6;
-  color: #444;
+  color: var(--silver);
   max-width: 560px;
 }
 
@@ -31,8 +31,8 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   border: 3px solid var(--border);
-  background: #fff;
-  box-shadow: 10px 10px 0 var(--silver);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-hard);
   margin-bottom: 56px;
 
   @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
@@ -64,7 +64,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
-  color: #888;
+  color: var(--silver);
 }
 
 /* cards */
@@ -83,7 +83,7 @@
   gap: 24px;
   border-color: var(--purple);
   border-width: 3px;
-  box-shadow: 16px 16px 0 var(--silver);
+  box-shadow: var(--shadow-hard);
   position: relative;
   overflow: hidden;
 
@@ -131,7 +131,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: #888;
+  color: var(--silver);
   margin-bottom: 8px;
 }
 
@@ -151,7 +151,7 @@
 .pricePeriod {
   font-family: var(--font-mono);
   font-size: .75rem;
-  color: #888;
+  color: var(--silver);
 }
 
 .badge {
@@ -167,15 +167,15 @@
 }
 
 .badgeSoon {
-  background: #f4f4f4;
-  color: #888;
+  background: var(--bg-raised);
+  color: var(--silver);
   font-family: var(--font-mono);
   font-size: .66rem;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .06em;
   padding: 4px 10px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border);
 }
 
 .features {
@@ -191,7 +191,7 @@
   align-items: center;
   gap: 10px;
   font-size: .9rem;
-  color: #333;
+  color: var(--silver);
 }
 
 .checkIcon { color: var(--green); flex-shrink: 0; }
@@ -209,14 +209,14 @@
 
 .proTeaser {
   font-size: .9rem;
-  color: #666;
+  color: var(--silver);
   line-height: 1.55;
   flex: 1;
 }
 
 .ctaWaitlist {
-  @include pill-btn(#eee, #999);
-  border-color: #ddd;
+  @include pill-btn(var(--bg-raised), var(--silver));
+  border-color: var(--border);
   cursor: not-allowed;
   padding: 14px 24px;
   font-size: .95rem;
@@ -235,10 +235,10 @@
 .faqList { display: flex; flex-direction: column; }
 
 .faqItem {
-  border-top: 2px solid #eee;
+  border-top: 2px solid var(--border-sub);
   padding: 24px 0;
 
-  &:last-child { border-bottom: 2px solid #eee; }
+  &:last-child { border-bottom: 2px solid var(--border-sub); }
 }
 
 .faqQ {
@@ -252,21 +252,21 @@
 .faqA {
   font-size: .9rem;
   line-height: 1.65;
-  color: #555;
+  color: var(--silver);
   display: block;
 }
 
 /* bottom CTA */
 .bottomCta {
-  background: #050505;
-  color: #f8f8f8;
+  background: var(--bg-card);
+  color: var(--black);
   padding: 72px 48px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 20px;
   border: 3px solid var(--border);
-  box-shadow: 16px 16px 0 var(--silver);
+  box-shadow: var(--shadow-hard);
 }
 
 .ctaHeadline {
@@ -293,7 +293,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #666;
+  color: var(--silver);
   text-decoration: none;
   transition: color var(--t-fast) ease;
   &:hover { color: var(--green); }

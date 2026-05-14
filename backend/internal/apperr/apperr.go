@@ -26,7 +26,8 @@ func Forbidden(code, msg string) *Error    { return New(http.StatusForbidden, co
 func NotFound(code, msg string) *Error     { return New(http.StatusNotFound, code, msg) }
 func Conflict(code, msg string) *Error     { return New(http.StatusConflict, code, msg) }
 func TooMany(code, msg string) *Error      { return New(http.StatusTooManyRequests, code, msg) }
-func Internal(code, msg string) *Error     { return New(http.StatusInternalServerError, code, msg) }
+func Internal(code, msg string) *Error          { return New(http.StatusInternalServerError, code, msg) }
+func ServiceUnavailable(code, msg string) *Error { return New(http.StatusServiceUnavailable, code, msg) }
 
 func (e *Error) WithExtra(k string, v any) *Error {
 	if e.Extra == nil {

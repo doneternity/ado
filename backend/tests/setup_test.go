@@ -159,13 +159,26 @@ func newFixture(t *testing.T) *fixture {
 	}))
 	t.Cleanup(fakeGemini.Close)
 
-	forwarder := proxy.New(fakeGemini.URL, "test-upstream-key")
+	reg := proxy.NewRegistry(fakeGemini.URL, "test-upstream-key")
+	maint := &proxy.MaintenanceFlag{}
 	quotaSvc := quota.NewService(q)
-	proxyH := handlers.NewProxy(handlers.ProxyDeps{Forwarder: forwarder, Quota: quotaSvc})
+	proxyH := handlers.NewProxy(handlers.ProxyDeps{Registry: reg, Maintenance: maint, Quota: quotaSvc})
+
+	// Stub admin middleware (always allows) for integration tests that don't test admin routes.
+	adminMW := func(next http.Handler) http.Handler { return next }
+	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: q, Registry: reg})
+	adminUsersH := handlers.NewAdminUsers(q)
+	adminStatsH := handlers.NewAdminStats(q)
+	adminQuotasH := handlers.NewAdminQuotas(q)
+	adminErrorsH := handlers.NewAdminErrors(q)
+	adminMaintH := handlers.NewAdminMaintenance(q, maint)
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions, Auth: authH, Limiter: limiter, Rdb: rdb, Keys: keysH,
 		Proxy: proxyH, Queries: q,
+		AdminProviders: adminProvH, AdminUsers: adminUsersH, AdminStats: adminStatsH,
+		AdminQuotas: adminQuotasH, AdminErrors: adminErrorsH, AdminMaintenance: adminMaintH,
+		AdminMiddleware: adminMW,
 	})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)

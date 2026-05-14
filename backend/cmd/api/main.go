@@ -91,9 +91,44 @@ func main() {
 	}
 
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc})
-	forwarder := proxy.New(cfg.GeminiBaseURL, cfg.GeminiAPIKey)
+
+	// Load active provider from DB; fall back to env config on first deploy.
+	reg := &proxy.Registry{}
+	maint := &proxy.MaintenanceFlag{}
+
+	{
+		active, err := queries.GetActiveProvider(ctx)
+		if err == nil {
+			reg = proxy.NewRegistry(active.BaseUrl, active.ApiKey)
+		} else {
+			reg = proxy.NewRegistry(cfg.GeminiBaseURL, cfg.GeminiAPIKey)
+		}
+	}
+
+	// Load maintenance mode from DB.
+	{
+		v, err := queries.GetSetting(ctx, "maintenance_mode")
+		if err == nil {
+			maint.Set(v == "true")
+		}
+	}
+
 	quotaSvc := quota.NewService(queries)
-	proxyH := handlers.NewProxy(handlers.ProxyDeps{Forwarder: forwarder, Quota: quotaSvc})
+	proxyH := handlers.NewProxy(handlers.ProxyDeps{
+		Registry:    reg,
+		Maintenance: maint,
+		Quota:       quotaSvc,
+	})
+
+	// Admin handlers
+	adminMW := mw.RequireAdmin(queries)
+	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: queries, Registry: reg})
+	adminUsersH := handlers.NewAdminUsers(queries)
+	adminStatsH := handlers.NewAdminStats(queries)
+	adminQuotasH := handlers.NewAdminQuotas(queries)
+	adminErrorsH := handlers.NewAdminErrors(queries)
+	adminMaintH := handlers.NewAdminMaintenance(queries, maint)
+
 	go func() {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()
@@ -110,14 +145,21 @@ func main() {
 	}()
 
 	router := httpapi.NewRouter(httpapi.Deps{
-		Sessions: sessions,
-		Auth:     authH,
-		Limiter:  limiter,
-		Rdb:      rdb,
-		Google:   googleH,
-		Keys:     keysH,
-		Proxy:    proxyH,
-		Queries:  queries,
+		Sessions:         sessions,
+		Auth:             authH,
+		Limiter:          limiter,
+		Rdb:              rdb,
+		Google:           googleH,
+		Keys:             keysH,
+		Proxy:            proxyH,
+		Queries:          queries,
+		AdminProviders:   adminProvH,
+		AdminUsers:       adminUsersH,
+		AdminStats:       adminStatsH,
+		AdminQuotas:      adminQuotasH,
+		AdminErrors:      adminErrorsH,
+		AdminMaintenance: adminMaintH,
+		AdminMiddleware:  adminMW,
 	})
 
 	srv := &http.Server{

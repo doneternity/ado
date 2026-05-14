@@ -14,14 +14,21 @@ import (
 )
 
 type Deps struct {
-	Sessions *auth.Sessions
-	Auth     *handlers.Auth
-	Limiter  *mw.Limiter
-	Rdb      *redis.Client
-	Google   *handlers.Google
-	Keys     *handlers.Keys
-	Proxy    *handlers.Proxy
-	Queries  *db.Queries
+	Sessions        *auth.Sessions
+	Auth            *handlers.Auth
+	Limiter         *mw.Limiter
+	Rdb             *redis.Client
+	Google          *handlers.Google
+	Keys            *handlers.Keys
+	Proxy           *handlers.Proxy
+	Queries         *db.Queries
+	AdminProviders  *handlers.AdminProviders
+	AdminUsers      *handlers.AdminUsers
+	AdminStats      *handlers.AdminStats
+	AdminQuotas     *handlers.AdminQuotas
+	AdminErrors     *handlers.AdminErrors
+	AdminMaintenance *handlers.AdminMaintenance
+	AdminMiddleware func(http.Handler) http.Handler
 }
 
 func NewRouter(d Deps) http.Handler {
@@ -61,6 +68,33 @@ func NewRouter(d Deps) http.Handler {
 		r.Use(mw.Bearer(d.Queries))
 		r.Get("/models", d.Proxy.Models)
 		r.Post("/chat/completions", d.Proxy.ChatCompletions)
+	})
+
+	r.Route("/api/admin", func(r chi.Router) {
+		r.Use(d.AdminMiddleware)
+
+		r.Get("/providers", d.AdminProviders.List)
+		r.Post("/providers", d.AdminProviders.Create)
+		r.Put("/providers/{id}", d.AdminProviders.Update)
+		r.Delete("/providers/{id}", d.AdminProviders.Delete)
+		r.Patch("/providers/{id}/active", d.AdminProviders.SetActive)
+
+		r.Get("/users", d.AdminUsers.List)
+		r.Patch("/users/{id}/role", d.AdminUsers.SetRole)
+
+		r.Get("/stats", d.AdminStats.Get)
+
+		r.Get("/quotas", d.AdminQuotas.Get)
+		r.Put("/quotas/global", d.AdminQuotas.SetGlobal)
+		r.Put("/quotas/users/{id}", d.AdminQuotas.SetUserOverride)
+		r.Delete("/quotas/users/{id}", d.AdminQuotas.RemoveUserOverride)
+
+		r.Get("/errors", d.AdminErrors.List)
+		r.Delete("/errors/{id}", d.AdminErrors.Delete)
+		r.Delete("/errors", d.AdminErrors.BulkDelete)
+
+		r.Get("/maintenance", d.AdminMaintenance.Get)
+		r.Post("/maintenance/toggle", d.AdminMaintenance.Toggle)
 	})
 
 	return r

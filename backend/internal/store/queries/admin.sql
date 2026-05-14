@@ -1,0 +1,37 @@
+-- name: ListUsersAdmin :many
+SELECT u.id, u.email, u.role, u.banned, u.created_at, u.daily_quota_override,
+       COALESCE(SUM(du.used), 0)::int4 AS requests_today
+FROM users u
+LEFT JOIN ado_keys k ON k.user_id = u.id
+LEFT JOIN daily_usage du ON du.key_id = k.id AND du.day = CURRENT_DATE
+GROUP BY u.id
+ORDER BY u.created_at DESC;
+
+-- name: SetUserRole :exec
+UPDATE users SET role = $2, updated_at = NOW() WHERE id = $1;
+
+-- name: SetUserQuotaOverride :exec
+UPDATE users SET daily_quota_override = $2, updated_at = NOW() WHERE id = $1;
+
+-- name: RemoveUserQuotaOverride :exec
+UPDATE users SET daily_quota_override = NULL, updated_at = NOW() WHERE id = $1;
+
+-- name: CountUsers :one
+SELECT COUNT(*) FROM users;
+
+-- name: DailyRequestCounts :many
+SELECT day, SUM(used)::int4 AS total
+FROM daily_usage
+WHERE day >= CURRENT_DATE - INTERVAL '29 days'
+GROUP BY day
+ORDER BY day ASC;
+
+-- name: TopUsersByUsageThisMonth :many
+SELECT u.email, COALESCE(SUM(du.used), 0)::int4 AS total
+FROM users u
+LEFT JOIN ado_keys k ON k.user_id = u.id
+LEFT JOIN daily_usage du ON du.key_id = k.id
+  AND du.day >= DATE_TRUNC('month', CURRENT_DATE)
+GROUP BY u.id, u.email
+ORDER BY total DESC
+LIMIT 10;

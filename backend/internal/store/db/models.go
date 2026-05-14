@@ -35,6 +35,24 @@ type EmailVerificationToken struct {
 	ConsumedAt pgtype.Timestamptz
 }
 
+type ErrorLog struct {
+	ID        int64
+	Level     string
+	Message   string
+	Context   []byte
+	CreatedAt pgtype.Timestamptz
+}
+
+type Provider struct {
+	ID        uuid.UUID
+	Name      string
+	BaseUrl   string
+	ApiKey    string
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
 type Session struct {
 	ID         []byte
 	UserID     uuid.UUID
@@ -46,16 +64,22 @@ type Session struct {
 	Ip         *netip.Addr
 }
 
+type SystemSetting struct {
+	Key   string
+	Value string
+}
+
 type User struct {
-	ID            uuid.UUID
-	Email         string
-	EmailVerified bool
-	PasswordHash  *string
-	GoogleSub     *string
-	DisplayName   *string
-	PhotoUrl      *string
-	Banned        bool
-	Role          string
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
+	ID                 uuid.UUID
+	Email              string
+	EmailVerified      bool
+	PasswordHash       *string
+	GoogleSub          *string
+	DisplayName        *string
+	PhotoUrl           *string
+	Banned             bool
+	Role               string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	DailyQuotaOverride *int32
 }

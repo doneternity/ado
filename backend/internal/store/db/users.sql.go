@@ -40,7 +40,7 @@ func (q *Queries) CreateEmailVerificationToken(ctx context.Context, arg CreateEm
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, email_verified, password_hash, google_sub, display_name, photo_url, role)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at
+RETURNING id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override
 `
 
 type CreateUserParams struct {
@@ -76,6 +76,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DailyQuotaOverride,
 	)
 	return i, err
 }
@@ -115,7 +116,7 @@ func (q *Queries) GetEmailVerificationToken(ctx context.Context, tokenHash []byt
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at FROM users WHERE email = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -133,12 +134,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DailyQuotaOverride,
 	)
 	return i, err
 }
 
 const getUserByGoogleSub = `-- name: GetUserByGoogleSub :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at FROM users WHERE google_sub = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override FROM users WHERE google_sub = $1
 `
 
 func (q *Queries) GetUserByGoogleSub(ctx context.Context, googleSub *string) (User, error) {
@@ -156,12 +158,13 @@ func (q *Queries) GetUserByGoogleSub(ctx context.Context, googleSub *string) (Us
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DailyQuotaOverride,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -179,6 +182,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DailyQuotaOverride,
 	)
 	return i, err
 }

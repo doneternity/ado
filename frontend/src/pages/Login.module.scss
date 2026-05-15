@@ -34,7 +34,7 @@
 .tabs {
   display: flex;
   border: 2px solid var(--border);
-  background: #fff;
+  background: var(--bg-card);
   padding: 3px;
   width: fit-content;
 }
@@ -48,10 +48,10 @@
   letter-spacing: .04em;
   font-family: var(--font-mono);
   background: transparent;
-  color: #888;
+  color: var(--silver);
   cursor: pointer;
 }
-.tabActive { background: var(--black); color: #f8f8f8; }
+.tabActive { background: var(--electric); color: #050d1a; }
 
 .divider {
   display: flex;

@@ -1,16 +1,16 @@
 @mixin card-light {
-  background: #fff;
+  background: var(--bg-card);
   border: 3px solid var(--border);
   padding: 24px;
   box-shadow: var(--shadow-hard);
 }
 
 @mixin card-dark {
-  background: #111;
-  border: 3px solid #333;
+  background: var(--bg-raised);
+  border: 3px solid var(--border);
   padding: 24px;
   box-shadow: 10px 10px 0 rgba(0,0,0,.22);
-  color: #f8f8f8;
+  color: var(--black);
 }
 
 @mixin pill-btn($bg: var(--black), $color: #f8f8f8) {

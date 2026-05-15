@@ -335,14 +335,14 @@
   flex-shrink: 0;
   background: var(--purple);
   border: none;
-  color: #fff;
+  color: var(--black);
   padding: 0 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--t-fast) ease;
+  transition: filter var(--t-fast) ease;
 
-  &:hover:not(:disabled) { background: #5a48e8; }
+  &:hover:not(:disabled) { filter: brightness(0.85); }
   &:disabled { background: var(--bg-card); color: var(--silver); cursor: not-allowed; }
 }

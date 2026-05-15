@@ -6,14 +6,14 @@
   width: 100%;
   padding: 12px 22px;
   border: 2px solid var(--border);
-  background: #fff;
+  background: var(--bg-card);
   color: var(--black);
   border-radius: var(--r-pill);
   font-weight: 900;
   font-size: .95rem;
   text-decoration: none;
   transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
-  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); text-decoration: none; }
+  &:hover { transform: translateY(-2px); box-shadow: 5px 5px 0 var(--purple); text-decoration: none; }
 }
 
 .g {

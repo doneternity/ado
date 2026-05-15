@@ -12,7 +12,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: me } = useMe();
   const logout = useLogout();
   const { pathname } = useLocation();
-  const isDark = DARK_PAGES.has(pathname);
+  const isDark = DARK_PAGES.has(pathname) || pathname.startsWith("/admin");
 
   return (
     <div className={styles.frame}>
@@ -29,6 +29,9 @@ export function Layout({ children }: { children: ReactNode }) {
             <>
               <span className={styles.email}>{me.user.email}</span>
               <Link to="/dashboard" className={styles.navLink}>dashboard</Link>
+              {me.user.role === "admin" && (
+                <Link to="/admin" className={styles.navLink} style={{ color: "var(--electric)" }}>admin</Link>
+              )}
               <button
                 className={styles.signOut}
                 onClick={() => logout.mutate()}
@@ -42,6 +45,7 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
+
 
       <div className={styles.shell}>{children}</div>
 

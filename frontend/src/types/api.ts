@@ -40,3 +40,50 @@ export type FlashKeyResponse =
 export type ApiErrorBody = {
   error: { code: string; message: string; [k: string]: unknown };
 };
+
+// Admin types
+export type AdminProvider = {
+  id: string;
+  name: string;
+  baseUrl: string;
+  keySuffix: string;
+  isActive: boolean;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  role: "user" | "admin";
+  banned: boolean;
+  createdAt: string;
+  dailyQuotaOverride: number | null;
+  requestsToday: number;
+};
+
+export type AdminStats = {
+  totalUsers: number;
+  activeProvider: string;
+  daily: { day: string; total: number }[];
+  topUsers: { email: string; total: number }[];
+};
+
+export type AdminQuotas = {
+  globalLimit: string;
+  overrides: { userId: string; email: string; limit: number }[];
+};
+
+export type AdminErrorLog = {
+  id: number;
+  level: "error" | "warn";
+  message: string;
+  context: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type AdminErrorsResponse = {
+  logs: AdminErrorLog[];
+  total: number;
+  page: number;
+};
+
+export type MaintenanceStatus = { enabled: boolean };

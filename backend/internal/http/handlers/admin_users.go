@@ -31,7 +31,9 @@ func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
 		return
 	}
-	var req struct{ Role string `json:"role"` }
+	var req struct {
+		Role string `json:"role"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || (req.Role != "user" && req.Role != "admin") {
 		apperr.Write(w, apperr.BadRequest("INVALID", "role must be 'user' or 'admin'"))
 		return

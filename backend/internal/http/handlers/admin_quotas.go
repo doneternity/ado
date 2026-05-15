@@ -43,7 +43,9 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminQuotas) SetGlobal(w http.ResponseWriter, r *http.Request) {
-	var req struct{ Limit int `json:"limit"` }
+	var req struct {
+		Limit int `json:"limit"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Limit < 1 {
 		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
 		return
@@ -63,7 +65,9 @@ func (h *AdminQuotas) SetUserOverride(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
 		return
 	}
-	var req struct{ Limit int32 `json:"limit"` }
+	var req struct {
+		Limit int32 `json:"limit"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Limit < 1 {
 		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
 		return

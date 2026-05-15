@@ -14,21 +14,21 @@ import (
 )
 
 type Deps struct {
-	Sessions        *auth.Sessions
-	Auth            *handlers.Auth
-	Limiter         *mw.Limiter
-	Rdb             *redis.Client
-	Google          *handlers.Google
-	Keys            *handlers.Keys
-	Proxy           *handlers.Proxy
-	Queries         *db.Queries
-	AdminProviders  *handlers.AdminProviders
-	AdminUsers      *handlers.AdminUsers
-	AdminStats      *handlers.AdminStats
-	AdminQuotas     *handlers.AdminQuotas
-	AdminErrors     *handlers.AdminErrors
+	Sessions         *auth.Sessions
+	Auth             *handlers.Auth
+	Limiter          *mw.Limiter
+	Rdb              *redis.Client
+	Google           *handlers.Google
+	Keys             *handlers.Keys
+	Proxy            *handlers.Proxy
+	Queries          *db.Queries
+	AdminProviders   *handlers.AdminProviders
+	AdminUsers       *handlers.AdminUsers
+	AdminStats       *handlers.AdminStats
+	AdminQuotas      *handlers.AdminQuotas
+	AdminErrors      *handlers.AdminErrors
 	AdminMaintenance *handlers.AdminMaintenance
-	AdminMiddleware func(http.Handler) http.Handler
+	AdminMiddleware  func(http.Handler) http.Handler
 }
 
 func NewRouter(d Deps) http.Handler {

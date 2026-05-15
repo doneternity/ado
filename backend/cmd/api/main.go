@@ -93,7 +93,7 @@ func main() {
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc})
 
 	// Load active provider from DB; fall back to env config on first deploy.
-	reg := &proxy.Registry{}
+	var reg *proxy.Registry
 	maint := &proxy.MaintenanceFlag{}
 
 	{

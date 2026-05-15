@@ -13,7 +13,7 @@
   color: var(--black);
 }
 
-@mixin pill-btn($bg: var(--black), $color: #f8f8f8) {
+@mixin pill-btn($bg: var(--electric), $color: #050d1a) {
   border: 2px solid var(--border);
   background: $bg;
   color: $color;
@@ -23,7 +23,7 @@
   font-family: inherit;
   cursor: pointer;
   transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
-  &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+  &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 5px 5px 0 var(--purple); }
   &:disabled { opacity: .55; cursor: not-allowed; }
 }
 

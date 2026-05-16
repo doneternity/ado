@@ -23,6 +23,8 @@ type Config struct {
 	GoogleOAuthClientSecret string `env:"GOOGLE_OAUTH_CLIENT_SECRET"`
 	GoogleOAuthRedirectURL  string `env:"GOOGLE_OAUTH_REDIRECT_URL"`
 
+	FrontendOrigin string `env:"FRONTEND_ORIGIN" envDefault:""`
+
 	GeminiAPIKey  string `env:"GEMINI_API_KEY"`
 	GeminiBaseURL string `env:"GEMINI_BASE_URL" envDefault:"https://generativelanguage.googleapis.com/v1beta/openai"`
 

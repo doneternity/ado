@@ -56,6 +56,7 @@ func main() {
 		IdleDays:     cfg.SessionIdleDays,
 		AbsoluteDays: cfg.SessionAbsoluteDays,
 		CookieSecure: cfg.SessionCookieSecure,
+		CrossOrigin:  cfg.FrontendOrigin != "",
 	})
 	verifier := auth.NewVerifier(queries)
 
@@ -160,6 +161,7 @@ func main() {
 		AdminErrors:      adminErrorsH,
 		AdminMaintenance: adminMaintH,
 		AdminMiddleware:  adminMW,
+		FrontendOrigin:   cfg.FrontendOrigin,
 	})
 
 	srv := &http.Server{

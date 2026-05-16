@@ -29,6 +29,7 @@ type Deps struct {
 	AdminErrors      *handlers.AdminErrors
 	AdminMaintenance *handlers.AdminMaintenance
 	AdminMiddleware  func(http.Handler) http.Handler
+	FrontendOrigin   string
 }
 
 func NewRouter(d Deps) http.Handler {
@@ -43,6 +44,7 @@ func NewRouter(d Deps) http.Handler {
 	})
 
 	r.Route("/api/auth", func(r chi.Router) {
+		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.With(d.Limiter.PerIP("rl:auth:signup:ip", 5, time.Hour)).
 			Post("/signup", d.Auth.Signup)
 		r.With(d.Limiter.PerIP("rl:auth:login:ip", 10, time.Hour)).
@@ -58,6 +60,7 @@ func NewRouter(d Deps) http.Handler {
 	})
 
 	r.Route("/api/keys", func(r chi.Router) {
+		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Get("/current", d.Keys.Current)
 		r.With(mw.CSRF).Post("/rotate", d.Keys.Rotate)
 		r.Get("/flash", d.Keys.Flash)
@@ -72,6 +75,7 @@ func NewRouter(d Deps) http.Handler {
 
 	r.Route("/api/admin", func(r chi.Router) {
 		r.Use(d.AdminMiddleware)
+		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 
 		r.Get("/providers", d.AdminProviders.List)
 		r.Post("/providers", d.AdminProviders.Create)

@@ -61,6 +61,19 @@ func TestCORSPrivate_PreflightReturns204(t *testing.T) {
 	}
 }
 
+func TestCORSPrivate_NonMatchingOriginPreflightReturns403(t *testing.T) {
+	h := mw.CORSPrivate("https://ado.vercel.app")(okHandler())
+
+	req := httptest.NewRequest("OPTIONS", "/api/auth/login", nil)
+	req.Header.Set("Origin", "https://evil.example.com")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", rr.Code)
+	}
+}
+
 func TestCORSPrivate_EmptyOriginPassThrough(t *testing.T) {
 	h := mw.CORSPrivate("")(okHandler())
 

@@ -34,6 +34,7 @@ type SessionConfig struct {
 	IdleDays     int
 	AbsoluteDays int
 	CookieSecure bool
+	CrossOrigin  bool
 }
 
 type Sessions struct {
@@ -130,25 +131,33 @@ func (s *Sessions) Delete(ctx context.Context, id []byte) error {
 }
 
 func (s *Sessions) SetCookie(w http.ResponseWriter, value string) {
+	sameSite := http.SameSiteLaxMode
+	if s.cfg.CrossOrigin {
+		sameSite = http.SameSiteNoneMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   s.cfg.CookieSecure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 		MaxAge:   s.cfg.AbsoluteDays * 24 * 3600,
 	})
 }
 
 func (s *Sessions) ClearCookie(w http.ResponseWriter) {
+	sameSite := http.SameSiteLaxMode
+	if s.cfg.CrossOrigin {
+		sameSite = http.SameSiteNoneMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   s.cfg.CookieSecure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 		MaxAge:   -1,
 	})
 }

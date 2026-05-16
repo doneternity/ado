@@ -51,7 +51,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     }
   }
 
-  const res = await fetch(path, { ...init, credentials: "include", headers });
+  const res = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + path, { ...init, credentials: "include", headers });
 
   if (!res.ok) {
     throw await ApiError.fromResponse(res);

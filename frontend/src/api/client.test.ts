@@ -29,15 +29,14 @@ describe("apiFetch", () => {
   });
 
   it("prefixes VITE_API_BASE_URL when set", async () => {
-    // import.meta.env is backed by process.env in Vitest and cannot be mutated via
-    // Object.defineProperty. We verify the default empty-string fallback instead:
-    // when VITE_API_BASE_URL is undefined the fetch URL must equal the bare path.
+    vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200, headers: { "Content-Type": "application/json" } }),
     );
     await apiFetch("/api/auth/me");
     const url = spy.mock.calls[0]?.[0] as string;
-    expect(url).toBe("/api/auth/me");
+    expect(url).toBe("https://api.example.com/api/auth/me");
+    vi.unstubAllEnvs();
   });
 
   it("throws ApiError on non-ok with code/message", async () => {

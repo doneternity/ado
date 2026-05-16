@@ -3,7 +3,7 @@ services:
     name: ado-api
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
-    plan: free
+    plan: starter
     healthCheckPath: /api/health
     envVars:
       - key: PORT

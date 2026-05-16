@@ -5,6 +5,7 @@ describe("apiFetch", () => {
   beforeEach(() => {
     setCsrfToken("CSRF123");
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("attaches X-CSRF-Token on POST", async () => {
@@ -36,7 +37,6 @@ describe("apiFetch", () => {
     await apiFetch("/api/auth/me");
     const url = spy.mock.calls[0]?.[0] as string;
     expect(url).toBe("https://api.example.com/api/auth/me");
-    vi.unstubAllEnvs();
   });
 
   it("throws ApiError on non-ok with code/message", async () => {

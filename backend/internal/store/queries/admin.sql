@@ -10,6 +10,9 @@ ORDER BY u.created_at DESC;
 -- name: SetUserRole :exec
 UPDATE users SET role = $2, updated_at = NOW() WHERE id = $1;
 
+-- name: SetUserBanned :exec
+UPDATE users SET banned = $2, updated_at = NOW() WHERE id = $1;
+
 -- name: SetUserQuotaOverride :exec
 UPDATE users SET daily_quota_override = $2, updated_at = NOW() WHERE id = $1;
 

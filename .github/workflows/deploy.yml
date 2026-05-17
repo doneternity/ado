@@ -10,8 +10,8 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Render deploy
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+      - name: Trigger backend deploy
+        run: curl -fsS -X POST "${{ secrets.BACKEND_DEPLOY_HOOK_URL }}"
 
   deploy-frontend:
     if: github.event.workflow_run.conclusion == 'success'

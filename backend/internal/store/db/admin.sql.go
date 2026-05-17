@@ -141,6 +141,20 @@ func (q *Queries) SetUserRole(ctx context.Context, arg SetUserRoleParams) error 
 	return err
 }
 
+const setUserBanned = `-- name: SetUserBanned :exec
+UPDATE users SET banned = $2, updated_at = NOW() WHERE id = $1
+`
+
+type SetUserBannedParams struct {
+	ID     uuid.UUID
+	Banned bool
+}
+
+func (q *Queries) SetUserBanned(ctx context.Context, arg SetUserBannedParams) error {
+	_, err := q.db.Exec(ctx, setUserBanned, arg.ID, arg.Banned)
+	return err
+}
+
 const topUsersByUsageThisMonth = `-- name: TopUsersByUsageThisMonth :many
 SELECT u.email, COALESCE(SUM(du.used), 0)::int4 AS total
 FROM users u

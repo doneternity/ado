@@ -44,3 +44,23 @@ func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		return
+	}
+	var req struct {
+		Banned bool `json:"banned"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", "bad JSON"))
+		return
+	}
+	if err := h.q.SetUserBanned(r.Context(), db.SetUserBannedParams{ID: id, Banned: req.Banned}); err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "set banned"))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -86,6 +86,7 @@ func NewRouter(d Deps) http.Handler {
 
 		r.Get("/users", d.AdminUsers.List)
 		r.Patch("/users/{id}/role", d.AdminUsers.SetRole)
+		r.Patch("/users/{id}/banned", d.AdminUsers.SetBanned)
 
 		r.Get("/stats", d.AdminStats.Get)
 

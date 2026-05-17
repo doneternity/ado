@@ -72,6 +72,17 @@ export function useSetUserRole() {
   });
 }
 
+export function useSetUserBanned() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, banned }: { id: string; banned: boolean }) =>
+      apiFetch<void>(`/api/admin/users/${id}/banned`, {
+        method: "PATCH", body: JSON.stringify({ banned }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
 // ── Stats ──────────────────────────────────────────────────
 export function useAdminStats() {
   return useQuery({

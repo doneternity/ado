@@ -36,6 +36,7 @@ func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(mw.Recover)
 	r.Use(mw.Logger)
+	r.Use(mw.ErrorLogger(d.Queries))
 	r.Use(mw.LoadSession(d.Sessions))
 
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {

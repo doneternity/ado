@@ -30,6 +30,70 @@ import (
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
+// sharedDSN and sharedRedisURL are set once by TestMain and reused across all tests.
+var sharedDSN string
+var sharedRedisURL string
+
+// TestMain creates containers once for the entire package (or uses CI service containers).
+func TestMain(m *testing.M) {
+	ctx := context.Background()
+
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		sharedDSN = dsn
+	} else {
+		pgC, err := postgres.Run(ctx, "postgres:16-alpine",
+			postgres.WithDatabase("ado"),
+			postgres.WithUsername("ado"),
+			postgres.WithPassword("ado"),
+			testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp").WithStartupTimeout(60*time.Second)),
+		)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "postgres container: %v\n", err)
+			os.Exit(1)
+		}
+		defer pgC.Terminate(ctx) //nolint:errcheck
+
+		sharedDSN, err = pgC.ConnectionString(ctx, "sslmode=disable")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "postgres connection string: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Prime the schema so each test can safely call goose.Reset.
+		sqlDB, err := sql.Open("pgx", sharedDSN)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "open db: %v\n", err)
+			os.Exit(1)
+		}
+		if err := goose.Up(sqlDB, "../migrations"); err != nil {
+			fmt.Fprintf(os.Stderr, "initial migrations: %v\n", err)
+			os.Exit(1)
+		}
+		sqlDB.Close()
+	}
+
+	if rURL := os.Getenv("REDIS_URL"); rURL != "" {
+		sharedRedisURL = rURL
+	} else {
+		rC, err := tcredis.Run(ctx, "redis:7-alpine",
+			testcontainers.WithWaitStrategy(wait.ForListeningPort("6379/tcp").WithStartupTimeout(30*time.Second)),
+		)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "redis container: %v\n", err)
+			os.Exit(1)
+		}
+		defer rC.Terminate(ctx) //nolint:errcheck
+
+		sharedRedisURL, err = rC.ConnectionString(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "redis connection string: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	os.Exit(m.Run())
+}
+
 type fixture struct {
 	server     *httptest.Server
 	pool       *pgxpool.Pool
@@ -49,91 +113,35 @@ func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	ctx := context.Background()
 
-	var dsn string
-	var rURL string
-
-	if envDSN := os.Getenv("DATABASE_URL"); envDSN != "" {
-		// CI: use the service container. Reset schema between tests for isolation.
-		dsn = envDSN
-		sqlDB, err := sql.Open("pgx", dsn)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := goose.Reset(sqlDB, "../migrations"); err != nil {
-			t.Fatal(err)
-		}
-		if err := goose.Up(sqlDB, "../migrations"); err != nil {
-			t.Fatal(err)
-		}
-		sqlDB.Close()
-	} else {
-		// Local: spin up a dedicated container.
-		pgC, err := postgres.Run(ctx, "postgres:16-alpine",
-			postgres.WithDatabase("ado"),
-			postgres.WithUsername("ado"),
-			postgres.WithPassword("ado"),
-			testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp").WithStartupTimeout(60*time.Second)),
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = pgC.Terminate(ctx) })
-
-		dsn, err = pgC.ConnectionString(ctx, "sslmode=disable")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		sqlDB, err := sql.Open("pgx", dsn)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer sqlDB.Close()
-		if err := goose.Up(sqlDB, "../migrations"); err != nil {
-			t.Fatal(err)
-		}
+	// Reset DB state: drop all tables then re-run migrations.
+	sqlDB, err := sql.Open("pgx", sharedDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	if err := goose.Reset(sqlDB, "../migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.Up(sqlDB, "../migrations"); err != nil {
+		t.Fatal(err)
 	}
 
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := pgxpool.New(ctx, sharedDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
 
-	if envRedis := os.Getenv("REDIS_URL"); envRedis != "" {
-		// CI: use the service container. Flush before each test.
-		rURL = envRedis
-		opt, err := redis.ParseURL(rURL)
-		if err != nil {
-			t.Fatal(err)
-		}
-		tmp := redis.NewClient(opt)
-		if err := tmp.FlushDB(ctx).Err(); err != nil {
-			t.Fatal(err)
-		}
-		tmp.Close()
-	} else {
-		// Local: spin up a dedicated container.
-		rC, err := tcredis.Run(ctx, "redis:7-alpine",
-			testcontainers.WithWaitStrategy(wait.ForListeningPort("6379/tcp").WithStartupTimeout(30*time.Second)),
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = rC.Terminate(ctx) })
-
-		rURL, err = rC.ConnectionString(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	rOpt, err := redis.ParseURL(rURL)
+	// Flush Redis.
+	opt, err := redis.ParseURL(sharedRedisURL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rdb := redis.NewClient(rOpt)
+	rdb := redis.NewClient(opt)
 	t.Cleanup(func() { _ = rdb.Close() })
+	if err := rdb.FlushDB(ctx).Err(); err != nil {
+		t.Fatal(err)
+	}
 
 	q := db.New(pool)
 	cfg := &config.Config{
@@ -164,7 +172,6 @@ func newFixture(t *testing.T) *fixture {
 	quotaSvc := quota.NewService(q)
 	proxyH := handlers.NewProxy(handlers.ProxyDeps{Registry: reg, Maintenance: maint, Quota: quotaSvc})
 
-	// Stub admin middleware (always allows) for integration tests that don't test admin routes.
 	adminMW := func(next http.Handler) http.Handler { return next }
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: q, Registry: reg})
 	adminUsersH := handlers.NewAdminUsers(q)

@@ -21,26 +21,31 @@ type AdminProviders struct{ d AdminProvidersDeps }
 
 func NewAdminProviders(d AdminProvidersDeps) *AdminProviders { return &AdminProviders{d: d} }
 
+type providerItem struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	BaseURL   string    `json:"baseUrl"`
+	KeySuffix string    `json:"keySuffix"`
+	IsActive  bool      `json:"isActive"`
+}
+
+func maskedProvider(p db.Provider) providerItem {
+	suf := p.ApiKey
+	if len(suf) > 4 {
+		suf = suf[len(suf)-4:]
+	}
+	return providerItem{p.ID, p.Name, p.BaseUrl, suf, p.IsActive}
+}
+
 func (h *AdminProviders) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.d.Q.ListProviders(r.Context())
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "list providers"))
 		return
 	}
-	type item struct {
-		ID        uuid.UUID `json:"id"`
-		Name      string    `json:"name"`
-		BaseURL   string    `json:"baseUrl"`
-		KeySuffix string    `json:"keySuffix"`
-		IsActive  bool      `json:"isActive"`
-	}
-	out := make([]item, len(rows))
+	out := make([]providerItem, len(rows))
 	for i, p := range rows {
-		suf := p.ApiKey
-		if len(suf) > 4 {
-			suf = suf[len(suf)-4:]
-		}
-		out[i] = item{p.ID, p.Name, p.BaseUrl, suf, p.IsActive}
+		out[i] = maskedProvider(p)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
@@ -73,7 +78,7 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(p)
+	_ = json.NewEncoder(w).Encode(maskedProvider(p))
 }
 
 func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +116,7 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		h.d.Registry.Swap(p.BaseUrl, p.ApiKey)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(p)
+	_ = json.NewEncoder(w).Encode(maskedProvider(p))
 }
 
 func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {

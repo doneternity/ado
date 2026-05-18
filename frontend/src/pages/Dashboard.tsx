@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import {
   Copy, Check, Eye, EyeOff, RefreshCw,
   Activity, Shield, BookOpen, Zap, Terminal,
-  BarChart3, ExternalLink,
+  Lock, ChevronRight, Code,
 } from "lucide-react";
 import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe } from "../api/queries";
 import { useRotateKey } from "../api/mutations";
@@ -14,15 +14,22 @@ import styles from "./Dashboard.module.scss";
 
 const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado-aii.vercel.app/v1";
 
-const containerVariants = {
+const FEATURED_MODELS = [
+  { id: "[kmo]claude-opus-4.7",         name: "Claude Opus 4.7",  cap: "Reasoning" },
+  { id: "[GG]gemini-3-flash-preview",   name: "Gemini 3 Flash",   cap: "Speed"     },
+  { id: "[momo神秘V4]DeepSeek-V4-Pro",  name: "DeepSeek V4 Pro",  cap: "Coding"    },
+];
+
+const stagger = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const fade = {
+  hidden: { opacity: 0, y: 14 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.24, ease: "easeOut" as const } },
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.26, ease: "easeOut" as const } },
-};
+function fmt(n: number) { return String(n).padStart(2, "0"); }
 
 function useCountdown(toIso: string | undefined) {
   const [now, setNow] = useState(Date.now());
@@ -35,74 +42,120 @@ function useCountdown(toIso: string | undefined) {
   const h = Math.floor(diff / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
   const s = Math.floor((diff % 60_000) / 1000);
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${fmt(h)}:${fmt(m)}:${fmt(s)}`;
 }
 
-function KeySection() {
+function StatCards() {
+  const { data } = useCurrentKey({ enabled: true });
+  const countdown = useCountdown(data?.resetsAt);
+  if (!data) return null;
+  const pct = Math.min(100, Math.round((data.used / data.dailyLimit) * 100));
+  const nearLimit = pct >= 80;
+
+  return (
+    <motion.div className={styles.statsRow} variants={fade}>
+      {/* Daily Usage */}
+      <div className={styles.statCell}>
+        <span className={styles.statCellLabel}>DAILY_USAGE</span>
+        <div className={styles.statCellMain}>
+          <span className={nearLimit ? styles.statNumWarn : styles.statNum}>{data.used}</span>
+          <span className={styles.statDenom}> / {data.dailyLimit}</span>
+        </div>
+        <div className={styles.statBar}>
+          <div
+            className={`${styles.statBarFill}${nearLimit ? ` ${styles.statBarWarn}` : ""}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className={styles.statSub}>{pct}% consumed today</span>
+      </div>
+
+      {/* Quota reset */}
+      <div className={styles.statCell}>
+        <span className={styles.statCellLabel}>QUOTA_RESET</span>
+        <div className={styles.statCellMain}>
+          <span className={styles.statMono}>{countdown}</span>
+        </div>
+        <span className={styles.statSub}>resets at UTC midnight</span>
+      </div>
+
+      {/* API status */}
+      <div className={styles.statCell}>
+        <span className={styles.statCellLabel}>API_STATUS</span>
+        <div className={`${styles.statCellMain} ${styles.statStatusRow}`}>
+          <span className={styles.statusDot} />
+          <span className={styles.statNum}>LIVE</span>
+        </div>
+        <span className={styles.statSub}>all systems operational</span>
+      </div>
+    </motion.div>
+  );
+}
+
+function KeyCard() {
   const { data: current, isLoading } = useCurrentKey({ enabled: true });
   const raw = useRawKey();
   const rotate = useRotateKey();
   const showToast = useUiStore((s) => s.showToast);
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const countdown = useCountdown(current?.resetsAt);
+  const [copiedCurl, setCopiedCurl] = useState(false);
 
   if (isLoading || !current) return null;
 
-  const pct = Math.min(100, Math.round((current.used / current.dailyLimit) * 100));
-  const nearLimit = pct >= 80;
   const display = revealed && raw ? raw.key : current.keyPrefix + "…";
 
   function copy() {
-    const text = raw?.key ?? current?.keyPrefix + "…";
-    void navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(raw?.key ?? current?.keyPrefix + "…");
     setCopied(true);
     showToast("Key copied");
     setTimeout(() => setCopied(false), 1800);
   }
 
+  function copyCurl() {
+    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw?.key ?? current?.keyPrefix + "…"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"[kmo]claude-opus-4.7","messages":[{"role":"user","content":"Hello!"}]}'`;
+    void navigator.clipboard.writeText(snippet);
+    setCopiedCurl(true);
+    setTimeout(() => setCopiedCurl(false), 1800);
+  }
+
   return (
-    <>
-      {/* Key card */}
-      <motion.div className={styles.keyCard} variants={itemVariants}>
-        <div className={styles.keyCardHeader}>
-          <span className={styles.sectionEyebrow}>API Key</span>
-          <div className={styles.keyActions}>
+    <motion.div className={styles.keyCard} variants={fade}>
+      <div className={styles.keyCardGradient} />
+      <div className={styles.keyCardInner}>
+        <div className={styles.keyCardHead}>
+          <div className={styles.keyCardHeadLeft}>
+            <div className={styles.keyCardIcon}><Lock size={16} /></div>
+            <div>
+              <div className={styles.keyCardTitle}>Your API Key</div>
+              <div className={styles.keyCardSub}>
+                Created {new Date(current.createdAt).toLocaleDateString()}
+                {current.lastUsedAt && ` · Last used ${new Date(current.lastUsedAt).toLocaleDateString()}`}
+              </div>
+            </div>
+          </div>
+          <div className={styles.keyCardActions}>
             {raw && (
-              <button
-                className={styles.iconBtn}
-                onClick={() => setRevealed(r => !r)}
-                title={revealed ? "Hide key" : "Reveal key"}
-              >
+              <button className={styles.actionBtn} onClick={() => setRevealed(r => !r)} title={revealed ? "Hide" : "Reveal"}>
                 {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             )}
-            <button
-              className={styles.iconBtn}
-              onClick={copy}
-              title="Copy key"
-            >
+            <button className={styles.actionBtn} onClick={copyCurl} title="Copy as cURL">
+              {copiedCurl ? <Check size={14} /> : <Code size={14} />}
+            </button>
+            <button className={styles.actionBtn} onClick={copy} title="Copy key">
               {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>
           </div>
         </div>
 
-        <code className={styles.keyDisplay}>{display}</code>
+        <div className={styles.keyDisplayWrap}>
+          <code className={styles.keyDisplay}>{display}</code>
+        </div>
 
         {!raw && (
-          <p className={styles.keyNote}>Raw key not visible — rotate to reveal a new one.</p>
+          <p className={styles.keyNote}>Full key hidden — rotate to reveal a new one.</p>
         )}
-
-        <div className={styles.keyMeta}>
-          <span className={styles.keyMetaItem}>
-            Created {new Date(current.createdAt).toLocaleDateString()}
-          </span>
-          {current.lastUsedAt && (
-            <span className={styles.keyMetaItem}>
-              Last used {new Date(current.lastUsedAt).toLocaleDateString()}
-            </span>
-          )}
-        </div>
 
         <button
           className={styles.rotateBtn}
@@ -114,86 +167,17 @@ function KeySection() {
             });
           }}
         >
-          <RefreshCw size={13} />
+          <RefreshCw size={12} />
           {rotate.isPending ? "Rotating…" : "Rotate key"}
         </button>
-      </motion.div>
-
-      {/* Usage card */}
-      <motion.div className={styles.usageCard} variants={itemVariants}>
-        <div className={styles.usageRow}>
-          <div>
-            <span className={styles.sectionEyebrow}>Daily Usage</span>
-            <div className={styles.usageCount}>
-              <span className={nearLimit ? styles.usageWarn : styles.usageNum}>{current.used}</span>
-              <span className={styles.usageOf}> / {current.dailyLimit}</span>
-            </div>
-          </div>
-          <div className={styles.resetBox}>
-            <span className={styles.resetLabel}>Resets in</span>
-            <span className={styles.resetTimer}>{countdown}</span>
-          </div>
-        </div>
-        <div className={styles.usageBarWrap}>
-          <div
-            className={`${styles.usageBar}${nearLimit ? ` ${styles.usageBarWarn}` : ""}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <div className={styles.usagePct}>{pct}% used today</div>
-      </motion.div>
-    </>
+      </div>
+    </motion.div>
   );
 }
 
-export function Dashboard() {
-  const qc = useQueryClient();
-  const { data: me } = useMe();
-  useEffect(() => { void fetchFlashKeyOnce(qc); }, [qc]);
-
-  const firstName = me?.user.displayName?.split(" ")[0]?.toLowerCase();
-  const greeting = firstName ? `welcome back, ${firstName}.` : "welcome back.";
-
-  return (
-    <div className={styles.page}>
-      <motion.div
-        className={styles.inner}
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-      >
-        {/* Header */}
-        <motion.div className={styles.header} variants={itemVariants}>
-          <div className={styles.headerLeft}>
-            <span className={styles.eyebrow}>
-              <Activity size={12} />
-              Dashboard
-            </span>
-            <h1 className={styles.greeting}>{greeting}</h1>
-            <p className={styles.subtext}>
-              {me?.user.email}
-            </p>
-          </div>
-          <div className={styles.headerRight}>
-            <span className={`${styles.roleBadge}${me?.user.role === "admin" ? ` ${styles.roleAdmin}` : ""}`}>
-              {me?.user.role === "admin" ? "Admin" : "User"}
-            </span>
-          </div>
-        </motion.div>
-
-        {/* Main grid */}
-        <div className={styles.mainGrid}>
-          {/* Left column */}
-          <div className={styles.leftCol}>
-            <KeySection />
-
-            {/* Quick start */}
-            <motion.div className={styles.quickStartCard} variants={itemVariants}>
-              <div className={styles.quickStartHeader}>
-                <Terminal size={14} className={styles.quickStartIcon} />
-                <span className={styles.sectionEyebrow}>Quick start</span>
-              </div>
-              <pre className={styles.codeSnippet}>{`import OpenAI from "openai";
+function QuickStart() {
+  const [copied, setCopied] = useState(false);
+  const snippet = `import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey:  "YOUR_ADO_KEY",
@@ -203,65 +187,143 @@ const client = new OpenAI({
 const res = await client.chat.completions.create({
   model:    "[kmo]claude-opus-4.7",
   messages: [{ role: "user", content: "Hello!" }],
-});`}</pre>
-            </motion.div>
+});
+console.log(res.choices[0].message.content);`;
+
+  function copy() {
+    void navigator.clipboard.writeText(snippet);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
+    <motion.div className={styles.codeCard} variants={fade}>
+      <div className={styles.codeCardHead}>
+        <div className={styles.codeCardTitle}>
+          <Terminal size={13} className={styles.codeCardIcon} />
+          Quick Start
+        </div>
+        <button className={styles.codeCopyBtn} onClick={copy}>
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? "copied" : "copy"}
+        </button>
+      </div>
+      <pre className={styles.codeBlock}>{snippet}</pre>
+    </motion.div>
+  );
+}
+
+export function Dashboard() {
+  const qc = useQueryClient();
+  const { data: me } = useMe();
+  useEffect(() => { void fetchFlashKeyOnce(qc); }, [qc]);
+
+  const firstName = me?.user.displayName?.split(" ")[0]?.toLowerCase();
+  const greeting = firstName ? `API Management` : "API Management";
+
+  return (
+    <div className={styles.page}>
+      <motion.div className={styles.inner} variants={stagger} initial="hidden" animate="show">
+
+        {/* ── Header ── */}
+        <motion.div className={styles.header} variants={fade}>
+          <div className={styles.headerLeft}>
+            <div className={styles.devConsoleBadge}>
+              <Zap size={11} className={styles.devConsoleIcon} />
+              Developer Console
+            </div>
+            <h1 className={styles.pageTitle}>{greeting}</h1>
+            <p className={styles.pageSubtitle}>
+              Manage access keys for {me?.user.email ?? "your account"}.
+            </p>
+          </div>
+          <div className={styles.headerRight}>
+            <div className={styles.healthCard}>
+              <div className={styles.healthIcon}>
+                <Activity size={16} className={styles.healthActivity} />
+              </div>
+              <div>
+                <div className={styles.healthLabel}>NETWORK_HEALTH</div>
+                <div className={styles.healthStatus}>ALL_SYSTEMS_LIVE</div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ── Stats row ── */}
+        <StatCards />
+
+        {/* ── Main grid ── */}
+        <div className={styles.mainGrid}>
+          {/* Left column */}
+          <div className={styles.leftCol}>
+            <KeyCard />
+            <QuickStart />
           </div>
 
           {/* Right sidebar */}
           <div className={styles.rightCol}>
-            {/* Stats */}
-            <motion.div className={styles.statsCard} variants={itemVariants}>
-              <span className={styles.sectionEyebrow}>
-                <BarChart3 size={12} />
-                Overview
-              </span>
-              <div className={styles.statsList}>
-                <div className={styles.statsRow}>
-                  <span className={styles.statsLabel}>Role</span>
-                  <span className={styles.statsValue}>{me?.user.role ?? "—"}</span>
-                </div>
-                <div className={styles.statsRow}>
-                  <span className={styles.statsLabel}>Email verified</span>
-                  <span className={styles.statsValue}>
-                    {me?.user.emailVerified ? "Yes" : "No"}
-                  </span>
-                </div>
+
+            {/* Featured models */}
+            <motion.div className={styles.sideCard} variants={fade}>
+              <div className={styles.sideCardHead}>
+                <Zap size={12} className={styles.sideCardIcon} />
+                <span className={styles.sideCardTitle}>Featured Models</span>
+              </div>
+              <div className={styles.modelList}>
+                {FEATURED_MODELS.map(m => (
+                  <div key={m.id} className={styles.modelRow}>
+                    <div>
+                      <div className={styles.modelName}>{m.name}</div>
+                      <code className={styles.modelId}>{m.id}</code>
+                    </div>
+                    <span className={styles.modelCap}>{m.cap}</span>
+                  </div>
+                ))}
+                <Link to="/models" className={styles.modelsSeeAll}>
+                  All models <ChevronRight size={11} />
+                </Link>
               </div>
             </motion.div>
 
-            {/* Navigate */}
-            <motion.div className={styles.linksCard} variants={itemVariants}>
-              <span className={styles.sectionEyebrow}>Explore</span>
-              <div className={styles.linkList}>
+            {/* Quick links */}
+            <motion.div className={styles.sideCard} variants={fade}>
+              <div className={styles.sideCardHead}>
+                <BookOpen size={12} className={styles.sideCardIcon} />
+                <span className={styles.sideCardTitle}>Resources</span>
+              </div>
+              <div className={styles.linkGrid}>
                 {[
-                  { to: "/models",     icon: Zap,        label: "Models",     desc: "Browse available models" },
-                  { to: "/docs",       icon: BookOpen,   label: "Docs",       desc: "API reference & examples" },
-                  { to: "/playground", icon: Terminal,   label: "Playground", desc: "Test requests live" },
-                ].map(({ to, icon: Icon, label, desc }) => (
-                  <Link key={to} to={to} className={styles.linkItem}>
-                    <div className={styles.linkIcon}><Icon size={14} /></div>
-                    <div className={styles.linkText}>
-                      <span className={styles.linkLabel}>{label}</span>
-                      <span className={styles.linkDesc}>{desc}</span>
-                    </div>
-                    <ExternalLink size={11} className={styles.linkArrow} />
+                  { to: "/docs",       icon: BookOpen,  label: "Docs"       },
+                  { to: "/playground", icon: Terminal,  label: "Playground" },
+                  { to: "/models",     icon: Zap,       label: "Models"     },
+                ].map(({ to, icon: Icon, label }) => (
+                  <Link key={to} to={to} className={styles.linkGridItem}>
+                    <Icon size={13} />
+                    {label}
                   </Link>
                 ))}
               </div>
             </motion.div>
 
             {/* Security */}
-            <motion.div className={styles.securityCard} variants={itemVariants}>
-              <div className={styles.securityHeader}>
-                <Shield size={13} className={styles.securityIcon} />
-                <span className={styles.sectionEyebrow}>Security</span>
+            <motion.div className={styles.sideCard} variants={fade}>
+              <div className={styles.sideCardHead}>
+                <Shield size={12} className={styles.sideCardIcon} />
+                <span className={styles.sideCardTitle}>Security Console</span>
               </div>
               <ul className={styles.securityList}>
-                <li>Never share your key or commit it to version control.</li>
-                <li>Rotate your key immediately if you suspect it leaked.</li>
-                <li>Keys start with <code>ado-</code> and are shown once at creation.</li>
+                <li>
+                  <div className={styles.securityBullet}><Lock size={10} /></div>
+                  <p>Never share your key or expose it in client-side code.</p>
+                </li>
+                <li>
+                  <div className={styles.securityBullet}><Shield size={10} /></div>
+                  <p>Rotate immediately if you suspect your key leaked.</p>
+                </li>
               </ul>
             </motion.div>
+
           </div>
         </div>
       </motion.div>

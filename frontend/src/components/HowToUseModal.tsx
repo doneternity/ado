@@ -38,7 +38,7 @@ export function HowToUseModal() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("janitor");
 
-  const apiURL = `${window.location.origin}/api/v1`;
+  const apiURL = import.meta.env.VITE_PROXY_BASE_URL ?? `${window.location.origin}/api/v1`;
   const keyDisplay = raw?.key ?? "rotate key to reveal";
   const noKey = !raw;
 

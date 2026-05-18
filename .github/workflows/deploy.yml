@@ -7,11 +7,24 @@ on:
 
 jobs:
   deploy-backend:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success' && secrets.BACKEND_DEPLOY_HOOK_URL != ''
     runs-on: ubuntu-latest
     steps:
       - name: Trigger backend deploy
         run: curl -fsS -X POST "${{ secrets.BACKEND_DEPLOY_HOOK_URL }}"
+
+  deploy-proxy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy Edge Function
+        run: supabase functions deploy proxy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
   deploy-frontend:
     if: github.event.workflow_run.conclusion == 'success'

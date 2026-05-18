@@ -17,16 +17,13 @@ func ErrorLogger(q *db.Queries) func(http.Handler) http.Handler {
 			rw := &statusWriter{ResponseWriter: w}
 			next.ServeHTTP(rw, r)
 			if rw.status >= 500 {
-				ctx := map[string]any{
-					"method": r.Method,
-					"path":   r.URL.Path,
-					"status": rw.status,
-				}
+				method, path, status := r.Method, r.URL.Path, rw.status
+				ctx := map[string]any{"method": method, "path": path, "status": status}
 				raw, _ := json.Marshal(ctx)
 				go func() {
 					if err := q.InsertErrorLog(context.Background(), db.InsertErrorLogParams{
 						Level:   "error",
-						Message: fmt.Sprintf("%s %s → %d", r.Method, r.URL.Path, rw.status),
+						Message: fmt.Sprintf("%s %s → %d", method, path, status),
 						Context: raw,
 					}); err != nil {
 						slog.Warn("error_log insert failed", "err", err)

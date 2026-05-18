@@ -52,11 +52,15 @@ func (l *Limiter) PerIP(prefix string, limit int, window time.Duration) func(htt
 }
 
 func ClientIP(r *http.Request) string {
+	// Fly.io sets this header and it cannot be spoofed by clients.
+	if fly := r.Header.Get("Fly-Client-IP"); fly != "" {
+		return strings.TrimSpace(fly)
+	}
+	// Fall back to the last (rightmost) entry in X-Forwarded-For, which is
+	// set by the nearest trusted proxy and cannot be injected by the client.
 	if xf := r.Header.Get("X-Forwarded-For"); xf != "" {
-		if i := strings.Index(xf, ","); i >= 0 {
-			return strings.TrimSpace(xf[:i])
-		}
-		return strings.TrimSpace(xf)
+		parts := strings.Split(xf, ",")
+		return strings.TrimSpace(parts[len(parts)-1])
 	}
 	if i := strings.LastIndex(r.RemoteAddr, ":"); i >= 0 {
 		return r.RemoteAddr[:i]

@@ -77,6 +77,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Route("/api/admin", func(r chi.Router) {
 		r.Use(d.AdminMiddleware)
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
+		r.Use(mw.CSRF)
 
 		r.Get("/providers", d.AdminProviders.List)
 		r.Post("/providers", d.AdminProviders.Create)

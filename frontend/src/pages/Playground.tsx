@@ -16,6 +16,11 @@ const MODELS = [
   { id: "gemini-1.5-flash",               label: "Gemini 1.5 Flash",     tag: "" },
 ];
 
+const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "/api/v1";
+if (import.meta.env.PROD && !import.meta.env.VITE_PROXY_BASE_URL) {
+  console.warn("VITE_PROXY_BASE_URL is not set — Playground requests will fail");
+}
+
 async function streamCompletion(
   apiKey: string,
   model: string,
@@ -25,7 +30,7 @@ async function streamCompletion(
   onError: (msg: string) => void,
 ) {
   try {
-    const resp = await fetch("/api/v1/chat/completions", {
+    const resp = await fetch(`${PROXY_BASE}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

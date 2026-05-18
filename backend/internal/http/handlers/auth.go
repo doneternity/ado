@@ -97,7 +97,11 @@ func (a *Auth) Signup(w http.ResponseWriter, r *http.Request) {
 		"csrfToken": base64URL(sess.CSRFToken),
 	}
 	if issued, _ := a.d.Keys.EnsureForUser(r.Context(), user.ID); issued.Raw != "" {
-		resp["flashKey"] = issued.Raw
+		resp["keyJustIssued"] = map[string]any{
+			"key":        issued.Raw,
+			"keyPrefix":  issued.Prefix,
+			"dailyLimit": issued.DailyLimit,
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

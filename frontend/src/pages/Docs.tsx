@@ -88,6 +88,7 @@ function Param({
 
 export function Docs() {
   const [activeId, setActiveId] = useState("quick-start");
+  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado.fly.dev/api/v1";
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -153,7 +154,7 @@ export function Docs() {
               {
                 n: "02",
                 title: "Set the base URL",
-                body: "Point your client at https://ado.fly.dev/api/v1 instead of the default OpenAI endpoint.",
+                body: `Point your client at ${PROXY_BASE} instead of the default OpenAI endpoint.`,
               },
               {
                 n: "03",
@@ -176,7 +177,7 @@ export function Docs() {
         <section id="base-url" className={styles.section}>
           <h2 className={styles.sectionTitle}>Base URL</h2>
           <p>All proxy requests go to:</p>
-          <Code lang="plaintext">https://ado.fly.dev/api/v1</Code>
+          <Code lang="plaintext">{PROXY_BASE}</Code>
           <p>
             This is the drop-in replacement for{" "}
             <code className={styles.inlineCode}>https://api.openai.com/v1</code>.
@@ -232,7 +233,7 @@ export function Docs() {
           </div>
 
           <h3 className={styles.subTitle}>Example request</h3>
-          <Code lang="bash">{`curl https://ado.fly.dev/api/v1/chat/completions \\
+          <Code lang="bash">{`curl ${PROXY_BASE}/chat/completions \\
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -275,7 +276,7 @@ export function Docs() {
             Returns all model IDs available through ADO. Requires a valid key.
             This endpoint does not count against your daily quota.
           </p>
-          <Code lang="bash">{`curl https://ado.fly.dev/api/v1/models \\
+          <Code lang="bash">{`curl ${PROXY_BASE}/models \\
   -H "Authorization: Bearer ado-your-key"`}</Code>
         </section>
 
@@ -351,7 +352,7 @@ export function Docs() {
           <span className={styles.eyebrow}>Examples</span>
           <h2 className={styles.sectionTitle}>cURL</h2>
           <Code lang="bash">{`# Non-streaming
-curl https://ado.fly.dev/api/v1/chat/completions \\
+curl ${PROXY_BASE}/chat/completions \\
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -360,7 +361,7 @@ curl https://ado.fly.dev/api/v1/chat/completions \\
   }'
 
 # Streaming
-curl https://ado.fly.dev/api/v1/chat/completions \\
+curl ${PROXY_BASE}/chat/completions \\
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   --no-buffer \\
@@ -382,7 +383,7 @@ curl https://ado.fly.dev/api/v1/chat/completions \\
 
 const client = new OpenAI({
   apiKey:  "ado-your-key",
-  baseURL: "https://ado.fly.dev/api/v1",
+  baseURL: "${PROXY_BASE}",
 });
 
 // Non-streaming
@@ -413,7 +414,7 @@ for await (const chunk of stream) {
 
 client = OpenAI(
     api_key  = "ado-your-key",
-    base_url = "https://ado.fly.dev/api/v1",
+    base_url = "${PROXY_BASE}",
 )
 
 # Non-streaming

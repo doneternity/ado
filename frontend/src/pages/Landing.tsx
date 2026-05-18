@@ -17,7 +17,7 @@ export function Landing() {
             Plug it into JanitorAI, SillyTavern, or any OpenAI client — no card, no signup friction,
             50 requests a day.
           </p>
-          <span className={styles.testStrip}>https://ado.fly.dev/api/v1</span>
+          <span className={styles.testStrip}>{import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado.fly.dev/api/v1"}</span>
           <div className={styles.heroActions}>
             {me ? (
               <Link to="/dashboard" className={styles.primaryBtn}>Go to dashboard</Link>
@@ -102,7 +102,7 @@ export function Landing() {
             {
               num: "03",
               title: "Plug it in",
-              desc: "Set the API URL to ado.fly.dev/api/v1 in JanitorAI or SillyTavern. Done.",
+              desc: `Set the API URL to ${import.meta.env.VITE_PROXY_BASE_URL ?? "ado.fly.dev/api/v1"} in JanitorAI or SillyTavern. Done.`,
             },
           ].map(({ num, title, desc }) => (
             <div key={num} className={styles.stepCard}>

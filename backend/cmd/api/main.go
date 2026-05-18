@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"os"
@@ -9,12 +10,16 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
+
 	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/auth/oauth"
 	"github.com/ado/ado/backend/internal/config"
 	httpapi "github.com/ado/ado/backend/internal/http"
 	"github.com/ado/ado/backend/internal/http/handlers"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/keyencrypt"
 	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/mailer"
 	"github.com/ado/ado/backend/internal/proxy"
@@ -35,6 +40,18 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	// Run migrations before opening the pool so the schema is always current.
+	sqlDB, err := sql.Open("pgx", cfg.DatabaseURL)
+	if err != nil {
+		slog.Error("migration db open", "err", err)
+		os.Exit(1)
+	}
+	if err := goose.Up(sqlDB, "migrations"); err != nil {
+		slog.Error("migrations failed", "err", err)
+		os.Exit(1)
+	}
+	sqlDB.Close()
 
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -100,7 +117,12 @@ func main() {
 	{
 		active, err := queries.GetActiveProvider(ctx)
 		if err == nil {
-			reg = proxy.NewRegistry(active.BaseUrl, active.ApiKey)
+			plainKey, kerr := keyencrypt.Decrypt(active.ApiKey, cfg.ProviderKeySecret)
+			if kerr != nil {
+				slog.Error("decrypt active provider key", "err", kerr)
+				os.Exit(1)
+			}
+			reg = proxy.NewRegistry(active.BaseUrl, plainKey)
 		} else {
 			reg = proxy.NewRegistry(cfg.GeminiBaseURL, cfg.GeminiAPIKey)
 		}
@@ -123,7 +145,7 @@ func main() {
 
 	// Admin handlers
 	adminMW := mw.RequireAdmin(queries)
-	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: queries, Registry: reg})
+	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: queries, Registry: reg, ProviderKeySecret: cfg.ProviderKeySecret})
 	adminUsersH := handlers.NewAdminUsers(queries)
 	adminStatsH := handlers.NewAdminStats(queries)
 	adminQuotasH := handlers.NewAdminQuotas(queries)

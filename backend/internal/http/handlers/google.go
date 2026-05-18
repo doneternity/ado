@@ -124,5 +124,9 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 		_ = g.d.Keys.StashFlash(r.Context(), hex.EncodeToString(sess.ID), issued.Raw, issued.Prefix, issued.DailyLimit)
 	}
 
-	http.Redirect(w, r, g.d.Cfg.AppBaseURL+"/dashboard", http.StatusFound)
+	base := g.d.Cfg.AppBaseURL
+	if g.d.Cfg.FrontendOrigin != "" {
+		base = g.d.Cfg.FrontendOrigin
+	}
+	http.Redirect(w, r, base+"/dashboard", http.StatusFound)
 }

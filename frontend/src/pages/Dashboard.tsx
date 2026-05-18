@@ -12,7 +12,7 @@ import { useRotateKey } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import styles from "./Dashboard.module.scss";
 
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://your-proxy-url/v1";
+const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado-aii.vercel.app/v1";
 
 const containerVariants = {
   hidden: {},

@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://ado.fly.dev/api/:path*" },
+    { "source": "/v1/:path*", "destination": "https://rfpxotgjqdliycfcwumh.supabase.co/functions/v1/proxy/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "buildCommand": "npm run build",

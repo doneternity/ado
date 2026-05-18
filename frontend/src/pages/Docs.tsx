@@ -88,7 +88,7 @@ function Param({
 
 export function Docs() {
   const [activeId, setActiveId] = useState("quick-start");
-  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://your-proxy-url/v1";
+  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado-aii.vercel.app/v1";
 
   useEffect(() => {
     const observer = new IntersectionObserver(

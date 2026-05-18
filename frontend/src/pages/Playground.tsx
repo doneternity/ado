@@ -36,7 +36,7 @@ const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
   other:     "Other",
 };
 
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "/api/v1";
+const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado-aii.vercel.app/v1";
 if (import.meta.env.PROD && !import.meta.env.VITE_PROXY_BASE_URL) {
   console.warn("VITE_PROXY_BASE_URL is not set — Playground requests will fail");
 }

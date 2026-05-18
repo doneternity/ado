@@ -89,6 +89,11 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 			}
 			fallthrough
 		default:
+			role := "user"
+			if g.d.Cfg.AdminBootstrapEmail != "" &&
+				strings.ToLower(ident.Email) == strings.ToLower(g.d.Cfg.AdminBootstrapEmail) {
+				role = "admin"
+			}
 			created, cerr := g.d.Q.CreateUser(r.Context(), db.CreateUserParams{
 				Email:         strings.ToLower(ident.Email),
 				EmailVerified: true,
@@ -96,7 +101,7 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 				GoogleSub:     ptr(ident.Sub),
 				DisplayName:   ptr(ident.Name),
 				PhotoUrl:      ptr(ident.Picture),
-				Role:          "user",
+				Role:          role,
 			})
 			if cerr != nil {
 				apperr.Write(w, apperr.Internal("INTERNAL", "create"))

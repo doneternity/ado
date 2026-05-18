@@ -22,6 +22,7 @@ import { AdminQuotas } from "./pages/admin/AdminQuotas";
 import { AdminErrors } from "./pages/admin/AdminErrors";
 import { AdminMaintenance } from "./pages/admin/AdminMaintenance";
 import { useMe } from "./api/queries";
+import { PageLoader } from "./components/PageLoader";
 
 function Root() {
   return (
@@ -41,7 +42,7 @@ function AdminRoot() {
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { data: me, isLoading } = useMe();
-  if (isLoading) return <div>Loading…</div>;
+  if (isLoading) return <PageLoader />;
   if (!me) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -56,7 +57,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
 
 function RedirectIfAuthed({ children }: { children: ReactNode }) {
   const { data: me, isLoading } = useMe();
-  if (isLoading) return <div>Loading…</div>;
+  if (isLoading) return <PageLoader />;
   if (me) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }

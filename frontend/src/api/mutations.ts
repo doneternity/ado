@@ -13,12 +13,14 @@ function adoptAuthResponse(qc: ReturnType<typeof useQueryClient>, r: AuthRespons
 }
 
 export function useSignup() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { email: string; password: string; displayName?: string }) =>
-      apiFetch<{ needsVerification: true; email: string }>("/api/auth/signup", {
+      apiFetch<AuthResponse>("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify(vars),
       }),
+    onSuccess: (r) => adoptAuthResponse(qc, r),
   });
 }
 

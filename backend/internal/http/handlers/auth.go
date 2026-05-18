@@ -68,7 +68,7 @@ func (a *Auth) Signup(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.d.Q.CreateUser(r.Context(), db.CreateUserParams{
 		Email:         req.Email,
-		EmailVerified: false,
+		EmailVerified: true,
 		PasswordHash:  ptr(hash),
 		GoogleSub:     nil,
 		DisplayName:   ptr(strings.TrimSpace(req.DisplayName)),
@@ -85,23 +85,23 @@ func (a *Auth) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rawTok, err := a.d.Verifier.Issue(r.Context(), user.ID)
+	sess, cookie, err := a.d.Sessions.Create(r.Context(), user.ID, r.UserAgent(), mw.ClientIP(r))
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "issue token"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "create session"))
 		return
 	}
-	link := a.d.Cfg.AppBaseURL + "/verify?token=" + rawTok
-	if err := a.d.Mailer.SendVerification(r.Context(), user.Email, link); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "send email"))
-		return
-	}
+	a.d.Sessions.SetCookie(w, cookie)
 
+	resp := map[string]any{
+		"user":      userDTO(user),
+		"csrfToken": base64URL(sess.CSRFToken),
+	}
+	if issued, _ := a.d.Keys.EnsureForUser(r.Context(), user.ID); issued.Raw != "" {
+		resp["flashKey"] = issued.Raw
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"needsVerification": true,
-		"email":             user.Email,
-	})
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // ptr returns nil for the zero value of T, otherwise &v.
@@ -249,11 +249,6 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if user.Banned {
 		apperr.Write(w, apperr.Forbidden("BANNED", "account suspended"))
-		return
-	}
-	if !user.EmailVerified {
-		apperr.Write(w, apperr.Forbidden("EMAIL_NOT_VERIFIED", "verify your email").
-			WithExtra("email", user.Email))
 		return
 	}
 

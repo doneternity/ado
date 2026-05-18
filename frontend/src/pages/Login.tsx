@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { AuthForm } from "../components/AuthForm";
 import { GoogleButton } from "../components/GoogleButton";
 import { useLogin, useSignup } from "../api/mutations";
-import { ApiError } from "../api/client";
 import styles from "./Login.module.scss";
 
 export function Login() {
@@ -41,19 +40,11 @@ export function Login() {
           isPending={login.isPending || signup.isPending}
           onSubmit={async (vars) => {
             if (mode === "login") {
-              try {
-                await login.mutateAsync(vars);
-                navigate("/dashboard");
-              } catch (err) {
-                if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
-                  navigate("/verify-pending", { state: { email: err.data["email"] } });
-                  return;
-                }
-                throw err;
-              }
+              await login.mutateAsync(vars);
+              navigate("/dashboard");
             } else {
               await signup.mutateAsync(vars);
-              navigate("/verify-pending", { state: { email: vars.email } });
+              navigate("/dashboard");
             }
           }}
         />

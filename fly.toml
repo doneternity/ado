@@ -1,0 +1,39 @@
+app = "ado"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.fly"
+
+[env]
+  PORT = "8080"
+  APP_ENV = "production"
+  SESSION_COOKIE_SECURE = "true"
+  SESSION_IDLE_DAYS = "7"
+  SESSION_ABSOLUTE_DAYS = "30"
+  MAILER = "resend"
+  GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+    force_https = true
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "get"
+    path = "/api/health"

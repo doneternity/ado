@@ -88,7 +88,7 @@ function Param({
 
 export function Docs() {
   const [activeId, setActiveId] = useState("quick-start");
-  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado.fly.dev/api/v1";
+  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://your-proxy-url/v1";
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -287,8 +287,8 @@ export function Docs() {
 
           <div className={styles.limitCards}>
             <div className={styles.limitCard}>
-              <span className={styles.limitNum}>50</span>
-              <span className={styles.limitLabel}>requests / day</span>
+              <span className={styles.limitNum}>Daily</span>
+              <span className={styles.limitLabel}>request quota</span>
             </div>
             <div className={styles.limitCard}>
               <span className={styles.limitNum}>UTC</span>
@@ -297,7 +297,7 @@ export function Docs() {
           </div>
 
           <p>
-            Each key gets 50 chat completion requests per UTC calendar day.
+            Each key has a daily request quota set by the admin.
             The quota resets at 00:00 UTC regardless of your timezone.
             Calls to <code className={styles.inlineCode}>/models</code> are free and not counted.
           </p>
@@ -307,8 +307,7 @@ export function Docs() {
 {
   "error": {
     "code": "QUOTA_EXCEEDED",
-    "message": "daily quota exceeded",
-    "limit": 50
+    "message": "daily quota exceeded"
   }
 }`}</Code>
         </section>

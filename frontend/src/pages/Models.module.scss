@@ -105,14 +105,11 @@
   padding: 2px 7px;
 }
 
-.familyBadge { border: 1.5px solid transparent; }
-.family25 { background: var(--purple); color: var(--bg); }
-.family20 { background: var(--green);  color: var(--bg); }
-.family15 { background: var(--silver); color: var(--bg); }
-
-.tierBadge { border: 1.5px solid var(--border); }
-.tierPro   { background: var(--bg); color: var(--black); }
-.tierFlash { background: var(--bg-raised); color: var(--black); }
+.providerBadge { border: 1.5px solid transparent; }
+.providerGemini  { background: var(--electric); color: var(--bg); }
+.providerClaude  { background: var(--purple);   color: var(--bg); }
+.providerDeepseek { background: var(--green);   color: var(--bg); }
+.providerOther   { background: var(--silver);   color: var(--bg); }
 
 .tagBadge { border: 1.5px solid var(--orange); color: var(--orange); }
 
@@ -202,7 +199,7 @@
 
 /* ── cta strip ── */
 .ctaStrip {
-  background: #050505;
+  background: var(--bg-card);
   padding: 72px 5vw;
   display: flex;
   flex-direction: column;

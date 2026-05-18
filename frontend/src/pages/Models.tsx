@@ -6,13 +6,12 @@ import { Copy, Check, Zap, Brain, Eye, Wrench, Layers } from "lucide-react";
 import styles from "./Models.module.scss";
 
 type Capability = "Vision" | "Tools" | "Streaming" | "Reasoning" | "Long context";
-type Filter = "all" | "flash" | "pro";
+type Filter = "all" | "gemini" | "claude" | "deepseek" | "other";
 
 interface ModelDef {
   id: string;
   name: string;
-  family: "2.5" | "2.0" | "1.5";
-  tier: "flash" | "pro";
+  provider: "gemini" | "claude" | "deepseek" | "other";
   context: string;
   speed: 1 | 2 | 3;
   capabilities: Capability[];
@@ -22,68 +21,125 @@ interface ModelDef {
 
 const MODELS: ModelDef[] = [
   {
-    id: "gemini-2.5-flash-preview-05-20",
-    name: "Gemini 2.5 Flash",
-    family: "2.5",
-    tier: "flash",
-    context: "1M tokens",
-    speed: 1,
+    id: "[kmo]claude-opus-4.7",
+    name: "Claude Opus 4.7",
+    provider: "claude",
+    context: "200K tokens",
+    speed: 3,
     capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
     tag: "Newest",
-    description: "Latest Flash with hybrid reasoning. Best speed-to-capability ratio.",
+    description: "Anthropic's most capable model. Frontier reasoning and long-context analysis.",
   },
   {
-    id: "gemini-2.5-pro-preview-05-06",
+    id: "[kmo]claude-opus-4.7-thinking",
+    name: "Claude Opus 4.7 Thinking",
+    provider: "claude",
+    context: "200K tokens",
+    speed: 3,
+    capabilities: ["Tools", "Streaming", "Reasoning"],
+    description: "Extended thinking mode for Opus 4.7. Deeper reasoning with visible chain-of-thought.",
+  },
+  {
+    id: "[kmo]claude-opus-4.6",
+    name: "Claude Opus 4.6",
+    provider: "claude",
+    context: "200K tokens",
+    speed: 2,
+    capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
+    description: "Previous Opus with strong coding and instruction-following.",
+  },
+  {
+    id: "[kmo]claude-opus-4.6-thinking",
+    name: "Claude Opus 4.6 Thinking",
+    provider: "claude",
+    context: "200K tokens",
+    speed: 2,
+    capabilities: ["Tools", "Streaming", "Reasoning"],
+    description: "Extended thinking mode for Opus 4.6.",
+  },
+  {
+    id: "[kmo]claude-opus-4.5",
+    name: "Claude Opus 4.5",
+    provider: "claude",
+    context: "200K tokens",
+    speed: 2,
+    capabilities: ["Vision", "Tools", "Streaming"],
+    description: "Stable Opus release with balanced speed and quality.",
+  },
+  {
+    id: "[GG]gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
-    family: "2.5",
-    tier: "pro",
+    provider: "gemini",
     context: "1M tokens",
     speed: 3,
     capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
     tag: "Most capable",
-    description: "Frontier-level reasoning and coding. Highest accuracy, slower output.",
+    description: "Frontier-level reasoning and coding. Highest accuracy across benchmarks.",
   },
   {
-    id: "gemini-2.0-flash",
-    name: "Gemini 2.0 Flash",
-    family: "2.0",
-    tier: "flash",
+    id: "[GG]gemini-3-flash-preview",
+    name: "Gemini 3 Flash Preview",
+    provider: "gemini",
     context: "1M tokens",
     speed: 1,
-    capabilities: ["Vision", "Tools", "Streaming"],
-    tag: "Stable",
-    description: "Fast, reliable, multimodal. Production-grade with broad capability support.",
+    capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
+    tag: "Preview",
+    description: "Next-gen Flash preview. Fast hybrid reasoning with multimodal support.",
   },
   {
-    id: "gemini-2.0-flash-lite",
-    name: "Gemini 2.0 Flash Lite",
-    family: "2.0",
-    tier: "flash",
+    id: "[GG]gemini-3.1-pro-preview",
+    name: "Gemini 3.1 Pro Preview",
+    provider: "gemini",
     context: "1M tokens",
-    speed: 1,
-    capabilities: ["Streaming"],
-    description: "Lightest model. Ideal for simple tasks where speed is everything.",
+    speed: 3,
+    capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
+    description: "Latest Gemini Pro preview with improved reasoning capabilities.",
   },
   {
-    id: "gemini-1.5-pro",
-    name: "Gemini 1.5 Pro",
-    family: "1.5",
-    tier: "pro",
-    context: "2M tokens",
+    id: "[momo神秘V4]DeepSeek-V4-Pro",
+    name: "DeepSeek V4 Pro",
+    provider: "deepseek",
+    context: "128K tokens",
     speed: 2,
-    capabilities: ["Vision", "Tools", "Streaming", "Long context"],
-    tag: "Long context",
-    description: "Previous gen Pro with the largest context window. Up to 2M token input.",
+    capabilities: ["Tools", "Streaming", "Reasoning"],
+    tag: "Strongest",
+    description: "DeepSeek's most capable model. Top-tier coding, math, and reasoning.",
   },
   {
-    id: "gemini-1.5-flash",
-    name: "Gemini 1.5 Flash",
-    family: "1.5",
-    tier: "flash",
-    context: "1M tokens",
+    id: "[momo]DeepSeek-V4-Flash",
+    name: "DeepSeek V4 Flash",
+    provider: "deepseek",
+    context: "128K tokens",
     speed: 1,
-    capabilities: ["Vision", "Streaming"],
-    description: "Previous gen Flash. Lightweight with broad language support.",
+    capabilities: ["Tools", "Streaming"],
+    description: "Fast DeepSeek V4 variant. Excellent speed-to-quality ratio for everyday tasks.",
+  },
+  {
+    id: "[beagle]deepseek-ai/DeepSeek-V3.2",
+    name: "DeepSeek V3.2",
+    provider: "deepseek",
+    context: "128K tokens",
+    speed: 1,
+    capabilities: ["Tools", "Streaming"],
+    description: "Previous DeepSeek generation. Stable and fast for coding and analysis.",
+  },
+  {
+    id: "[momo]Kimi-K2.6",
+    name: "Kimi K2.6",
+    provider: "other",
+    context: "128K tokens",
+    speed: 2,
+    capabilities: ["Tools", "Streaming", "Reasoning"],
+    description: "Moonshot AI's latest model. Strong multilingual reasoning and tool use.",
+  },
+  {
+    id: "[Aie]Mimo-V2.5-Pro",
+    name: "Mimo V2.5 Pro",
+    provider: "other",
+    context: "128K tokens",
+    speed: 2,
+    capabilities: ["Streaming", "Reasoning"],
+    description: "High-efficiency model optimized for long-form generation and analysis.",
   },
 ];
 
@@ -95,11 +151,19 @@ const CAP_ICONS: Record<Capability, ReactNode> = {
   "Long context": <Layers size={12} />,
 };
 
-const FAMILY_CLASS = {
-  "2.5": styles.family25,
-  "2.0": styles.family20,
-  "1.5": styles.family15,
-} as Record<ModelDef["family"], string>;
+const PROVIDER_CLASS: Record<ModelDef["provider"], string> = {
+  gemini: styles.providerGemini ?? "",
+  claude: styles.providerClaude ?? "",
+  deepseek: styles.providerDeepseek ?? "",
+  other: styles.providerOther ?? "",
+};
+
+const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
+  gemini: "Google",
+  claude: "Anthropic",
+  deepseek: "DeepSeek",
+  other: "Other",
+};
 
 function CopyId({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
@@ -127,7 +191,7 @@ const cardVariants = {
 
 export function Models() {
   const [filter, setFilter] = useState<Filter>("all");
-  const visible = filter === "all" ? MODELS : MODELS.filter(m => m.tier === filter);
+  const visible = filter === "all" ? MODELS : MODELS.filter(m => m.provider === filter);
 
   return (
     <motion.div
@@ -137,20 +201,20 @@ export function Models() {
       transition={{ duration: 0.28, ease: "easeOut" }}
     >
       <div className={styles.header}>
-        <span className={styles.eyebrow}>GOOGLE GEMINI // ALL ROUTES</span>
+        <span className={styles.eyebrow}>MULTI-PROVIDER // ALL ROUTES</span>
         <h1 className={styles.headline}>all models.<br />one key.</h1>
         <p className={styles.lede}>
           Every model below is reachable with your ADO key via the OpenAI-compatible API.
           Swap the model ID — nothing else changes.
         </p>
         <div className={styles.filters}>
-          {(["all", "flash", "pro"] as Filter[]).map(f => (
+          {(["all", "gemini", "claude", "deepseek", "other"] as Filter[]).map(f => (
             <button
               key={f}
               className={`${styles.filterBtn}${filter === f ? ` ${styles.active}` : ""}`}
               onClick={() => setFilter(f)}
             >
-              {f === "all" ? "All models" : f === "flash" ? "Flash" : "Pro"}
+              {f === "all" ? "All models" : f === "gemini" ? "Google" : f === "claude" ? "Anthropic" : f === "deepseek" ? "DeepSeek" : "Other"}
             </button>
           ))}
         </div>
@@ -166,15 +230,12 @@ export function Models() {
             key={model.id}
             custom={i}
             variants={cardVariants}
-            className={`${styles.card}${model.tag === "Newest" || model.tag === "Most capable" ? ` ${styles.featured}` : ""}`}
+            className={`${styles.card}${model.tag === "Newest" || model.tag === "Most capable" || model.tag === "Strongest" ? ` ${styles.featured}` : ""}`}
           >
             <div className={styles.cardTop}>
               <div className={styles.badges}>
-                <span className={`${styles.familyBadge} ${FAMILY_CLASS[model.family]}`}>
-                  {model.family}
-                </span>
-                <span className={`${styles.tierBadge} ${model.tier === "pro" ? styles.tierPro : styles.tierFlash}`}>
-                  {model.tier}
+                <span className={`${styles.providerBadge} ${PROVIDER_CLASS[model.provider]}`}>
+                  {PROVIDER_LABEL[model.provider]}
                 </span>
                 {model.tag && <span className={styles.tagBadge}>{model.tag}</span>}
               </div>

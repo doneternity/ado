@@ -13,9 +13,8 @@ export function Landing() {
           <span className={styles.eyebrow}>UNIFIED AI API</span>
           <h1 className={styles.headline}>one key.<br />every model.</h1>
           <p className={styles.lede}>
-            ADO gives you a free OpenAI-compatible API key that routes directly to Google Gemini.
-            Plug it into JanitorAI, SillyTavern, or any OpenAI client — no card, no signup friction,
-            50 requests a day.
+            ADO gives you a single OpenAI-compatible API key that routes to Claude, Gemini, DeepSeek,
+            and more. Plug it into JanitorAI, SillyTavern, or any OpenAI client — no card, no waitlist.
           </p>
           <div className={styles.heroActions}>
             {me ? (
@@ -49,7 +48,7 @@ export function Landing() {
             <div className={styles.bootLines}>
               {[
                 "initializing ado runtime...",
-                "connecting to gemini api...",
+                "connecting to providers...",
                 "quota engine ready.",
                 <><span className={styles.operational}>● SYSTEM OPERATIONAL</span><b className={styles.cursor}> _</b></>,
               ].map((line, i) => (
@@ -68,10 +67,9 @@ export function Landing() {
 
         <div className={styles.statsBar}>
           {[
-            { label: "MODELS", value: "6" },
-            { label: "DAILY LIMIT", value: "50 req" },
-            { label: "COMPATIBLE", value: "openai api" },
-            { label: "PROVIDERS", value: "1" },
+            { label: "MODELS", value: "20+" },
+            { label: "COMPATIBLE", value: "OPENAI API" },
+            { label: "PROVIDERS", value: "2" },
             { label: "STATUS", value: <><span className={styles.statDot} />LIVE</> },
           ].map(({ label, value }) => (
             <div key={label} className={styles.statCell}>

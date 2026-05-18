@@ -10,8 +10,7 @@ const fade = {
 };
 
 const FREE_FEATURES = [
-  "50 chat completions per day",
-  "All Gemini models (2.5 Flash, 2.5 Pro, 2.0, 1.5)",
+  "Claude, Gemini, DeepSeek, and more",
   "OpenAI-compatible API",
   "Streaming via SSE",
   "Instant key generation",
@@ -20,24 +19,24 @@ const FREE_FEATURES = [
 ];
 
 const STATS = [
-  { icon: Zap,   value: "50",        label: "requests / day" },
-  { icon: Cpu,   value: "6+",        label: "models available" },
+  { icon: Cpu,   value: "20+",       label: "models available" },
+  { icon: Globe, value: "2",         label: "providers" },
   { icon: Clock, value: "UTC 00:00", label: "daily reset" },
-  { icon: Globe, value: "global",    label: "gemini routing" },
+  { icon: Zap,   value: "instant",   label: "key generation" },
 ];
 
 const FAQ = [
   {
     q: "What models can I access?",
-    a: "All Gemini models available through the Google AI API — Gemini 2.5 Flash, 2.5 Pro, 2.0 Flash, 2.0 Flash-Lite, 1.5 Pro, and 1.5 Flash. See the models page for the full list.",
+    a: "Claude Opus 4.7 and 4.6, Gemini 3 Flash, Gemini 2.5 Pro, DeepSeek V4 Pro, Kimi K2, and more. See the models page for the full current list — we add new models as providers expand.",
   },
   {
     q: "How does the rate limiting work?",
-    a: "Rate limits are applied per API key. Each call to /chat/completions counts as one request, regardless of token length or streaming. Free users get 50 requests per UTC day, resetting at midnight.",
+    a: "Rate limits are applied per API key. Each call to /chat/completions counts as one request, regardless of token length or streaming. Your daily quota resets at UTC midnight and is shown on your dashboard.",
   },
   {
-    q: "Can I cancel my subscription?",
-    a: "ADO is free — there's no subscription to cancel. You can delete your account at any time from the dashboard, which immediately invalidates your key.",
+    q: "Will ADO always be free?",
+    a: "The current tier is free while we're in early access. A Pro plan with higher limits, priority routing, and team features is coming. Free tier will remain available.",
   },
 ];
 

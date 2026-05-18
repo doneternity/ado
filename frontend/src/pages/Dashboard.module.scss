@@ -3,60 +3,410 @@
 .page {
   background: var(--bg);
   min-height: calc(100vh - 92px);
-  padding: 56px 5vw 80px;
+  padding: 48px 5vw 80px;
 }
 
 .inner {
-  max-width: 860px;
+  max-width: 1080px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
 }
 
+/* ── Header ── */
 .header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 24px;
   border-bottom: 1px solid var(--border-sub);
-  padding-bottom: 28px;
 }
+
+.headerLeft { display: flex; flex-direction: column; gap: 6px; }
+.headerRight { display: flex; align-items: center; }
 
 .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
-  font-size: .68rem;
+  font-size: .65rem;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .08em;
   color: var(--green);
-  display: block;
-  margin-bottom: 12px;
 }
 
 .greeting {
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
   font-weight: 1000;
-  letter-spacing: -.06em;
+  letter-spacing: -.05em;
   line-height: .95;
   color: var(--black);
-  margin-bottom: 10px;
 }
 
 .subtext {
-  font-size: .88rem;
+  font-size: .8rem;
   color: var(--silver);
-  line-height: 1.5;
 }
 
-.tryLink {
+.roleBadge {
+  font-size: .62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--silver);
+  border: 1px solid var(--border-sub);
+}
+
+.roleAdmin {
+  background: rgba(110, 90, 253, 0.12);
   color: var(--purple);
-  font-weight: 700;
-  transition: color var(--t-fast) ease;
-  &:hover { color: var(--black); }
+  border-color: rgba(110, 90, 253, 0.25);
 }
 
-.grid {
+/* ── Main grid ── */
+.mainGrid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: start;
 
-  @media (min-width: 640px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 860px) { grid-template-columns: 1fr; }
 }
 
-.howRow {}
+.leftCol  { display: flex; flex-direction: column; gap: 16px; }
+.rightCol { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Shared card base ── */
+%card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-sub);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+/* ── Section eyebrow ── */
+.sectionEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--silver);
+  margin-bottom: 14px;
+}
+
+/* ── Key card ── */
+.keyCard {
+  @extend %card;
+}
+
+.keyCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.keyActions { display: flex; gap: 6px; }
+
+.iconBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-sub);
+  border-radius: var(--r-md);
+  padding: 6px 8px;
+  color: var(--silver);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color var(--t-fast), border-color var(--t-fast);
+
+  &:hover { color: var(--black); border-color: rgba(255, 255, 255, 0.15); }
+}
+
+.keyDisplay {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--electric);
+  letter-spacing: .02em;
+  word-break: break-all;
+  margin: 4px 0 12px;
+}
+
+.keyNote {
+  font-size: .72rem;
+  color: var(--silver);
+  margin-bottom: 12px;
+}
+
+.keyMeta {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.keyMetaItem {
+  font-size: .7rem;
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.rotateBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  border-radius: var(--r-md);
+  padding: 7px 14px;
+  color: rgba(225, 29, 72, 0.55);
+  font-size: .7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+
+  &:hover { color: var(--error); border-color: var(--error); }
+  &:disabled { opacity: .4; cursor: not-allowed; }
+}
+
+/* ── Usage card ── */
+.usageCard {
+  @extend %card;
+}
+
+.usageRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.usageCount { margin-top: 6px; }
+
+.usageNum {
+  font-size: 2.4rem;
+  font-weight: 1000;
+  letter-spacing: -.07em;
+  color: var(--black);
+}
+
+.usageWarn {
+  font-size: 2.4rem;
+  font-weight: 1000;
+  letter-spacing: -.07em;
+  color: var(--orange);
+}
+
+.usageOf {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--silver);
+  letter-spacing: -.02em;
+}
+
+.resetBox {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resetLabel {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--silver);
+}
+
+.resetTimer {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--black);
+  letter-spacing: .04em;
+}
+
+.usageBarWrap {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.usageBar {
+  height: 100%;
+  background: var(--electric);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.usageBarWarn { background: var(--orange); }
+
+.usagePct {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* ── Quick start card ── */
+.quickStartCard {
+  @extend %card;
+}
+
+.quickStartHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quickStartIcon { color: var(--silver); }
+
+.codeSnippet {
+  background: var(--bg);
+  border: 1px solid var(--border-sub);
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.55);
+  overflow-x: auto;
+  margin: 0;
+  white-space: pre;
+}
+
+/* ── Right sidebar cards ── */
+.statsCard,
+.linksCard,
+.securityCard {
+  @extend %card;
+}
+
+.statsList { display: flex; flex-direction: column; gap: 10px; }
+
+.statsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-sub);
+
+  &:last-child { padding-bottom: 0; border-bottom: none; }
+}
+
+.statsLabel {
+  font-size: .72rem;
+  color: var(--silver);
+  font-weight: 600;
+}
+
+.statsValue {
+  font-size: .72rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--black);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* ── Links card ── */
+.linkList { display: flex; flex-direction: column; gap: 4px; }
+
+.linkItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: background var(--t-fast);
+
+  &:hover { background: rgba(255, 255, 255, 0.04); }
+}
+
+.linkIcon {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 180, 255, 0.08);
+  border: 1px solid rgba(0, 180, 255, 0.12);
+  border-radius: 6px;
+  color: var(--electric);
+  flex-shrink: 0;
+}
+
+.linkText { display: flex; flex-direction: column; gap: 1px; flex: 1; }
+
+.linkLabel {
+  font-size: .82rem;
+  font-weight: 800;
+  color: var(--black);
+}
+
+.linkDesc {
+  font-size: .68rem;
+  color: var(--silver);
+}
+
+.linkArrow {
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+/* ── Security card ── */
+.securityHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.securityIcon { color: var(--orange); }
+
+.securityList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  li {
+    font-size: .78rem;
+    color: var(--silver);
+    line-height: 1.5;
+    padding-left: 12px;
+    position: relative;
+
+    &::before {
+      content: '—';
+      position: absolute;
+      left: 0;
+      color: rgba(255, 255, 255, 0.15);
+    }
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--electric);
+    background: rgba(0, 180, 255, 0.07);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+}

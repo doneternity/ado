@@ -55,25 +55,19 @@ func TestProxy_QuotaTrips(t *testing.T) {
 	jar, _ := cookiejar.New(nil)
 	c := &http.Client{Jar: jar}
 
-	// Signup.
 	body, _ := json.Marshal(map[string]string{"email": "dave@example.com", "password": "hunter2-correct-horse"})
-	c.Post(fx.server.URL+"/api/auth/signup", "application/json", bytes.NewReader(body))
-
-	// Verify.
-	tok := mustToken(fx.mailer.Last)
-	r, _ := c.Post(fx.server.URL+"/api/auth/verify", "application/json",
-		strings.NewReader(`{"token":"`+tok+`"}`))
-	var verifyResp struct {
+	r, _ := c.Post(fx.server.URL+"/api/auth/signup", "application/json", bytes.NewReader(body))
+	var signupResp struct {
 		KeyJustIssued *struct {
 			Key string `json:"key"`
 		} `json:"keyJustIssued"`
 	}
-	json.NewDecoder(r.Body).Decode(&verifyResp)
+	json.NewDecoder(r.Body).Decode(&signupResp)
 	r.Body.Close()
-	if verifyResp.KeyJustIssued == nil || verifyResp.KeyJustIssued.Key == "" {
-		t.Fatal("expected keyJustIssued in verify response")
+	if signupResp.KeyJustIssued == nil || signupResp.KeyJustIssued.Key == "" {
+		t.Fatal("expected keyJustIssued in signup response")
 	}
-	rawKey := verifyResp.KeyJustIssued.Key
+	rawKey := signupResp.KeyJustIssued.Key
 
 	chatBody := []byte(`{"model":"gemini-test","messages":[{"role":"user","content":"hi"}]}`)
 

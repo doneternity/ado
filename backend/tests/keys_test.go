@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/cookiejar"
-	"strings"
 	"testing"
 )
 
@@ -14,12 +13,9 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 	jar, _ := cookiejar.New(nil)
 	c := &http.Client{Jar: jar}
 
-	// Signup + verify (compressed).
 	body, _ := json.Marshal(map[string]string{"email": "carol@example.com", "password": "hunter2-correct-horse"})
-	c.Post(fx.server.URL+"/api/auth/signup", "application/json", bytes.NewReader(body))
-	tok := mustToken(fx.mailer.Last)
-	r, _ := c.Post(fx.server.URL+"/api/auth/verify", "application/json", strings.NewReader(`{"token":"`+tok+`"}`))
-	var verifyResp struct {
+	r, _ := c.Post(fx.server.URL+"/api/auth/signup", "application/json", bytes.NewReader(body))
+	var signupResp struct {
 		User          map[string]any `json:"user"`
 		CSRFToken     string         `json:"csrfToken"`
 		KeyJustIssued *struct {
@@ -28,12 +24,12 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 			DailyLimit int    `json:"dailyLimit"`
 		} `json:"keyJustIssued"`
 	}
-	json.NewDecoder(r.Body).Decode(&verifyResp)
+	json.NewDecoder(r.Body).Decode(&signupResp)
 	r.Body.Close()
-	if verifyResp.KeyJustIssued == nil || verifyResp.KeyJustIssued.Key == "" {
-		t.Fatal("expected keyJustIssued in verify response")
+	if signupResp.KeyJustIssued == nil || signupResp.KeyJustIssued.Key == "" {
+		t.Fatal("expected keyJustIssued in signup response")
 	}
-	originalKey := verifyResp.KeyJustIssued.Key
+	originalKey := signupResp.KeyJustIssued.Key
 
 	// /api/keys/current returns the prefix but never the raw.
 	r, _ = c.Get(fx.server.URL + "/api/keys/current")
@@ -49,7 +45,7 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 
 	// Rotate (CSRF required).
 	req, _ := http.NewRequest("POST", fx.server.URL+"/api/keys/rotate", nil)
-	req.Header.Set("X-CSRF-Token", verifyResp.CSRFToken)
+	req.Header.Set("X-CSRF-Token", signupResp.CSRFToken)
 	r, _ = c.Do(req)
 	var rot struct {
 		Key string `json:"key"`

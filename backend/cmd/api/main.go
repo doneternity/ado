@@ -51,7 +51,9 @@ func main() {
 		slog.Error("migrations failed", "err", err)
 		os.Exit(1)
 	}
-	sqlDB.Close()
+	if err := sqlDB.Close(); err != nil {
+		slog.Error("migration db close", "err", err)
+	}
 
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {

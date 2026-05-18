@@ -40,6 +40,16 @@ func TestMain(m *testing.M) {
 
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		sharedDSN = dsn
+		sqlDB, err := sql.Open("pgx", sharedDSN)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "open db: %v\n", err)
+			os.Exit(1)
+		}
+		if err := goose.Up(sqlDB, "../migrations"); err != nil {
+			fmt.Fprintf(os.Stderr, "initial migrations: %v\n", err)
+			os.Exit(1)
+		}
+		sqlDB.Close() //nolint:errcheck
 	} else {
 		pgC, err := postgres.Run(ctx, "postgres:16-alpine",
 			postgres.WithDatabase("ado"),

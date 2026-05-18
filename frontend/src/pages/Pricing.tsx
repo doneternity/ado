@@ -28,24 +28,16 @@ const STATS = [
 
 const FAQ = [
   {
-    q: "What counts as a request?",
-    a: "Each call to /chat/completions counts as one request, regardless of token length or whether you use streaming. Calls to /models are always free and never counted.",
+    q: "What models can I access?",
+    a: "All Gemini models available through the Google AI API — Gemini 2.5 Flash, 2.5 Pro, 2.0 Flash, 2.0 Flash-Lite, 1.5 Pro, and 1.5 Flash. See the models page for the full list.",
   },
   {
-    q: "What happens when I hit the limit?",
-    a: "You receive a 429 Too Many Requests with code QUOTA_EXCEEDED. Your quota resets automatically at 00:00 UTC the following day.",
+    q: "How does the rate limiting work?",
+    a: "Rate limits are applied per API key. Each call to /chat/completions counts as one request, regardless of token length or streaming. Free users get 50 requests per UTC day, resetting at midnight.",
   },
   {
-    q: "Will there always be a free tier?",
-    a: "Yes. The free tier is core to ADO's mission of making AI accessible. It will always exist.",
-  },
-  {
-    q: "Which models are included?",
-    a: "All Gemini models available through the Google AI API — including Gemini 2.5 Flash, 2.5 Pro, 2.0 Flash, 2.0 Flash-Lite, 1.5 Pro, and 1.5 Flash. See the models page for the full list.",
-  },
-  {
-    q: "Can I use this in production?",
-    a: "ADO is provided as-is with no uptime SLA. It's great for personal projects, hobby apps, and integration testing. For production workloads requiring higher limits or SLAs, wait for the Pro tier.",
+    q: "Can I cancel my subscription?",
+    a: "ADO is free — there's no subscription to cancel. You can delete your account at any time from the dashboard, which immediately invalidates your key.",
   },
 ];
 
@@ -56,7 +48,7 @@ export function Pricing() {
       {/* Hero */}
       <div className={styles.hero}>
         <span className={styles.eyebrow}>Pricing</span>
-        <h1 className={styles.headline}>Free,<br />forever.</h1>
+        <h1 className={styles.headline}>simple<br />and honest.</h1>
         <p className={styles.lead}>
           No credit card. No waitlist. No tricks. Sign up and your key is ready in under 30 seconds.
         </p>

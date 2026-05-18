@@ -10,14 +10,13 @@ export function Landing() {
     <div className={styles.page}>
       <div className={styles.hero}>
         <div className={styles.heroContent}>
-          <span className={styles.eyebrow}>UNIFIED AI API // FREE GEMINI ACCESS</span>
+          <span className={styles.eyebrow}>UNIFIED AI API</span>
           <h1 className={styles.headline}>one key.<br />every model.</h1>
           <p className={styles.lede}>
             ADO gives you a free OpenAI-compatible API key that routes directly to Google Gemini.
             Plug it into JanitorAI, SillyTavern, or any OpenAI client — no card, no signup friction,
             50 requests a day.
           </p>
-          <span className={styles.testStrip}>{import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado.fly.dev/api/v1"}</span>
           <div className={styles.heroActions}>
             {me ? (
               <Link to="/dashboard" className={styles.primaryBtn}>Go to dashboard</Link>
@@ -69,11 +68,10 @@ export function Landing() {
 
         <div className={styles.statsBar}>
           {[
-            { label: "MODELS", value: "gemini-2.0+" },
+            { label: "MODELS", value: "6" },
             { label: "DAILY LIMIT", value: "50 req" },
             { label: "COMPATIBLE", value: "openai api" },
-            { label: "PROVIDER", value: "google" },
-            { label: "ACCESS", value: "free" },
+            { label: "PROVIDERS", value: "1" },
             { label: "STATUS", value: <><span className={styles.statDot} />LIVE</> },
           ].map(({ label, value }) => (
             <div key={label} className={styles.statCell}>
@@ -102,7 +100,7 @@ export function Landing() {
             {
               num: "03",
               title: "Plug it in",
-              desc: `Set the API URL to ${import.meta.env.VITE_PROXY_BASE_URL ?? "ado.fly.dev/api/v1"} in JanitorAI or SillyTavern. Done.`,
+              desc: "Set the ADO proxy URL in JanitorAI, SillyTavern, or any OpenAI client. Done.",
             },
           ].map(({ num, title, desc }) => (
             <div key={num} className={styles.stepCard}>

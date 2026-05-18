@@ -7,53 +7,62 @@ const fade = {
   transition: { duration: 0.28, ease: "easeOut" as const },
 };
 
+const SECTIONS = [
+  {
+    title: "Information We Collect",
+    body: "We collect account details such as your email address and (for Google sign-in) your name and profile photo when you sign up. We collect usage metadata including per-day request counts and model selections. Technical data collected includes browser type, IP address, and a session cookie. We do not collect the content of your AI requests or responses.",
+  },
+  {
+    title: "How We Use Information",
+    body: "Data is used to provide and secure the service, route API requests, troubleshoot issues, and improve reliability. Your email may be used for account-related notifications. Aggregated and anonymized usage insights may be used for analytics and product improvement. We never use your API requests or prompts to train AI models.",
+  },
+  {
+    title: "Data Sharing",
+    body: "We do not sell personal data. We share information with trusted infrastructure providers (cloud hosting, database services) required to deliver the service. Subprocessors are bound by data protection agreements. We may disclose information when required by law, to enforce our terms, or protect rights, safety, or property. API requests are proxied to Google Gemini and are subject to Google's privacy policy.",
+  },
+  {
+    title: "Security",
+    body: "We implement industry-standard technical and organizational safeguards including encryption in transit (TLS) and at rest, access controls, and monitoring. Provider API keys are stored encrypted with AES-256-GCM. Session cookies are HttpOnly and Secure. However, no system is perfectly secure; we recommend rotating your key periodically and not sharing it publicly.",
+  },
+  {
+    title: "Data Retention",
+    body: "Information is retained for as long as necessary to operate the service. Account data is deleted upon account termination. Daily usage counters reset at UTC midnight and are not retained long-term. Error logs are retained for 30 days for debugging purposes. You may request deletion of your personal data at any time by contacting us.",
+  },
+  {
+    title: "Your Choices",
+    body: "You can rotate your API key, view your usage, and delete your account from the dashboard at any time. For questions or requests about data (access, correction, deletion), contact us at hello@ado.fly.dev.",
+  },
+  {
+    title: "Cookies",
+    body: "We set one cookie: ado_session, an opaque token used to identify your login session. It is HttpOnly, Secure (in production), and SameSite-restricted. No third-party tracking or analytics cookies are set.",
+  },
+  {
+    title: "Children's Privacy",
+    body: "Our service is not intended for children under 16. We do not knowingly collect data from children. If you believe a child has provided personal data, contact us immediately to remove it.",
+  },
+  {
+    title: "International Data Transfer",
+    body: "Your data may be processed on servers in various countries. We ensure appropriate safeguards for international transfers in compliance with applicable regulations.",
+  },
+  {
+    title: "Changes to This Policy",
+    body: "We may update this Privacy Policy periodically. Material changes will be notified via the service. Continued use of the platform after changes constitutes acceptance of the updated policy.",
+  },
+];
+
 export function Privacy() {
   return (
     <motion.div className={styles.page} {...fade}>
       <div className={styles.content}>
         <span className={styles.eyebrow}>Legal</span>
         <h1 className={styles.headline}>Privacy Policy</h1>
-        <p className={styles.meta}>Effective date: May 13, 2026</p>
+        <p className={styles.meta}>Last updated: May 18, 2026</p>
 
-        <Section title="What we collect">
-          <p>When you create an account, we collect your <strong>email address</strong> and a bcrypt hash of your password — never the plaintext password. If you sign up via Google, we store your Google account identifier and public profile name instead of a password hash.</p>
-          <p>When you use the API, we store a <strong>daily request count</strong> keyed to your API key. This counter resets every UTC midnight and is used solely to enforce the rate limit.</p>
-          <p>We store a <strong>session cookie</strong> (<code>ado_session</code>) when you log in. This cookie is HttpOnly, Secure (in production), and expires after 30 days of inactivity or 30 days absolute.</p>
-        </Section>
-
-        <Section title="What we do not collect">
-          <p>We do <strong>not</strong> log the content of your AI requests or responses. We do not run third-party analytics scripts. We do not use advertising trackers or sell your data to any third party.</p>
-        </Section>
-
-        <Section title="How we use your data">
-          <p>Your email is used only to send account-related emails: email verification links and, in the future, account security notices. We do not send marketing emails.</p>
-          <p>Usage counters are used to enforce the 50-requests-per-day limit and may be used in aggregate (without identifying individual users) to understand overall service load.</p>
-        </Section>
-
-        <Section title="Data storage">
-          <p>Account data is stored in a PostgreSQL database hosted on Neon (neon.tech). Session data and rate-limit counters are stored in Redis hosted on Upstash (upstash.com). Both providers are SOC 2 certified and operate within the United States.</p>
-        </Section>
-
-        <Section title="Third-party services">
-          <p>API requests are proxied to <strong>Google Gemini</strong> (generativelanguage.googleapis.com). Your requests pass through Google&apos;s infrastructure and are subject to <a href="https://policies.google.com/privacy" className={styles.link} rel="noopener noreferrer" target="_blank">Google&apos;s Privacy Policy</a>. We pass the request body unmodified and substitute our server-side Gemini API key for the authorization header.</p>
-          <p>Email verification is handled either via console logging (development) or <strong>Resend</strong> (resend.com). When Resend is active, your email address is transmitted to Resend solely for the purpose of delivering the verification email.</p>
-        </Section>
-
-        <Section title="Cookies">
-          <p>We set one cookie: <code>ado_session</code>. It contains an opaque random token used to identify your login session. It is HttpOnly (not accessible to JavaScript), Secure (only sent over HTTPS in production), and SameSite=Lax. No third-party cookies are set.</p>
-        </Section>
-
-        <Section title="Data retention">
-          <p>Account data is retained for as long as your account exists. Deleting your account removes all associated sessions, API keys, and usage records. Email verification tokens expire after 24 hours. Daily usage counters are kept for the current calendar day only.</p>
-        </Section>
-
-        <Section title="Your rights">
-          <p>You may request deletion of your account and all associated data at any time by contacting us. Upon request, we will delete your account within 14 days.</p>
-        </Section>
-
-        <Section title="Contact">
-          <p>Questions or data requests: <a href="mailto:hello@ado.fly.dev" className={styles.link}>hello@ado.fly.dev</a>.</p>
-        </Section>
+        {SECTIONS.map((s) => (
+          <Section key={s.title} title={s.title}>
+            <p>{s.body}</p>
+          </Section>
+        ))}
       </div>
     </motion.div>
   );

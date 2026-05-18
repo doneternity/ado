@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -15,14 +16,36 @@ type AdminUsers struct{ q *db.Queries }
 
 func NewAdminUsers(q *db.Queries) *AdminUsers { return &AdminUsers{q: q} }
 
+type adminUserDTO struct {
+	ID                 uuid.UUID `json:"id"`
+	Email              string    `json:"email"`
+	Role               string    `json:"role"`
+	Banned             bool      `json:"banned"`
+	CreatedAt          time.Time `json:"createdAt"`
+	DailyQuotaOverride *int32    `json:"dailyQuotaOverride"`
+	RequestsToday      int32     `json:"requestsToday"`
+}
+
 func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.q.ListUsersAdmin(r.Context())
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "list users"))
 		return
 	}
+	out := make([]adminUserDTO, len(rows))
+	for i, u := range rows {
+		out[i] = adminUserDTO{
+			ID:                 u.ID,
+			Email:              u.Email,
+			Role:               u.Role,
+			Banned:             u.Banned,
+			CreatedAt:          u.CreatedAt.Time,
+			DailyQuotaOverride: u.DailyQuotaOverride,
+			RequestsToday:      u.RequestsToday,
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(rows)
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {

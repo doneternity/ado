@@ -88,7 +88,7 @@ function Param({
 
 export function Docs() {
   const [activeId, setActiveId] = useState("quick-start");
-  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado-aii.vercel.app/v1";
+  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://adoai.space/v1";
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -138,7 +138,7 @@ export function Docs() {
 
         {/* Quick Start */}
         <section id="quick-start" className={styles.section}>
-          <span className={styles.eyebrow}>Getting Started</span>
+          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Getting Started</span>
           <h1 className={styles.pageTitle}>Quick start</h1>
           <p className={styles.lead}>
             ADO exposes an OpenAI-compatible API backed by Google Gemini.
@@ -159,7 +159,7 @@ export function Docs() {
               {
                 n: "03",
                 title: "Pick a model",
-                body: "Use any model ID from the /models list, e.g. gemini-2.5-flash-preview-05-20. The model field is required on every request.",
+                body: "Use any model ID from the /models list, e.g. [kmo]claude-opus-4.7 or [GG]gemini-2.5-pro. The model field is required on every request.",
               },
             ].map(({ n, title, body }) => (
               <div key={n} className={styles.step}>
@@ -204,7 +204,7 @@ export function Docs() {
 
         {/* Chat Completions */}
         <section id="chat-completions" className={styles.section}>
-          <span className={styles.eyebrow}>API Reference</span>
+          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />API Reference</span>
           <h2 className={styles.sectionTitle}>
             <Badge method="POST" />{" /chat/completions"}
           </h2>
@@ -237,7 +237,7 @@ export function Docs() {
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gemini-2.5-flash-preview-05-20",
+    "model": "[kmo]claude-opus-4.7",
     "messages": [
       { "role": "system", "content": "You are a helpful assistant." },
       { "role": "user",   "content": "Hello!" }
@@ -248,7 +248,7 @@ export function Docs() {
           <Code lang="json">{`{
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
-  "model": "gemini-2.5-flash-preview-05-20",
+  "model": "[kmo]claude-opus-4.7",
   "choices": [
     {
       "index": 0,
@@ -282,7 +282,7 @@ export function Docs() {
 
         {/* Rate Limits */}
         <section id="rate-limits" className={styles.section}>
-          <span className={styles.eyebrow}>Usage</span>
+          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Usage</span>
           <h2 className={styles.sectionTitle}>Rate limits</h2>
 
           <div className={styles.limitCards}>
@@ -348,14 +348,14 @@ export function Docs() {
 
         {/* cURL */}
         <section id="example-curl" className={styles.section}>
-          <span className={styles.eyebrow}>Examples</span>
+          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Examples</span>
           <h2 className={styles.sectionTitle}>cURL</h2>
           <Code lang="bash">{`# Non-streaming
 curl ${PROXY_BASE}/chat/completions \\
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gemini-2.5-flash-preview-05-20",
+    "model": "[kmo]claude-opus-4.7",
     "messages": [{ "role": "user", "content": "Write a haiku." }]
   }'
 
@@ -365,7 +365,7 @@ curl ${PROXY_BASE}/chat/completions \\
   -H "Content-Type: application/json" \\
   --no-buffer \\
   -d '{
-    "model": "gemini-2.5-flash-preview-05-20",
+    "model": "[kmo]claude-opus-4.7",
     "messages": [{ "role": "user", "content": "Write a haiku." }],
     "stream": true
   }'`}</Code>
@@ -387,14 +387,14 @@ const client = new OpenAI({
 
 // Non-streaming
 const res = await client.chat.completions.create({
-  model:    "gemini-2.5-flash-preview-05-20",
+  model:    "[kmo]claude-opus-4.7",
   messages: [{ role: "user", content: "Write a haiku." }],
 });
 console.log(res.choices[0].message.content);
 
 // Streaming
 const stream = await client.chat.completions.create({
-  model:    "gemini-2.5-flash-preview-05-20",
+  model:    "[kmo]claude-opus-4.7",
   messages: [{ role: "user", content: "Write a haiku." }],
   stream:   true,
 });
@@ -418,14 +418,14 @@ client = OpenAI(
 
 # Non-streaming
 response = client.chat.completions.create(
-    model    = "gemini-2.5-flash-preview-05-20",
+    model    = "[kmo]claude-opus-4.7",
     messages = [{"role": "user", "content": "Write a haiku."}],
 )
 print(response.choices[0].message.content)
 
 # Streaming
 with client.chat.completions.stream(
-    model    = "gemini-2.5-flash-preview-05-20",
+    model    = "[kmo]claude-opus-4.7",
     messages = [{"role": "user", "content": "Write a haiku."}],
 ) as stream:
     for text in stream.text_stream:

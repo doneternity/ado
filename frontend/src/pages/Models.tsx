@@ -201,7 +201,7 @@ export function Models() {
       transition={{ duration: 0.28, ease: "easeOut" }}
     >
       <div className={styles.header}>
-        <span className={styles.eyebrow}>MULTI-PROVIDER // ALL ROUTES</span>
+        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />MULTI-PROVIDER // ALL ROUTES</span>
         <h1 className={styles.headline}>all models.<br />one key.</h1>
         <p className={styles.lede}>
           Every model below is reachable with your ADO key via the OpenAI-compatible API.
@@ -269,7 +269,7 @@ export function Models() {
       </motion.div>
 
       <section className={styles.ctaStrip}>
-        <span className={styles.ctaEyebrow}>FREE ACCESS</span>
+        <span className={styles.ctaEyebrow}><span className={styles.eyebrowDash} />FREE ACCESS</span>
         <h2 className={styles.ctaHeadline}>one key for all of them.</h2>
         <Link to="/login" className={styles.ctaBtn}>Get your free key</Link>
       </section>

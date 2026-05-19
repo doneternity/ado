@@ -33,7 +33,7 @@ func Logger(next http.Handler) http.Handler {
 			"status", rec.status,
 			"dur_ms", time.Since(start).Milliseconds(),
 			"bytes", rec.bytes,
-			"ip", r.RemoteAddr,
+			"ip", ClientIP(r),
 			"ua", r.UserAgent(),
 		)
 	})

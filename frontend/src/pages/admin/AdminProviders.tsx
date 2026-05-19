@@ -1,10 +1,14 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { Plug } from "lucide-react";
 import {
   useAdminProviders, useCreateProvider, useUpdateProvider,
   useSetActiveProvider, useDeleteProvider,
 } from "../../api/admin";
 import type { AdminProvider } from "../../types/api";
 import styles from "./Admin.module.scss";
+
+const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
 type FormState = { name: string; baseUrl: string; apiKey: string };
 const empty: FormState = { name: "", baseUrl: "", apiKey: "" };
@@ -40,11 +44,11 @@ export function AdminProviders() {
   };
 
   return (
-    <>
+    <motion.div {...fade}>
       <div className={styles.pageHeader}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div className={styles.pageRow}>
           <div>
-            <h1 className={styles.title}>🔌 Providers</h1>
+            <h1 className={styles.title}><Plug size={18} className={styles.titleIcon} /> Providers</h1>
             <p className={styles.subtitle}>All API traffic routes to the active provider</p>
           </div>
           <button className={styles.btnPrimary} onClick={() => { setEditing(null); setForm(empty); setShowForm(true); }}>
@@ -62,9 +66,7 @@ export function AdminProviders() {
           )}
           <div className={styles.providerName}>{p.name}</div>
           <div className={styles.providerUrl}>{p.baseUrl}</div>
-          <div style={{ color: "var(--silver)", fontSize: ".68rem", fontFamily: "var(--font-mono)", marginTop: 4 }}>
-            sk-••••{p.keySuffix}
-          </div>
+          <div className={styles.providerKey}>sk-••••{p.keySuffix}</div>
           <div className={styles.btnRow} style={{ marginTop: 10 }}>
             {!p.isActive && (
               <button
@@ -120,6 +122,6 @@ export function AdminProviders() {
           </form>
         </div>
       )}
-    </>
+    </motion.div>
   );
 }

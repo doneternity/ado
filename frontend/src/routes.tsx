@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, ScrollRestoration } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/AdminLayout";
 import { Login } from "./pages/Login";
@@ -27,6 +27,7 @@ import { PageLoader } from "./components/PageLoader";
 function Root() {
   return (
     <Layout>
+      <ScrollRestoration />
       <Outlet />
     </Layout>
   );
@@ -35,6 +36,7 @@ function Root() {
 function AdminRoot() {
   return (
     <AdminLayout>
+      <ScrollRestoration />
       <Outlet />
     </AdminLayout>
   );
@@ -49,7 +51,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function RequireAdmin({ children }: { children: ReactNode }) {
   const { data: me, isLoading } = useMe();
-  if (isLoading) return null;
+  if (isLoading) return <PageLoader />;
   if (!me) return <Navigate to="/login" replace />;
   if (me.user.role !== "admin") return <Navigate to="/dashboard" replace />;
   return <>{children}</>;

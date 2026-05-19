@@ -21,45 +21,55 @@
   justify-content: center;
   width: 52px;
   height: 52px;
-  border: 2px solid var(--border);
-  background: var(--bg-card);
-  color: var(--black);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.5);
   margin-bottom: 8px;
 }
 
-.iconError { color: var(--error); border-color: var(--error); }
+.iconError {
+  color: var(--error);
+  border-color: rgba(225,29,72,0.25);
+  background: rgba(225,29,72,0.04);
+}
 
 .code {
-  font-family: var(--font-mono);
-  font-size: 5rem;
-  font-weight: 1000;
-  letter-spacing: -.08em;
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 12vw, 8rem);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -.025em;
   line-height: 1;
-  color: var(--purple);
+  color: rgba(255,255,255,0.12);
   display: block;
 }
 
 .title {
-  font-size: clamp(1.8rem, 5vw, 3rem);
-  font-weight: 1000;
-  letter-spacing: -.06em;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -.025em;
   line-height: .9;
   margin: 0;
 }
 
 .body {
   font-size: .95rem;
-  line-height: 1.65;
-  color: var(--silver);
+  line-height: 1.7;
+  color: rgba(255,255,255,0.4);
   max-width: 380px;
+  font-weight: 300;
 
-  strong { color: var(--black); }
+  strong { color: var(--black); font-weight: 500; }
 }
 
 .sub {
-  font-size: .85rem;
-  color: var(--silver);
-  line-height: 1.5;
+  font-size: .875rem;
+  color: rgba(255,255,255,0.3);
+  line-height: 1.55;
+  font-weight: 300;
 }
 
 .actions {
@@ -74,41 +84,40 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  padding: 13px 24px;
+  padding: 12px 24px;
   font-size: .9rem;
 }
 
 .secondary {
-  @include pill-btn(var(--bg-raised), var(--black));
+  @include pill-btn(rgba(255,255,255,0.06), rgba(255,255,255,0.6));
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  padding: 13px 24px;
+  padding: 12px 24px;
   font-size: .9rem;
-  border-color: var(--border);
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
 .statusMsg {
-  font-size: .85rem;
-  color: var(--black);
-  border: 2px solid var(--border);
-  background: var(--bg-card);
+  font-size: .875rem;
+  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.03);
   padding: 11px 14px;
+  font-weight: 300;
 }
 
 .back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
-  font-size: .72rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--silver);
+  font-size: .82rem;
+  color: rgba(255,255,255,0.3);
   margin-top: 8px;
   transition: color var(--t-fast) ease;
-  &:hover { color: var(--black); }
+  font-weight: 400;
+  &:hover { color: rgba(255,255,255,0.7); }
 }
 
 .spinner {
@@ -119,7 +128,8 @@
 }
 
 .spin {
-  color: var(--purple);
+  color: var(--accent);
+  opacity: 0.6;
   animation: spin 1s linear infinite;
 }
 

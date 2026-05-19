@@ -1,6 +1,10 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { AlertTriangle } from "lucide-react";
 import { useAdminErrors, useDeleteError, useBulkDeleteErrors } from "../../api/admin";
 import styles from "./Admin.module.scss";
+
+const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
 export function AdminErrors() {
   const [page, setPage] = useState(1);
@@ -9,11 +13,11 @@ export function AdminErrors() {
   const bulk = useBulkDeleteErrors();
 
   return (
-    <>
+    <motion.div {...fade}>
       <div className={styles.pageHeader}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div className={styles.pageRow}>
           <div>
-            <h1 className={styles.title}>⚠️ Errors</h1>
+            <h1 className={styles.title}><AlertTriangle size={18} className={styles.titleIcon} /> Errors</h1>
             <p className={styles.subtitle}>Proxy error log — {data?.total ?? 0} entries</p>
           </div>
           <button className={styles.btnDanger} onClick={() => bulk.mutate(7)} style={{ padding: "8px 16px" }}>
@@ -30,17 +34,13 @@ export function AdminErrors() {
           <tbody>
             {(data?.logs ?? []).map((e) => (
               <tr key={e.id}>
-                <td style={{ color: "var(--silver)", fontSize: ".68rem", whiteSpace: "nowrap" }}>
-                  {new Date(e.createdAt).toLocaleString()}
-                </td>
+                <td className={styles.cellDate}>{new Date(e.createdAt).toLocaleString()}</td>
                 <td>
                   <span className={`${styles.badge} ${e.level === "error" ? styles.badgeError : styles.badgeWarn}`}>
                     {e.level}
                   </span>
                 </td>
-                <td style={{ fontFamily: "var(--font-mono)", fontSize: ".72rem", maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {e.message}
-                </td>
+                <td className={styles.cellMessage}>{e.message}</td>
                 <td>
                   <button className={styles.btnDanger} onClick={() => del.mutate(e.id)}>Delete</button>
                 </td>
@@ -60,6 +60,6 @@ export function AdminErrors() {
           <button className={styles.btnSecondary} onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= (data?.total ?? 0)}>Next →</button>
         </div>
       )}
-    </>
+    </motion.div>
   );
 }

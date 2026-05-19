@@ -9,40 +9,35 @@
 }
 
 .label {
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--silver);
+  font-size: .78rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: .01em;
 }
 
 .optional {
-  font-weight: 700;
+  font-weight: 400;
   color: var(--silver);
-  text-transform: none;
-  letter-spacing: 0;
 }
 
 .input {
-  border: 2px solid var(--border);
-  background: var(--bg-raised);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.04);
   padding: 13px 14px;
   color: var(--black);
   font-size: .95rem;
   width: 100%;
-  transition: border-color var(--t-fast) ease, box-shadow var(--t-fast) ease;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 
-  &::placeholder { color: var(--silver); }
-  &:focus { border-color: var(--electric); outline: none; box-shadow: 0 0 0 3px rgba(0,180,255,.1); }
-  &:disabled { opacity: .55; background: var(--bg-card); }
+  &::placeholder { color: rgba(255, 255, 255, 0.2); }
+  &:focus { border-color: rgba(255, 255, 255, 0.3); outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,.04); }
+  &:disabled { opacity: .45; }
 }
 
 .hint {
-  font-family: var(--font-mono);
-  font-size: .66rem;
+  font-size: .75rem;
   color: var(--silver);
-  letter-spacing: .02em;
 }
 
 .error {
@@ -51,9 +46,10 @@
   gap: 8px;
   font-size: .85rem;
   color: var(--error);
-  border: 2px solid rgba(225,29,72,.3);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  border-radius: var(--r-md);
   padding: 11px 14px;
-  background: rgba(225,29,72,.04);
+  background: rgba(225, 29, 72, 0.05);
   line-height: 1.4;
 
   svg { flex-shrink: 0; margin-top: 1px; }
@@ -63,6 +59,6 @@
   @include pill-btn;
   width: 100%;
   font-size: .95rem;
-  padding: 15px 22px;
+  padding: 14px 22px;
   margin-top: 4px;
 }

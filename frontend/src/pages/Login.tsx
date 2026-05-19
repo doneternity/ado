@@ -1,10 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { AuthForm } from "../components/AuthForm";
 import { GoogleButton } from "../components/GoogleButton";
 import { useLogin, useSignup } from "../api/mutations";
 import styles from "./Login.module.scss";
+
+const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://adoai.space/v1";
+
+const CODE_SNIPPET = `import OpenAI from "openai";
+
+const ado = new OpenAI({
+  apiKey:  "ado-your-key",
+  baseURL: "${PROXY_BASE}",
+});
+
+const msg = await ado.chat.completions.create({
+  model:    "[kmo]claude-opus-4.7",
+  messages: [{ role: "user", content: "Hello!" }],
+});
+
+console.log(msg.choices[0].message.content);`;
 
 export function Login() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -15,9 +30,12 @@ export function Login() {
   return (
     <div className={styles.page}>
       <div className={styles.formCol}>
-        <span className={styles.eyebrow}>ADO // v1</span>
+        <span className={styles.eyebrow}>
+          <span className={styles.eyebrowDash} />
+          ADO // v1
+        </span>
         <h1 className={styles.headline}>
-          {mode === "login" ? "welcome back" : "get your key"}
+          {mode === "login" ? "welcome\nback." : "get your\nkey."}
         </h1>
 
         <div className={styles.tabs}>
@@ -53,38 +71,20 @@ export function Login() {
         <GoogleButton />
       </div>
 
-      <div className={styles.terminalCol}>
-        <div className={styles.terminalCard}>
-          <div className={styles.terminalTop}>
-            <span className={styles.terminalDot} />
-            <span className={styles.terminalLabel}>ado terminal v1.0</span>
+      <div className={styles.visualCol}>
+        <div className={styles.codeCard}>
+          <div className={styles.codeCardTop}>
+            <div className={styles.codeCardDots}>
+              <span className={styles.dot1} />
+              <span className={styles.dot2} />
+              <span className={styles.dot3} />
+            </div>
+            <span className={styles.codeCardLang}>javascript</span>
           </div>
-          <div className={styles.kineticWord}>
-            {["A", "D", "O"].map((letter, i) => (
-              <motion.span
-                key={letter}
-                animate={{ y: [0, -14, 0] }}
-                transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut", delay: i * 0.18 }}
-              >
-                {letter}
-              </motion.span>
-            ))}
-          </div>
-          <div className={styles.bootLines}>
-            {[
-              "initializing ado runtime...",
-              "connecting to gemini api...",
-              "quota engine ready.",
-              <><span className={styles.operational}>● system operational</span><b className={styles.cursor}> _</b></>,
-            ].map((line, i) => (
-              <motion.p
-                key={i}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.4 + 0.2, duration: 0.45 }}
-              >
-                {line}
-              </motion.p>
+          <pre className={styles.codeCardBody}><code>{CODE_SNIPPET}</code></pre>
+          <div className={styles.codeCardFooter}>
+            {["Anthropic", "Google", "DeepSeek", "+ more"].map((p) => (
+              <span key={p} className={styles.providerChip}>{p}</span>
             ))}
           </div>
         </div>

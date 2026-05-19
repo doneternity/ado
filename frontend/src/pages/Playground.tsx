@@ -18,6 +18,7 @@ const MODELS: ModelDef[] = [
   { id: "[kmo]claude-opus-4.7",          label: "Claude Opus 4.7",          provider: "anthropic", tag: "Newest" },
   { id: "[kmo]claude-opus-4.7-thinking", label: "Claude Opus 4.7 Thinking", provider: "anthropic" },
   { id: "[kmo]claude-opus-4.6",          label: "Claude Opus 4.6",          provider: "anthropic" },
+  { id: "[kmo]claude-opus-4.6-thinking", label: "Claude Opus 4.6 Thinking", provider: "anthropic" },
   { id: "[kmo]claude-opus-4.5",          label: "Claude Opus 4.5",          provider: "anthropic" },
   { id: "[GG]gemini-2.5-pro",            label: "Gemini 2.5 Pro",           provider: "google",    tag: "Most capable" },
   { id: "[GG]gemini-3-flash-preview",    label: "Gemini 3 Flash",           provider: "google",    tag: "Preview" },
@@ -36,7 +37,7 @@ const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
   other:     "Other",
 };
 
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado-aii.vercel.app/v1";
+const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://adoai.space/v1";
 if (import.meta.env.PROD && !import.meta.env.VITE_PROXY_BASE_URL) {
   console.warn("VITE_PROXY_BASE_URL is not set — Playground requests will fail");
 }
@@ -310,8 +311,7 @@ export function Playground() {
       <div className={styles.messages}>
         {empty && !error && (
           <div className={styles.emptyState}>
-            <div className={styles.emptyGlyph}>_</div>
-            <p className={styles.emptyTitle}>Start a conversation</p>
+            <p className={styles.emptyTitle}>Ask anything.</p>
             <p className={styles.emptyModel}>
               <span className={`${styles.provDot} ${styles[`dot_${currentModel.provider}`]}`} />
               {currentModel.label}
@@ -356,27 +356,29 @@ export function Playground() {
 
       {/* ── Input ── */}
       <div className={styles.inputArea}>
-        <textarea
-          ref={inputRef}
-          className={styles.input}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder={keyValid ? "Message…" : "Enter your API key above first"}
-          disabled={!keyValid || streaming}
-          rows={1}
-        />
-        <div className={styles.inputFooter}>
-          <span className={styles.inputHint}>Enter to send · Shift+Enter for newline</span>
-          <button
-            className={styles.sendBtn}
-            onClick={() => void send()}
-            disabled={!canSend}
-            aria-label="Send"
-          >
-            <Send size={14} />
-            Send
-          </button>
+        <div className={styles.inputWrap}>
+          <textarea
+            ref={inputRef}
+            className={styles.input}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder={keyValid ? "Message…" : "Enter your API key above first"}
+            disabled={!keyValid || streaming}
+            rows={1}
+          />
+          <div className={styles.inputFooter}>
+            <span className={styles.inputHint}>Enter to send · Shift+Enter for newline</span>
+            <button
+              className={styles.sendBtn}
+              onClick={() => void send()}
+              disabled={!canSend}
+              aria-label="Send"
+            >
+              <Send size={14} />
+              Send
+            </button>
+          </div>
         </div>
       </div>
 

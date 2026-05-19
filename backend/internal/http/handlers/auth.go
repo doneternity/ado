@@ -54,6 +54,10 @@ func (a *Auth) Signup(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "password must be 8-128 chars"))
 		return
 	}
+	if len(req.DisplayName) > 100 {
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "display name must be 100 chars or fewer"))
+		return
+	}
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {

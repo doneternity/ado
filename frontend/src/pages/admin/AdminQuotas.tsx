@@ -1,6 +1,10 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { SlidersHorizontal } from "lucide-react";
 import { useAdminQuotas, useSetGlobalQuota, useSetUserQuota, useRemoveUserQuota } from "../../api/admin";
 import styles from "./Admin.module.scss";
+
+const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
 export function AdminQuotas() {
   const { data: quotas } = useAdminQuotas();
@@ -12,37 +16,42 @@ export function AdminQuotas() {
   const [overrideLimit, setOverrideLimit] = useState("");
 
   return (
-    <>
+    <motion.div {...fade}>
       <div className={styles.pageHeader}>
-        <h1 className={styles.title}>🎛 Quotas</h1>
+        <h1 className={styles.title}><SlidersHorizontal size={18} className={styles.titleIcon} /> Quotas</h1>
         <p className={styles.subtitle}>Global daily request limit and per-user overrides</p>
       </div>
 
       <div className={styles.statCard} style={{ maxWidth: 360, marginBottom: 24 }}>
         <div className={styles.statLabel}>Global Daily Limit</div>
         <div className={styles.statValue} style={{ fontSize: "2rem" }}>{quotas?.globalLimit ?? "—"}</div>
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <input className={styles.input} type="number" min={1} placeholder="New limit"
-            value={globalInput} onChange={(e) => setGlobalInput(e.target.value)}
-            style={{ width: 120 }} />
-          <button className={styles.btnPrimary}
+        <div className={styles.inputRow}>
+          <input
+            className={`${styles.input} ${styles.inputSm}`}
+            type="number"
+            min={1}
+            placeholder="New limit"
+            value={globalInput}
+            onChange={(e) => setGlobalInput(e.target.value)}
+          />
+          <button
+            className={styles.btnPrimary}
             onClick={() => { setGlobal.mutate(Number(globalInput)); setGlobalInput(""); }}
-            disabled={!globalInput}>
+            disabled={!globalInput}
+          >
             Save
           </button>
         </div>
       </div>
 
-      <div style={{ color: "var(--silver)", fontSize: ".7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>
-        Per-User Overrides
-      </div>
+      <div className={styles.sectionLabel} style={{ marginBottom: 12 }}>Per-User Overrides</div>
       <div className={styles.tableWrap} style={{ marginBottom: 16 }}>
         <table className={styles.table}>
           <thead><tr><th>Email</th><th>Limit</th><th>Actions</th></tr></thead>
           <tbody>
             {(quotas?.overrides ?? []).map((o) => (
               <tr key={o.userId}>
-                <td style={{ fontFamily: "var(--font-mono)", fontSize: ".75rem" }}>{o.email}</td>
+                <td className={styles.cellMono}>{o.email}</td>
                 <td style={{ fontWeight: 700 }}>{o.limit}</td>
                 <td><button className={styles.btnDanger} onClick={() => removeUser.mutate(o.userId)}>Remove</button></td>
               </tr>
@@ -68,12 +77,14 @@ export function AdminQuotas() {
               value={overrideLimit} onChange={(e) => setOverrideLimit(e.target.value)} />
           </div>
         </div>
-        <button className={styles.btnPrimary}
+        <button
+          className={styles.btnPrimary}
           onClick={() => { setUser.mutate({ id: overrideId, limit: Number(overrideLimit) }); setOverrideId(""); setOverrideLimit(""); }}
-          disabled={!overrideId || !overrideLimit}>
+          disabled={!overrideId || !overrideLimit}
+        >
           Save override
         </button>
       </div>
-    </>
+    </motion.div>
   );
 }

@@ -1,39 +1,52 @@
 @mixin card-light {
   background: var(--bg-card);
-  border: 3px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   padding: 24px;
   box-shadow: var(--shadow-hard);
 }
 
 @mixin card-dark {
   background: var(--bg-raised);
-  border: 3px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   padding: 24px;
-  box-shadow: 10px 10px 0 rgba(0,0,0,.22);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   color: var(--black);
 }
 
-@mixin pill-btn($bg: var(--electric), $color: #050d1a) {
-  border: 2px solid var(--border);
+@mixin pill-btn($bg: #ffffff, $color: #050508) {
   background: $bg;
   color: $color;
+  border: none;
   border-radius: var(--r-pill);
-  padding: 12px 22px;
-  font-weight: 900;
+  padding: 10px 22px;
+  font-weight: 600;
+  font-size: .88rem;
   font-family: inherit;
   cursor: pointer;
-  transition: transform var(--t-base) ease, box-shadow var(--t-base) ease;
-  &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 5px 5px 0 var(--purple); }
-  &:disabled { opacity: .55; cursor: not-allowed; }
+  transition: opacity var(--t-fast) ease;
+  &:hover:not(:disabled) { opacity: 0.85; }
+  &:disabled { opacity: .45; cursor: not-allowed; }
 }
 
 @mixin eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: .8rem;
+  font-weight: 400;
   font-family: var(--font-mono);
-  font-size: .78rem;
-  font-weight: 900;
-  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
   letter-spacing: .04em;
-  color: var(--purple);
+
+  .dash {
+    display: block;
+    width: 48px;
+    height: 1px;
+    background: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+  }
 }
 
 @mixin breakpoint-md { @media (min-width: 768px)  { @content; } }

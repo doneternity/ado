@@ -1,5 +1,8 @@
+import React from "react";
 import { motion } from "framer-motion";
 import styles from "./Legal.module.scss";
+
+const DISCORD = "https://discord.gg/PNgXaS3Hu";
 
 const fade = {
   initial: { opacity: 0, y: 14 },
@@ -7,7 +10,7 @@ const fade = {
   transition: { duration: 0.28, ease: "easeOut" as const },
 };
 
-const SECTIONS = [
+const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
     title: "Acceptance of Terms",
     body: "By accessing or using ADO (\"the Service\"), you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree to these terms, do not access or use the Service.",
@@ -66,7 +69,7 @@ const SECTIONS = [
   },
   {
     title: "Contact",
-    body: "If you have questions about these terms, contact us at hello@ado.fly.dev.",
+    body: <>If you have questions about these terms, reach us on our <a href={DISCORD} target="_blank" rel="noopener noreferrer">Discord server</a>.</>,
   },
 ];
 
@@ -74,7 +77,7 @@ export function Terms() {
   return (
     <motion.div className={styles.page} {...fade}>
       <div className={styles.content}>
-        <span className={styles.eyebrow}>Legal</span>
+        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Legal</span>
         <h1 className={styles.headline}>Terms of Service</h1>
         <p className={styles.meta}>Last updated: May 18, 2026</p>
 

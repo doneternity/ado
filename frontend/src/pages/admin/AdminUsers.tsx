@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { useAdminUsers, useSetUserRole, useSetUserBanned } from "../../api/admin";
 import styles from "./Admin.module.scss";
+
+const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
 export function AdminUsers() {
   const { data: users = [] } = useAdminUsers();
@@ -13,18 +16,17 @@ export function AdminUsers() {
   );
 
   return (
-    <>
+    <motion.div {...fade}>
       <div className={styles.pageHeader}>
         <h1 className={styles.title}>Users</h1>
         <p className={styles.subtitle}>View accounts, promote to admin ({users.length} total)</p>
       </div>
 
       <input
-        className={styles.input}
+        className={`${styles.input} ${styles.searchInput}`}
         placeholder="Search by email…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        style={{ marginBottom: 16, width: "100%", maxWidth: 360 }}
       />
 
       <div className={styles.tableWrap}>
@@ -41,43 +43,45 @@ export function AdminUsers() {
           </thead>
           <tbody>
             {filtered.map((u) => (
-              <tr key={u.id} style={{ opacity: u.banned ? 0.55 : 1 }}>
-                <td style={{ fontFamily: "var(--font-mono)", fontSize: ".75rem" }}>{u.email}</td>
+              <tr key={u.id} className={u.banned ? styles.rowBanned : undefined}>
+                <td className={styles.cellMono}>{u.email}</td>
                 <td>
                   {u.role === "admin"
                     ? <span className={`${styles.badge} ${styles.badgeAdmin}`}>admin</span>
-                    : <span className={styles.badge} style={{ background: "rgba(255,255,255,.05)", color: "var(--silver)", border: "1px solid var(--border-sub)" }}>user</span>
+                    : <span className={`${styles.badge} ${styles.badgeUser}`}>user</span>
                   }
                 </td>
                 <td>
                   {u.banned
-                    ? <span className={styles.badge} style={{ background: "rgba(225,29,72,.15)", color: "#e11d48", border: "1px solid rgba(225,29,72,.3)" }}>banned</span>
-                    : <span className={styles.badge} style={{ background: "rgba(5,196,139,.1)", color: "var(--green)", border: "1px solid rgba(5,196,139,.25)" }}>active</span>
+                    ? <span className={`${styles.badge} ${styles.badgeError}`}>banned</span>
+                    : <span className={`${styles.badge} ${styles.badgeGreen}`}>active</span>
                   }
                 </td>
                 <td>{u.requestsToday}</td>
-                <td style={{ color: "var(--silver)", fontSize: ".72rem" }}>
+                <td className={styles.cellSubtle}>
                   {new Date(u.createdAt).toLocaleDateString()}
                 </td>
-                <td style={{ display: "flex", gap: 6 }}>
-                  {u.role === "admin"
-                    ? <button className={styles.btnSecondary} style={{ fontSize: ".68rem", padding: "3px 10px" }}
-                        onClick={() => setRole.mutate({ id: u.id, role: "user" })}>Demote</button>
-                    : <button className={styles.btnSecondary} style={{ fontSize: ".68rem", padding: "3px 10px" }}
-                        onClick={() => setRole.mutate({ id: u.id, role: "admin" })}>Promote</button>
-                  }
-                  {u.banned
-                    ? <button className={styles.btnSecondary} style={{ fontSize: ".68rem", padding: "3px 10px" }}
-                        onClick={() => setBanned.mutate({ id: u.id, banned: false })}>Unban</button>
-                    : <button className={styles.btnSecondary} style={{ fontSize: ".68rem", padding: "3px 10px", color: "#e11d48", borderColor: "rgba(225,29,72,.4)" }}
-                        onClick={() => setBanned.mutate({ id: u.id, banned: true })}>Ban</button>
-                  }
+                <td>
+                  <div className={styles.btnRow}>
+                    {u.role === "admin"
+                      ? <button className={`${styles.btnSecondary} ${styles.btnXs}`}
+                          onClick={() => setRole.mutate({ id: u.id, role: "user" })}>Demote</button>
+                      : <button className={`${styles.btnSecondary} ${styles.btnXs}`}
+                          onClick={() => setRole.mutate({ id: u.id, role: "admin" })}>Promote</button>
+                    }
+                    {u.banned
+                      ? <button className={`${styles.btnSecondary} ${styles.btnXs}`}
+                          onClick={() => setBanned.mutate({ id: u.id, banned: false })}>Unban</button>
+                      : <button className={`${styles.btnDanger} ${styles.btnXs}`}
+                          onClick={() => setBanned.mutate({ id: u.id, banned: true })}>Ban</button>
+                    }
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </>
+    </motion.div>
   );
 }

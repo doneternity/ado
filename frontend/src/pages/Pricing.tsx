@@ -46,7 +46,7 @@ export function Pricing() {
 
       {/* Hero */}
       <div className={styles.hero}>
-        <span className={styles.eyebrow}>Pricing</span>
+        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Pricing</span>
         <h1 className={styles.headline}>simple<br />and honest.</h1>
         <p className={styles.lead}>
           No credit card. No waitlist. No tricks. Sign up and your key is ready in under 30 seconds.

@@ -7,11 +7,19 @@ on:
 
 jobs:
   deploy-backend:
-    if: github.event.workflow_run.conclusion == 'success' && secrets.BACKEND_DEPLOY_HOOK_URL != ''
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger backend deploy
-        run: curl -fsS -X POST "${{ secrets.BACKEND_DEPLOY_HOOK_URL }}"
+        # Only fires if the secret is set; curl fails silently if empty.
+        run: |
+          if [ -n "$HOOK" ]; then
+            curl -fsS -X POST "$HOOK"
+          else
+            echo "BACKEND_DEPLOY_HOOK_URL not set — skipping"
+          fi
+        env:
+          HOOK: ${{ secrets.BACKEND_DEPLOY_HOOK_URL }}
 
   deploy-proxy:
     if: github.event.workflow_run.conclusion == 'success'
@@ -22,9 +30,10 @@ jobs:
         with:
           version: latest
       - name: Deploy Edge Function
-        run: supabase functions deploy proxy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --no-verify-jwt
+        run: supabase functions deploy proxy --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
 
   deploy-frontend:
     if: github.event.workflow_run.conclusion == 'success'
@@ -35,12 +44,12 @@ jobs:
         with: { node-version: '20' }
       - run: npm install -g vercel
       - name: Deploy to Vercel
-        working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          cd frontend && npm ci && cd ..
           vercel build --prod --token=$VERCEL_TOKEN
           vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN

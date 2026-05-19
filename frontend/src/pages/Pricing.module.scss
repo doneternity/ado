@@ -6,84 +6,112 @@
   padding: 80px 5vw 120px;
 }
 
-/* hero */
-.hero { max-width: 680px; margin-bottom: 56px; }
+/* ── hero ── */
+.hero { max-width: 680px; margin-bottom: 64px; }
 
-.eyebrow { @include eyebrow; margin-bottom: 18px; display: block; }
-
-.headline {
-  font-size: clamp(3.6rem, 9vw, 8rem);
-  font-weight: 1000;
-  letter-spacing: -.08em;
-  line-height: .85;
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: .8rem;
+  font-weight: 400;
+  font-family: var(--font-mono);
+  color: rgba(255,255,255,0.4);
+  letter-spacing: .04em;
   margin-bottom: 24px;
 }
 
-.lead {
-  font-size: 1.1rem;
-  line-height: 1.6;
-  color: var(--silver);
-  max-width: 560px;
+.eyebrowDash {
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: rgba(255,255,255,0.2);
+  flex-shrink: 0;
 }
 
-/* stats row */
+.headline {
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 8vw, 7.5rem);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -.025em;
+  line-height: .9;
+  margin-bottom: 28px;
+}
+
+.lead {
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.4);
+  max-width: 520px;
+  font-weight: 300;
+}
+
+/* ── stats row ── */
 .statsRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  border: 3px solid var(--border);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-hard);
-  margin-bottom: 56px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.02);
+  border-radius: var(--r-lg);
+  margin-bottom: 64px;
+  overflow: hidden;
 
   @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
 }
 
 .stat {
-  padding: 20px 16px;
-  border-right: 2px solid var(--border);
+  padding: 24px 20px;
+  border-right: 1px solid rgba(255,255,255,0.06);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
 
   &:last-child { border-right: none; }
+
+  @media (max-width: 640px) {
+    &:nth-child(2) { border-right: none; }
+    &:nth-child(1), &:nth-child(2) { border-bottom: 1px solid rgba(255,255,255,0.06); }
+  }
 }
 
-.statIcon { color: var(--purple); }
+.statIcon { color: var(--accent); opacity: 0.6; }
 
 .statValue {
-  font-size: 1.5rem;
-  font-weight: 1000;
-  letter-spacing: -.05em;
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: -.03em;
   line-height: 1;
+  color: #ffffff;
 }
 
 .statLabel {
   font-family: var(--font-mono);
-  font-size: .66rem;
-  font-weight: 700;
+  font-size: .65rem;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--silver);
+  letter-spacing: .06em;
+  color: rgba(255,255,255,0.3);
 }
 
-/* cards */
+/* ── tier cards ── */
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-  max-width: 780px;
+  gap: 16px;
+  max-width: 760px;
   margin-bottom: 80px;
 }
 
 .cardFree {
-  @include card-light;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(236,168,214,0.18);
+  border-radius: var(--r-lg);
+  padding: 28px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  border-color: var(--purple);
-  border-width: 3px;
-  box-shadow: var(--shadow-hard);
   position: relative;
   overflow: hidden;
 
@@ -93,18 +121,21 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: var(--purple);
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.6;
   }
 }
 
 .cardPro {
-  @include card-light;
+  background: rgba(255,255,255,0.015);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--r-lg);
+  padding: 28px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  opacity: .55;
-  border-width: 3px;
+  opacity: .4;
 }
 
 .cardTop {
@@ -116,66 +147,71 @@
 .tierLabel {
   display: block;
   font-family: var(--font-mono);
-  font-size: .72rem;
-  font-weight: 900;
+  font-size: .68rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: .06em;
-  color: var(--purple);
-  margin-bottom: 8px;
+  letter-spacing: .08em;
+  color: var(--accent);
+  margin-bottom: 12px;
 }
 
 .tierLabelPro {
   display: block;
   font-family: var(--font-mono);
-  font-size: .72rem;
-  font-weight: 900;
+  font-size: .68rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: .06em;
-  color: var(--silver);
-  margin-bottom: 8px;
+  letter-spacing: .08em;
+  color: rgba(255,255,255,0.25);
+  margin-bottom: 12px;
 }
 
 .priceRow {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 6px;
 }
 
 .priceAmount {
-  font-size: 3.4rem;
-  font-weight: 1000;
-  letter-spacing: -.08em;
+  font-family: var(--font-display);
+  font-size: 4rem;
+  font-weight: 400;
+  letter-spacing: -.02em;
   line-height: 1;
+  color: #ffffff;
 }
 
 .pricePeriod {
   font-family: var(--font-mono);
-  font-size: .75rem;
-  color: var(--silver);
+  font-size: .72rem;
+  color: rgba(255,255,255,0.28);
+  font-weight: 400;
 }
 
 .badge {
-  background: var(--purple);
-  color: var(--black);
+  background: rgba(236,168,214,0.1);
+  color: var(--accent);
   font-family: var(--font-mono);
-  font-size: .66rem;
-  font-weight: 900;
+  font-size: .63rem;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .06em;
   padding: 4px 10px;
-  border: 2px solid var(--purple);
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(236,168,214,0.2);
 }
 
 .badgeSoon {
-  background: var(--bg-raised);
-  color: var(--silver);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.22);
   font-family: var(--font-mono);
-  font-size: .66rem;
-  font-weight: 900;
+  font-size: .63rem;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .06em;
   padding: 4px 10px;
-  border: 2px solid var(--border);
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.07);
 }
 
 .features {
@@ -190,11 +226,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: .9rem;
-  color: var(--silver);
+  font-size: .875rem;
+  color: rgba(255,255,255,0.45);
+  font-weight: 300;
 }
 
-.checkIcon { color: var(--green); flex-shrink: 0; }
+.checkIcon { color: var(--accent); flex-shrink: 0; opacity: 0.75; }
 
 .ctaFree {
   @include pill-btn;
@@ -202,99 +239,102 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 24px;
-  font-size: .95rem;
+  padding: 12px 24px;
+  font-size: .9rem;
   margin-top: auto;
 }
 
 .proTeaser {
-  font-size: .9rem;
-  color: var(--silver);
-  line-height: 1.55;
+  font-size: .875rem;
+  color: rgba(255,255,255,0.28);
+  line-height: 1.6;
   flex: 1;
+  font-weight: 300;
 }
 
 .ctaWaitlist {
-  @include pill-btn(var(--bg-raised), var(--silver));
-  border-color: var(--border);
+  @include pill-btn(rgba(255,255,255,0.04), rgba(255,255,255,0.25));
+  border: 1px solid rgba(255,255,255,0.07);
   cursor: not-allowed;
-  padding: 14px 24px;
-  font-size: .95rem;
+  padding: 12px 24px;
+  font-size: .9rem;
 }
 
-/* FAQ */
-.faqSection { max-width: 720px; margin-bottom: 80px; }
+/* ── FAQ ── */
+.faqSection { max-width: 680px; margin-bottom: 80px; }
 
 .faqHeading {
-  font-size: 2rem;
-  font-weight: 1000;
-  letter-spacing: -.05em;
-  margin-bottom: 36px;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3.5vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -.025em;
+  line-height: 1;
+  margin-bottom: 40px;
 }
 
 .faqList { display: flex; flex-direction: column; }
 
 .faqItem {
-  border-top: 2px solid var(--border-sub);
+  border-top: 1px solid rgba(255,255,255,0.06);
   padding: 24px 0;
 
-  &:last-child { border-bottom: 2px solid var(--border-sub); }
+  &:last-child { border-bottom: 1px solid rgba(255,255,255,0.06); }
 }
 
 .faqQ {
-  font-weight: 900;
-  font-size: 1rem;
-  letter-spacing: -.02em;
+  font-weight: 500;
+  font-size: .95rem;
+  letter-spacing: -.01em;
   margin-bottom: 10px;
   display: block;
+  color: #ffffff;
 }
 
 .faqA {
-  font-size: .9rem;
-  line-height: 1.65;
-  color: var(--silver);
+  font-size: .875rem;
+  line-height: 1.75;
+  color: rgba(255,255,255,0.38);
   display: block;
+  font-weight: 300;
 }
 
-/* bottom CTA */
+/* ── bottom CTA ── */
 .bottomCta {
-  background: var(--bg-card);
-  color: var(--black);
-  padding: 72px 48px;
+  padding: 64px 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 20px;
-  border: 3px solid var(--border);
-  box-shadow: var(--shadow-hard);
+  gap: 24px;
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
 
 .ctaHeadline {
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 1000;
-  letter-spacing: -.07em;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-weight: 400;
+  letter-spacing: -.025em;
   line-height: .9;
   margin: 0;
+  color: #ffffff;
 }
 
 .ctaBtn {
-  @include pill-btn(var(--green), #050505);
+  @include pill-btn;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  padding: 14px 28px;
-  font-size: .95rem;
-  border-color: var(--green);
+  padding: 12px 28px;
+  font-size: .9rem;
 }
 
 .ctaSecondary {
   font-family: var(--font-mono);
-  font-size: .78rem;
-  font-weight: 900;
+  font-size: .75rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--silver);
+  letter-spacing: .06em;
+  color: rgba(255,255,255,0.28);
   text-decoration: none;
   transition: color var(--t-fast) ease;
-  &:hover { color: var(--green); }
+  &:hover { color: var(--accent); }
 }

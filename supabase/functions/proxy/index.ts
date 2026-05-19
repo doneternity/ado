@@ -139,11 +139,17 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  const contentType = upResp.headers.get("Content-Type") ?? "application/json";
+  const isStream = contentType.includes("text/event-stream");
   return new Response(upResp.body, {
     status: upResp.status,
     headers: {
       ...corsHeaders,
-      "Content-Type": upResp.headers.get("Content-Type") ?? "application/json",
+      "Content-Type": contentType,
+      ...(isStream && {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+      }),
     },
   });
 });

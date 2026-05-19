@@ -12,7 +12,7 @@ import { useRotateKey } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import styles from "./Dashboard.module.scss";
 
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://ado-aii.vercel.app/v1";
+const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://adoai.space/v1";
 
 const FEATURED_MODELS = [
   { id: "[kmo]claude-opus-4.7",         name: "Claude Opus 4.7",  cap: "Reasoning" },
@@ -56,7 +56,7 @@ function StatCards() {
     <motion.div className={styles.statsRow} variants={fade}>
       {/* Daily Usage */}
       <div className={styles.statCell}>
-        <span className={styles.statCellLabel}>DAILY_USAGE</span>
+        <span className={styles.statCellLabel}>Daily usage</span>
         <div className={styles.statCellMain}>
           <span className={nearLimit ? styles.statNumWarn : styles.statNum}>{data.used}</span>
           <span className={styles.statDenom}> / {data.dailyLimit}</span>
@@ -72,7 +72,7 @@ function StatCards() {
 
       {/* Quota reset */}
       <div className={styles.statCell}>
-        <span className={styles.statCellLabel}>QUOTA_RESET</span>
+        <span className={styles.statCellLabel}>Quota reset</span>
         <div className={styles.statCellMain}>
           <span className={styles.statMono}>{countdown}</span>
         </div>
@@ -81,7 +81,7 @@ function StatCards() {
 
       {/* API status */}
       <div className={styles.statCell}>
-        <span className={styles.statCellLabel}>API_STATUS</span>
+        <span className={styles.statCellLabel}>API status</span>
         <div className={`${styles.statCellMain} ${styles.statStatusRow}`}>
           <span className={styles.statusDot} />
           <span className={styles.statNum}>LIVE</span>
@@ -218,9 +218,6 @@ export function Dashboard() {
   const { data: me } = useMe();
   useEffect(() => { void fetchFlashKeyOnce(qc); }, [qc]);
 
-  const firstName = me?.user.displayName?.split(" ")[0]?.toLowerCase();
-  const greeting = firstName ? `API Management` : "API Management";
-
   return (
     <div className={styles.page}>
       <motion.div className={styles.inner} variants={stagger} initial="hidden" animate="show">
@@ -232,7 +229,7 @@ export function Dashboard() {
               <Zap size={11} className={styles.devConsoleIcon} />
               Developer Console
             </div>
-            <h1 className={styles.pageTitle}>{greeting}</h1>
+            <h1 className={styles.pageTitle}>API Management</h1>
             <p className={styles.pageSubtitle}>
               Manage access keys for {me?.user.email ?? "your account"}.
             </p>
@@ -243,8 +240,8 @@ export function Dashboard() {
                 <Activity size={16} className={styles.healthActivity} />
               </div>
               <div>
-                <div className={styles.healthLabel}>NETWORK_HEALTH</div>
-                <div className={styles.healthStatus}>ALL_SYSTEMS_LIVE</div>
+                <div className={styles.healthLabel}>Network health</div>
+                <div className={styles.healthStatus}>All systems live</div>
               </div>
             </div>
           </div>

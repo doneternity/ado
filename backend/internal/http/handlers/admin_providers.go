@@ -104,6 +104,10 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", "bad JSON"))
 		return
 	}
+	if req.Name == "" || req.BaseURL == "" {
+		apperr.Write(w, apperr.BadRequest("INVALID", "name and baseUrl are required"))
+		return
+	}
 	p, err := h.d.Q.UpdateProviderMeta(r.Context(), db.UpdateProviderMetaParams{
 		ID: id, Name: req.Name, BaseUrl: req.BaseURL,
 	})

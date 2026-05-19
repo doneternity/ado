@@ -1,5 +1,11 @@
+import React from "react";
 import { motion } from "framer-motion";
 import styles from "./Legal.module.scss";
+
+const DISCORD = "https://discord.gg/PNgXaS3Hu";
+const DiscordLink = () => (
+  <a href={DISCORD} target="_blank" rel="noopener noreferrer">Discord server</a>
+);
 
 const fade = {
   initial: { opacity: 0, y: 14 },
@@ -7,7 +13,7 @@ const fade = {
   transition: { duration: 0.28, ease: "easeOut" as const },
 };
 
-const SECTIONS = [
+const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
     title: "Information We Collect",
     body: "We collect account details such as your email address and (for Google sign-in) your name and profile photo when you sign up. We collect usage metadata including per-day request counts and model selections. Technical data collected includes browser type, IP address, and a session cookie. We do not collect the content of your AI requests or responses.",
@@ -26,11 +32,11 @@ const SECTIONS = [
   },
   {
     title: "Data Retention",
-    body: "Information is retained for as long as necessary to operate the service. Account data is deleted upon account termination. Daily usage counters reset at UTC midnight and are not retained long-term. Error logs are retained for 30 days for debugging purposes. You may request deletion of your personal data at any time by contacting us.",
+    body: <>Information is retained for as long as necessary to operate the service. Account data is deleted upon account termination. Daily usage counters reset at UTC midnight and are not retained long-term. Error logs are retained for 30 days for debugging purposes. You may request deletion of your personal data at any time via our <DiscordLink />.</>,
   },
   {
     title: "Your Choices",
-    body: "You can rotate your API key, view your usage, and delete your account from the dashboard at any time. For questions or requests about data (access, correction, deletion), contact us at hello@ado.fly.dev.",
+    body: <>You can rotate your API key, view your usage, and delete your account from the dashboard at any time. For questions or requests about data (access, correction, deletion), reach us on our <DiscordLink />.</>,
   },
   {
     title: "Cookies",
@@ -38,7 +44,7 @@ const SECTIONS = [
   },
   {
     title: "Children's Privacy",
-    body: "Our service is not intended for children under 16. We do not knowingly collect data from children. If you believe a child has provided personal data, contact us immediately to remove it.",
+    body: <>Our service is not intended for children under 16. We do not knowingly collect data from children. If you believe a child has provided personal data, reach us immediately via our <DiscordLink /> to remove it.</>,
   },
   {
     title: "International Data Transfer",
@@ -54,7 +60,7 @@ export function Privacy() {
   return (
     <motion.div className={styles.page} {...fade}>
       <div className={styles.content}>
-        <span className={styles.eyebrow}>Legal</span>
+        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Legal</span>
         <h1 className={styles.headline}>Privacy Policy</h1>
         <p className={styles.meta}>Last updated: May 18, 2026</p>
 

@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Zap, Plug, Users, BarChart2, SlidersHorizontal, AlertTriangle, Wrench } from "lucide-react";
 import styles from "./AdminLayout.module.scss";
 
 const TABS = [
-  { label: "Overview",    path: "/admin",             icon: "⚡" },
-  { label: "Providers",   path: "/admin/providers",   icon: "🔌" },
-  { label: "Users",       path: "/admin/users",       icon: "👥" },
-  { label: "Usage",       path: "/admin/usage",       icon: "📊" },
-  { label: "Quotas",      path: "/admin/quotas",      icon: "🎛" },
-  { label: "Errors",      path: "/admin/errors",      icon: "⚠️" },
-  { label: "Maintenance", path: "/admin/maintenance", icon: "🔧" },
+  { label: "Overview",    path: "/admin",             Icon: Zap },
+  { label: "Providers",   path: "/admin/providers",   Icon: Plug },
+  { label: "Users",       path: "/admin/users",       Icon: Users },
+  { label: "Usage",       path: "/admin/usage",       Icon: BarChart2 },
+  { label: "Quotas",      path: "/admin/quotas",      Icon: SlidersHorizontal },
+  { label: "Errors",      path: "/admin/errors",      Icon: AlertTriangle },
+  { label: "Maintenance", path: "/admin/maintenance", Icon: Wrench },
 ] as const;
 
 export function AdminLayout({ children }: { children: ReactNode }) {
@@ -30,7 +31,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 to={tab.path}
                 className={`${styles.tab}${active ? ` ${styles.tabActive}` : ""}`}
               >
-                <span>{tab.icon}</span>
+                <tab.Icon size={13} />
                 {tab.label}
               </Link>
             );

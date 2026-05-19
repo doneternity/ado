@@ -30,7 +30,8 @@ $$;
 -- +goose StatementBegin
 
 -- Restore pgcrypto-based version.
-CREATE OR REPLACE FUNCTION lookup_key(p_raw_key TEXT)
+DROP FUNCTION IF EXISTS lookup_key(TEXT);
+CREATE FUNCTION lookup_key(p_raw_key TEXT)
 RETURNS TABLE(key_id UUID, user_id UUID, daily_limit INT4, banned BOOLEAN)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public

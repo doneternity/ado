@@ -24,6 +24,11 @@ export type AuthResponse = {
   keyJustIssued?: KeyJustIssued;
 };
 
+export type SignupResponse = {
+  user: User;
+  verificationRequired: true;
+};
+
 export type CurrentKeyResponse = {
   keyPrefix: string;
   dailyLimit: number;

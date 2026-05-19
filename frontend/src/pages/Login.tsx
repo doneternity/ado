@@ -62,7 +62,7 @@ export function Login() {
               navigate("/dashboard");
             } else {
               await signup.mutateAsync(vars);
-              navigate("/dashboard");
+              navigate("/verify-pending", { state: { email: vars.email } });
             }
           }}
         />

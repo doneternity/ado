@@ -26,6 +26,9 @@ WHERE id = sqlc.arg(id);
 -- name: DeleteUser :exec
 DELETE FROM users WHERE id = $1;
 
+-- name: HasAdmin :one
+SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin') AS has_admin;
+
 -- name: CreateEmailVerificationToken :exec
 INSERT INTO email_verification_tokens (token_hash, user_id, expires_at)
 VALUES ($1, $2, $3);

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AuthResponse, KeyJustIssued } from "../types/api";
+import type { AuthResponse, KeyJustIssued, SignupResponse } from "../types/api";
 import { apiFetch, setCsrfToken } from "./client";
 import { meKey, rawKeyKey, currentKeyKey } from "./queries";
 
@@ -13,14 +13,12 @@ function adoptAuthResponse(qc: ReturnType<typeof useQueryClient>, r: AuthRespons
 }
 
 export function useSignup() {
-  const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { email: string; password: string; displayName?: string }) =>
-      apiFetch<AuthResponse>("/api/auth/signup", {
+      apiFetch<SignupResponse>("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify(vars),
       }),
-    onSuccess: (r) => adoptAuthResponse(qc, r),
   });
 }
 

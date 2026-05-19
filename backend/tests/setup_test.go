@@ -1,9 +1,12 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -211,6 +214,40 @@ func mustToken(s string) string {
 		return ""
 	}
 	return s[i+len("token="):]
+}
+
+// signupAndVerify completes the full signup → email verification flow and
+// returns the verify-response body. The caller's cookie jar holds the session.
+func signupAndVerify(t *testing.T, fx *fixture, c *http.Client, email, pass string) map[string]any {
+	t.Helper()
+	body, _ := json.Marshal(map[string]string{"email": email, "password": pass})
+	r, err := c.Post(fx.server.URL+"/api/auth/signup", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("signup: %v", err)
+	}
+	if r.StatusCode != 201 {
+		b, _ := io.ReadAll(r.Body)
+		t.Fatalf("signup status=%d body=%s", r.StatusCode, b)
+	}
+	r.Body.Close()
+
+	tok := mustToken(fx.mailer.Last)
+	if tok == "" {
+		t.Fatalf("no verification token captured (mailer.Last=%q)", fx.mailer.Last)
+	}
+	vbody, _ := json.Marshal(map[string]string{"token": tok})
+	r, err = c.Post(fx.server.URL+"/api/auth/verify", "application/json", bytes.NewReader(vbody))
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if r.StatusCode != 200 {
+		b, _ := io.ReadAll(r.Body)
+		t.Fatalf("verify status=%d body=%s", r.StatusCode, b)
+	}
+	var out map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&out)
+	r.Body.Close()
+	return out
 }
 
 func lastIndex(s, sub string) int {

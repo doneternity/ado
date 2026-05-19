@@ -68,8 +68,16 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		switch {
+		case eerr == nil && existing.GoogleSub != nil && *existing.GoogleSub != ident.Sub:
+			// Email is already linked to a *different* Google account. Refuse
+			// rather than silently overwrite that linkage.
+			apperr.Write(w, apperr.Conflict("EMAIL_LINKED_ELSEWHERE",
+				"this email is already linked to another Google account"))
+			return
 		case eerr == nil && existing.EmailVerified:
-			// silently link google sub to the verified account
+			// Safe to silently link: EmailVerified can only be true via the
+			// verification email flow or a prior Google sign-in, both of which
+			// prove the email is genuinely owned by this row.
 			if err := g.d.Q.LinkGoogleSub(r.Context(), db.LinkGoogleSubParams{
 				ID:          existing.ID,
 				GoogleSub:   ptr(ident.Sub),
@@ -92,7 +100,9 @@ func (g *Google) Callback(w http.ResponseWriter, r *http.Request) {
 			role := "user"
 			if g.d.Cfg.AdminBootstrapEmail != "" &&
 				strings.ToLower(ident.Email) == strings.ToLower(g.d.Cfg.AdminBootstrapEmail) {
-				role = "admin"
+				if has, herr := g.d.Q.HasAdmin(r.Context()); herr == nil && !has {
+					role = "admin"
+				}
 			}
 			created, cerr := g.d.Q.CreateUser(r.Context(), db.CreateUserParams{
 				Email:         strings.ToLower(ident.Email),

@@ -99,6 +99,17 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const hasAdmin = `-- name: HasAdmin :one
+SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin') AS has_admin
+`
+
+func (q *Queries) HasAdmin(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, hasAdmin)
+	var has bool
+	err := row.Scan(&has)
+	return has, err
+}
+
 const getEmailVerificationToken = `-- name: GetEmailVerificationToken :one
 SELECT token_hash, user_id, expires_at, consumed_at FROM email_verification_tokens WHERE token_hash = $1
 `

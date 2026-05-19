@@ -59,6 +59,19 @@ func (a *Auth) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If a stale unverified row exists for this email, clear it so the real owner
+	// can re-claim the email. A verified row blocks signup with EMAIL_TAKEN.
+	if existing, eerr := a.d.Q.GetUserByEmail(r.Context(), req.Email); eerr == nil {
+		if existing.EmailVerified {
+			apperr.Write(w, apperr.Conflict("EMAIL_TAKEN", "email already in use"))
+			return
+		}
+		if err := a.d.Q.DeleteUser(r.Context(), existing.ID); err != nil {
+			apperr.Write(w, apperr.Internal("INTERNAL", "could not create user"))
+			return
+		}
+	}
+
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "hash failed"))
@@ -67,12 +80,14 @@ func (a *Auth) Signup(w http.ResponseWriter, r *http.Request) {
 
 	role := "user"
 	if a.d.Cfg.AdminBootstrapEmail != "" && req.Email == strings.ToLower(a.d.Cfg.AdminBootstrapEmail) {
-		role = "admin"
+		if has, herr := a.d.Q.HasAdmin(r.Context()); herr == nil && !has {
+			role = "admin"
+		}
 	}
 
 	user, err := a.d.Q.CreateUser(r.Context(), db.CreateUserParams{
 		Email:         req.Email,
-		EmailVerified: true,
+		EmailVerified: false,
 		PasswordHash:  ptr(hash),
 		GoogleSub:     nil,
 		DisplayName:   ptr(strings.TrimSpace(req.DisplayName)),
@@ -89,27 +104,24 @@ func (a *Auth) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, cookie, err := a.d.Sessions.Create(r.Context(), user.ID, r.UserAgent(), mw.ClientIP(r))
-	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "create session"))
+	// Issue a verification token and email it. No session, no API key until verified.
+	rawTok, ierr := a.d.Verifier.Issue(r.Context(), user.ID)
+	if ierr != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "issue token"))
 		return
 	}
-	a.d.Sessions.SetCookie(w, cookie)
+	if merr := a.d.Mailer.SendVerification(r.Context(), user.Email,
+		a.d.Cfg.AppBaseURL+"/verify?token="+rawTok); merr != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "send mail"))
+		return
+	}
 
-	resp := map[string]any{
-		"user":      userDTO(user),
-		"csrfToken": base64URL(sess.CSRFToken),
-	}
-	if issued, _ := a.d.Keys.EnsureForUser(r.Context(), user.ID); issued.Raw != "" {
-		resp["keyJustIssued"] = map[string]any{
-			"key":        issued.Raw,
-			"keyPrefix":  issued.Prefix,
-			"dailyLimit": issued.DailyLimit,
-		}
-	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"user":                 userDTO(user),
+		"verificationRequired": true,
+	})
 }
 
 // ptr returns nil for the zero value of T, otherwise &v.
@@ -253,6 +265,10 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := a.d.Q.GetUserByEmail(r.Context(), req.Email)
 	if err != nil || user.PasswordHash == nil || !auth.VerifyPassword(req.Password, *user.PasswordHash) {
 		apperr.Write(w, apperr.Unauthorized("INVALID_CREDENTIALS", "invalid email or password"))
+		return
+	}
+	if !user.EmailVerified {
+		apperr.Write(w, apperr.Forbidden("EMAIL_NOT_VERIFIED", "verify your email before signing in"))
 		return
 	}
 	if user.Banned {

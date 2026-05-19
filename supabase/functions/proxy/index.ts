@@ -59,6 +59,11 @@ async function decryptApiKey(val: string): Promise<string> {
   return new TextDecoder().decode(plain);
 }
 
+async function sha256Hex(raw: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: cors(req) });
@@ -73,16 +78,17 @@ Deno.serve(async (req: Request) => {
     return errResp(req, 401, "UNAUTHORIZED", "missing bearer token");
   }
   const token = auth.slice(7).trim();
+  const keyHashHex = await sha256Hex(token);
 
   const { data: rows, error: keyErr } = await supabase.rpc("lookup_key", {
-    p_raw_key: token,
+    p_key_hash_hex: keyHashHex,
   });
   if (keyErr) {
     console.error("lookup_key rpc error:", JSON.stringify(keyErr));
-    return errResp(req, 401, "UNAUTHORIZED", `rpc error: ${keyErr.message}`);
+    return errResp(req, 500, "INTERNAL", "auth lookup failed");
   }
   if (!rows?.length) {
-    return errResp(req, 401, "UNAUTHORIZED", "key not found");
+    return errResp(req, 401, "UNAUTHORIZED", "invalid key");
   }
   const key = rows[0] as {
     key_id: string;

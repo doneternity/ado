@@ -122,9 +122,15 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── /models — free, no quota ───────────────────────────────────────────────
+  const upstreamHeaders = {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${plainApiKey}`,
+    "User-Agent": "ADO-Proxy/1.0",
+  };
+
   if (path === "/models" && req.method === "GET") {
     const upstream = await fetch(`${provider.base_url}/models`, {
-      headers: { Authorization: `Bearer ${plainApiKey}` },
+      headers: upstreamHeaders,
     });
     const body = await upstream.text();
     return new Response(body, {
@@ -140,8 +146,7 @@ Deno.serve(async (req: Request) => {
   const upResp = await fetch(upstreamUrl, {
     method: req.method,
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${plainApiKey}`,
+      ...upstreamHeaders,
     },
     body,
   });

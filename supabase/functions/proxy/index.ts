@@ -5,16 +5,25 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-const frontendOrigin = Deno.env.get("FRONTEND_ORIGIN") ?? "*";
+const frontendOrigins = (Deno.env.get("FRONTEND_ORIGIN") ?? "*")
+  .split(",").map((s) => s.trim());
 const providerKeySecret = Deno.env.get("PROVIDER_KEY_SECRET") ?? "";
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": frontendOrigin,
-  "Access-Control-Allow-Headers": "Authorization, Content-Type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+function cors(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? "";
+  const allowed =
+    frontendOrigins.includes("*") || frontendOrigins.includes(origin)
+      ? origin || "*"
+      : frontendOrigins[0]!;
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  };
+}
 
 function errResp(
+  req: Request,
   status: number,
   code: string,
   message: string,
@@ -22,7 +31,7 @@ function errResp(
 ): Response {
   return new Response(
     JSON.stringify({ error: { code, message, ...extra } }),
-    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    { status, headers: { ...cors(req), "Content-Type": "application/json" } },
   );
 }
 
@@ -52,7 +61,7 @@ async function decryptApiKey(val: string): Promise<string> {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: cors(req) });
   }
 
   const url = new URL(req.url);
@@ -61,7 +70,7 @@ Deno.serve(async (req: Request) => {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) {
-    return errResp(401, "UNAUTHORIZED", "missing bearer token");
+    return errResp(req, 401, "UNAUTHORIZED", "missing bearer token");
   }
   const token = auth.slice(7).trim();
 
@@ -69,7 +78,7 @@ Deno.serve(async (req: Request) => {
     p_raw_key: token,
   });
   if (keyErr || !rows?.length) {
-    return errResp(401, "UNAUTHORIZED", "invalid key");
+    return errResp(req, 401, "UNAUTHORIZED", "invalid key");
   }
   const key = rows[0] as {
     key_id: string;
@@ -78,7 +87,7 @@ Deno.serve(async (req: Request) => {
     banned: boolean;
   };
   if (key.banned) {
-    return errResp(401, "UNAUTHORIZED", "account banned");
+    return errResp(req, 401, "UNAUTHORIZED", "account banned");
   }
 
   // ── Active provider ───────────────────────────────────────────────────────
@@ -88,14 +97,14 @@ Deno.serve(async (req: Request) => {
     .eq("is_active", true)
     .single();
   if (provErr || !provider) {
-    return errResp(503, "NO_PROVIDER", "no active provider configured");
+    return errResp(req, 503, "NO_PROVIDER", "no active provider configured");
   }
 
   let plainApiKey: string;
   try {
     plainApiKey = await decryptApiKey(provider.api_key);
   } catch {
-    return errResp(500, "INTERNAL", "provider configuration error");
+    return errResp(req, 500, "INTERNAL", "provider configuration error");
   }
 
   // ── /models — free, no quota ───────────────────────────────────────────────
@@ -106,7 +115,7 @@ Deno.serve(async (req: Request) => {
     const body = await upstream.text();
     return new Response(body, {
       status: upstream.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors(req), "Content-Type": "application/json" },
     });
   }
 
@@ -130,10 +139,10 @@ Deno.serve(async (req: Request) => {
       p_daily_limit: key.daily_limit,
     });
     if (quotaErr) {
-      return errResp(500, "INTERNAL", "quota update failed");
+      return errResp(req, 500, "INTERNAL", "quota update failed");
     }
     if (used === null) {
-      return errResp(429, "QUOTA_EXCEEDED", "daily quota exceeded", {
+      return errResp(req, 429, "QUOTA_EXCEEDED", "daily quota exceeded", {
         limit: key.daily_limit,
       });
     }
@@ -144,7 +153,7 @@ Deno.serve(async (req: Request) => {
   return new Response(upResp.body, {
     status: upResp.status,
     headers: {
-      ...corsHeaders,
+      ...cors(req),
       "Content-Type": contentType,
       ...(isStream && {
         "Cache-Control": "no-cache",

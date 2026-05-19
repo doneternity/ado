@@ -106,8 +106,12 @@ Deno.serve(async (req: Request) => {
     .select("base_url, api_key")
     .eq("is_active", true)
     .single();
-  if (provErr || !provider) {
-    return errResp(req, 503, "NO_PROVIDER", "no active provider configured");
+  if (provErr) {
+    console.error("provider query error:", JSON.stringify(provErr));
+    return errResp(req, 503, "NO_PROVIDER", `provider query failed: ${provErr.message}`);
+  }
+  if (!provider) {
+    return errResp(req, 503, "NO_PROVIDER", "no active provider row found");
   }
 
   let plainApiKey: string;

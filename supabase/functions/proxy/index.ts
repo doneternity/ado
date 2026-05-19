@@ -77,8 +77,12 @@ Deno.serve(async (req: Request) => {
   const { data: rows, error: keyErr } = await supabase.rpc("lookup_key", {
     p_raw_key: token,
   });
-  if (keyErr || !rows?.length) {
-    return errResp(req, 401, "UNAUTHORIZED", "invalid key");
+  if (keyErr) {
+    console.error("lookup_key rpc error:", JSON.stringify(keyErr));
+    return errResp(req, 401, "UNAUTHORIZED", `rpc error: ${keyErr.message}`);
+  }
+  if (!rows?.length) {
+    return errResp(req, 401, "UNAUTHORIZED", "key not found");
   }
   const key = rows[0] as {
     key_id: string;

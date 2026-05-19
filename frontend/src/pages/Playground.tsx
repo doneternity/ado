@@ -48,6 +48,10 @@ async function streamCompletion(
   onError: (msg: string) => void,
 ) {
   try {
+    if (!/^[\x20-\x7E]+$/.test(apiKey)) {
+      onError("API key contains invalid characters. Please check and re-enter your key.");
+      return;
+    }
     const resp = await fetch(`${PROXY_BASE}/chat/completions`, {
       method: "POST",
       headers: {
@@ -227,7 +231,7 @@ export function Playground() {
 
   function clearChat() { setMessages([]); setError(null); }
 
-  const keyValid = apiKey.startsWith("ado-") && apiKey.length > 6;
+  const keyValid = apiKey.startsWith("ado-") && apiKey.length > 6 && /^[\x20-\x7E]+$/.test(apiKey);
   const canSend  = keyValid && input.trim().length > 0 && !streaming;
   const empty    = messages.length === 0;
   const currentModel = MODELS.find(m => m.id === model) ?? MODELS[0]!;

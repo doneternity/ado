@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
-  Copy, Check, Eye, EyeOff, RefreshCw,
+  Copy, Check, Eye, EyeOff, RefreshCw, AlertTriangle,
   Activity, Shield, BookOpen, Zap, Terminal,
   Lock, ChevronRight, Code,
 } from "lucide-react";
@@ -98,6 +98,7 @@ function KeyCard() {
   const rotate = useRotateKey();
   const showToast = useUiStore((s) => s.showToast);
   const [revealed, setRevealed] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
 
@@ -117,6 +118,16 @@ function KeyCard() {
     void navigator.clipboard.writeText(snippet);
     setCopiedCurl(true);
     setTimeout(() => setCopiedCurl(false), 1800);
+  }
+
+  function doRotate() {
+    rotate.mutate(undefined, {
+      onSuccess: () => {
+        setConfirming(false);
+        setRevealed(true);
+        showToast("New key ready — copy it now.");
+      },
+    });
   }
 
   return (
@@ -149,27 +160,43 @@ function KeyCard() {
           </div>
         </div>
 
-        <div className={styles.keyDisplayWrap}>
+        <div className={`${styles.keyDisplayWrap}${revealed && raw ? ` ${styles.keyDisplayWrapNew}` : ""}`}>
           <code className={styles.keyDisplay}>{display}</code>
         </div>
 
-        {!raw && (
+        {revealed && raw && (
+          <p className={styles.keyNewBanner}>
+            <Check size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            New key — copy it now. It won&apos;t be shown again.
+          </p>
+        )}
+
+        {!raw && !confirming && (
           <p className={styles.keyNote}>Full key hidden — rotate to reveal a new one.</p>
         )}
 
-        <button
-          className={styles.rotateBtn}
-          disabled={rotate.isPending}
-          onClick={() => {
-            if (!confirm("Rotate key? The current key stops working immediately.")) return;
-            rotate.mutate(undefined, {
-              onSuccess: () => { setRevealed(true); showToast("New key ready — copy it now."); },
-            });
-          }}
-        >
-          <RefreshCw size={12} />
-          {rotate.isPending ? "Rotating…" : "Rotate key"}
-        </button>
+        {confirming ? (
+          <div className={styles.rotateConfirm}>
+            <p className={styles.rotateConfirmText}>
+              <AlertTriangle size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+              Current key stops working immediately.
+            </p>
+            <div className={styles.rotateConfirmBtns}>
+              <button className={styles.rotateBtnConfirm} onClick={doRotate} disabled={rotate.isPending}>
+                <RefreshCw size={11} />
+                {rotate.isPending ? "Rotating…" : "Confirm rotate"}
+              </button>
+              <button className={styles.rotateBtnCancel} onClick={() => setConfirming(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className={styles.rotateBtn} onClick={() => setConfirming(true)}>
+            <RefreshCw size={12} />
+            Rotate key
+          </button>
+        )}
       </div>
     </motion.div>
   );

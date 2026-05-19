@@ -40,8 +40,14 @@ export function useCurrentKey(opts: { enabled: boolean }) {
 
 // Read-only selector for the raw key cache slot. Populated by mutations / flash; never refetched.
 export function useRawKey(): KeyJustIssued | null {
-  const qc = useQueryClient();
-  return qc.getQueryData<KeyJustIssued | null>(rawKeyKey) ?? null;
+  const { data } = useQuery<KeyJustIssued | null>({
+    queryKey: rawKeyKey,
+    queryFn: () => null,
+    enabled: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+  return data ?? null;
 }
 
 // Reads /api/keys/flash exactly once on dashboard mount; merges into raw cache if present.

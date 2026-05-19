@@ -4,7 +4,9 @@
 -- Replace pgcrypto digest() with decode(hex,'hex') so the function works
 -- without the pgcrypto extension. The Edge Function now hashes the raw key
 -- using the Web Crypto API and passes the hex digest here.
-CREATE OR REPLACE FUNCTION lookup_key(p_key_hash_hex TEXT)
+-- Must drop first because parameter name change is not allowed with CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS lookup_key(TEXT);
+CREATE FUNCTION lookup_key(p_key_hash_hex TEXT)
 RETURNS TABLE(key_id UUID, user_id UUID, daily_limit INT4, banned BOOLEAN)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public

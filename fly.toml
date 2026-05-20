@@ -2,7 +2,7 @@ app = "ado"
 primary_region = "iad"
 
 [build]
-  dockerfile = "Dockerfile.fly"
+  dockerfile = "Dockerfile.koyeb"
 
 [env]
   PORT = "8080"

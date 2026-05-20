@@ -6,20 +6,8 @@ on:
     branches: [main]
 
 jobs:
-  deploy-backend:
-    if: github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger backend deploy
-        # Only fires if the secret is set; curl fails silently if empty.
-        run: |
-          if [ -n "$HOOK" ]; then
-            curl -fsS -X POST "$HOOK"
-          else
-            echo "BACKEND_DEPLOY_HOOK_URL not set — skipping"
-          fi
-        env:
-          HOOK: ${{ secrets.BACKEND_DEPLOY_HOOK_URL }}
+  # The Go backend is hosted on Koyeb, which auto-deploys on every push to main
+  # via its GitHub app — no job needed here.
 
   deploy-proxy:
     if: github.event.workflow_run.conclusion == 'success'

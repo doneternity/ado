@@ -329,19 +329,21 @@
   &::placeholder { color: rgba(255, 255, 255, 0.2); }
 }
 
-/* Buttons */
+/* Buttons — match site-wide pill-btn convention */
 .btnPrimary {
-  background: var(--electric);
-  color: var(--bg);
+  background: #ffffff;
+  color: #050508;
   border: none;
-  padding: 9px 20px;
-  border-radius: var(--r-md);
-  font-size: .75rem;
-  font-weight: 900;
+  padding: 9px 22px;
+  border-radius: var(--r-pill);
+  font-size: .78rem;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
   transition: opacity var(--t-fast);
+  white-space: nowrap;
 
-  &:hover { opacity: 0.88; }
+  &:hover:not(:disabled) { opacity: 0.85; }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
@@ -350,13 +352,15 @@
   color: var(--silver);
   border: 1px solid var(--border-sub);
   padding: 9px 20px;
-  border-radius: var(--r-md);
-  font-size: .75rem;
-  font-weight: 700;
+  border-radius: var(--r-pill);
+  font-size: .78rem;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
   transition: color var(--t-fast), border-color var(--t-fast);
 
   &:hover { color: var(--black); border-color: rgba(255,255,255,.2); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 .btnDanger {

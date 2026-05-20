@@ -36,11 +36,164 @@
   font-weight: 300;
 }
 
+/* ── key bar ── */
+.keyBar {
+  display: flex;
+  gap: 8px;
+  max-width: 640px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.keyInput {
+  flex: 1;
+  min-width: 200px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  outline: none;
+  transition: border-color var(--t-fast);
+  &:focus { border-color: var(--electric); }
+  &::placeholder { color: rgba(255,255,255,.2); }
+}
+
+.loadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--electric);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--r-md);
+  font-size: .8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity var(--t-fast);
+  &:hover:not(:disabled) { opacity: .88; }
+  &:disabled { opacity: .4; cursor: not-allowed; }
+}
+
+.btnSpinner {
+  width: 13px; height: 13px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: _spin .7s linear infinite;
+  flex-shrink: 0;
+  @keyframes _spin { to { transform: rotate(360deg); } }
+}
+
+.keyError {
+  color: var(--error);
+  font-size: .75rem;
+  margin-bottom: 12px;
+  max-width: 640px;
+  line-height: 1.5;
+}
+
+/* ── stats row (live only) ── */
+.statsRow {
+  display: flex;
+  gap: 1px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-bottom: 20px;
+  max-width: 640px;
+}
+
+.statCell {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  @media (max-width: 480px) { padding: 8px 10px; }
+}
+
+.statLabel {
+  font-size: .55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: rgba(255,255,255,.28);
+}
+
+.statVal {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+.statGreen { color: var(--green); }
+.statWarn  { color: var(--orange); }
+.statRed   { color: var(--error); }
+
+/* ── filter row ── */
+.filterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+
+/* ── search ── */
+.searchWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255,255,255,.3);
+  pointer-events: none;
+}
+
+.searchInput {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--r-pill);
+  padding: 7px 14px 7px 30px;
+  color: #fff;
+  font-family: inherit;
+  font-size: .8rem;
+  outline: none;
+  width: 210px;
+  transition: border-color var(--t-fast);
+  &:focus { border-color: rgba(255,255,255,.2); }
+  &::placeholder { color: rgba(255,255,255,.2); }
+  @media (max-width: 640px) { width: 100%; }
+}
+
+/* ── static note ── */
+.staticNote {
+  font-size: .75rem;
+  color: rgba(255,255,255,.22);
+  margin-top: -32px;
+  margin-bottom: 0;
+  font-weight: 300;
+  line-height: 1.55;
+  max-width: 540px;
+}
+
 /* ── filters ── */
 .filters {
   display: flex;
   gap: 6px;
-  margin-bottom: 40px;
   flex-wrap: wrap;
 }
 
@@ -252,3 +405,36 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* ── status badges (live mode) ── */
+.statusDegraded {
+  font-size: .62rem; font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: rgba(255,138,61,.1);
+  border: 1px solid rgba(255,138,61,.25);
+  color: var(--orange);
+}
+
+.statusDown {
+  font-size: .62rem; font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: rgba(225,29,72,.1);
+  border: 1px solid rgba(225,29,72,.25);
+  color: var(--error);
+}
+
+/* ── status dot ── */
+.statusDot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot_available { background: var(--green);  box-shadow: 0 0 6px var(--green); }
+.dot_degraded  { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+.dot_down      { background: var(--error);  box-shadow: 0 0 6px var(--error); }
+
+/* ── card status variants ── */
+.cardDegraded { border-color: rgba(255,138,61,.2) !important; }
+.cardDown     { border-color: rgba(225,29,72,.2) !important; opacity: .5; }

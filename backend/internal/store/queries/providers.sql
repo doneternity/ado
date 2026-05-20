@@ -26,3 +26,6 @@ DELETE FROM providers WHERE id = $1;
 
 -- name: CountProviders :one
 SELECT COUNT(*) FROM providers;
+
+-- name: CountActiveProviders :one
+SELECT COUNT(*) FROM providers WHERE is_active = TRUE;

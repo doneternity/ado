@@ -67,7 +67,7 @@ export type AdminUser = {
 
 export type AdminStats = {
   totalUsers: number;
-  activeProvider: string;
+  activeProviders: number;
   daily: { day: string; total: number }[];
   topUsers: { email: string; total: number }[];
 };

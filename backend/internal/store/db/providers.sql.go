@@ -22,6 +22,17 @@ func (q *Queries) CountProviders(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countActiveProviders = `-- name: CountActiveProviders :one
+SELECT COUNT(*) FROM providers WHERE is_active = TRUE
+`
+
+func (q *Queries) CountActiveProviders(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveProviders)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createProvider = `-- name: CreateProvider :one
 INSERT INTO providers (name, base_url, api_key, is_active)
 VALUES ($1, $2, $3, $4)

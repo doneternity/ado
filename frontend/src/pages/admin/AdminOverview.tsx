@@ -34,10 +34,11 @@ export function AdminOverview() {
           <div className={styles.statValue}>{stats?.totalUsers ?? "—"}</div>
         </div>
         <div className={styles.statCard}>
-          <div className={styles.statLabel}>Active Provider</div>
-          <div className={styles.statValueSm}>
-            {stats?.activeProvider ?? "—"}
+          <div className={styles.statLabel}>Active Providers</div>
+          <div className={styles.statValue}>
+            {stats?.activeProviders ?? "—"}
           </div>
+          <div className={styles.statSub}>failover routing</div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statLabel}>Requests Today</div>

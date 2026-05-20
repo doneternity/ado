@@ -24,12 +24,12 @@ func (h *AdminStats) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	total, _ := h.q.CountUsers(r.Context())
-	active, _ := h.q.GetActiveProvider(r.Context())
+	activeProviders, _ := h.q.CountActiveProviders(r.Context())
 	out := map[string]any{
-		"totalUsers":     total,
-		"activeProvider": active.Name,
-		"daily":          daily,
-		"topUsers":       top,
+		"totalUsers":      total,
+		"activeProviders": activeProviders,
+		"daily":           daily,
+		"topUsers":        top,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)

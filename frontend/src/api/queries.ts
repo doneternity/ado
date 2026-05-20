@@ -6,7 +6,7 @@ export const meKey = ["me"] as const;
 export const currentKeyKey = ["keys", "current"] as const;
 export const rawKeyKey = ["keys", "raw"] as const;
 
-export function useMe() {
+export function useMe(opts?: { refetchInterval?: number }) {
   const qc = useQueryClient();
   return useQuery({
     queryKey: meKey,
@@ -25,6 +25,7 @@ export function useMe() {
       }
     },
     refetchOnWindowFocus: true,
+    refetchInterval: opts?.refetchInterval,
   });
 }
 

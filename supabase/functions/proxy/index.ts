@@ -149,9 +149,23 @@ Deno.serve(async (req: Request) => {
   const reqBody = req.method !== "GET" ? await req.text() : undefined;
   let lastErr: { status: number; body: string; contentType: string } | null = null;
 
+  function recordErr(status: number, code: string, message: string) {
+    lastErr = {
+      status,
+      body: JSON.stringify({ error: { code, message } }),
+      contentType: "application/json",
+    };
+  }
+
   for (const p of providers) {
     let apiKey: string;
-    try { apiKey = await decryptApiKey(p.api_key); } catch { continue; }
+    try {
+      apiKey = await decryptApiKey(p.api_key);
+    } catch (e) {
+      console.error(`decrypt failed for ${p.base_url}:`, e);
+      recordErr(502, "PROVIDER_CONFIG", `${p.base_url}: provider key could not be decrypted`);
+      continue;
+    }
 
     let upResp: Response;
     try {
@@ -160,7 +174,10 @@ Deno.serve(async (req: Request) => {
         headers: upstreamHeaders(apiKey),
         body: reqBody,
       });
-    } catch {
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : "connection failed";
+      console.error(`fetch failed for ${p.base_url}:`, detail);
+      recordErr(502, "PROVIDER_UNREACHABLE", `${p.base_url}: ${detail}`);
       continue; // provider unreachable — try the next
     }
 

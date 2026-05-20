@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Plug } from "lucide-react";
 import {
   useAdminProviders, useCreateProvider, useUpdateProvider,
-  useSetActiveProvider, useDeleteProvider,
+  useSetProviderActive, useDeleteProvider,
 } from "../../api/admin";
 import type { AdminProvider } from "../../types/api";
 import styles from "./Admin.module.scss";
@@ -17,7 +17,7 @@ export function AdminProviders() {
   const { data: providers = [] } = useAdminProviders();
   const create = useCreateProvider();
   const update = useUpdateProvider();
-  const setActive = useSetActiveProvider();
+  const setActive = useSetProviderActive();
   const del = useDeleteProvider();
 
   const [showForm, setShowForm] = useState(false);
@@ -49,7 +49,7 @@ export function AdminProviders() {
         <div className={styles.pageRow}>
           <div>
             <h1 className={styles.title}><Plug size={18} className={styles.titleIcon} /> Providers</h1>
-            <p className={styles.subtitle}>All API traffic routes to the active provider</p>
+            <p className={styles.subtitle}>Requests fail over across every active provider, in order</p>
           </div>
           <button className={styles.btnPrimary} onClick={() => { setEditing(null); setForm(empty); setShowForm(true); }}>
             + Add provider
@@ -59,28 +59,31 @@ export function AdminProviders() {
 
       {providers.map((p) => (
         <div key={p.id} className={`${styles.providerCard}${p.isActive ? ` ${styles.providerCardActive}` : ""}`}>
-          {p.isActive && (
-            <div className={styles.activeBadge}>
-              <span className={`${styles.badge} ${styles.badgeActive}`}>● Active</span>
-            </div>
-          )}
+          <div className={styles.activeBadge}>
+            <span className={`${styles.badge} ${p.isActive ? styles.badgeActive : styles.badgeInactive}`}>
+              {p.isActive ? "● Active" : "○ Inactive"}
+            </span>
+          </div>
           <div className={styles.providerName}>{p.name}</div>
           <div className={styles.providerUrl}>{p.baseUrl}</div>
           <div className={styles.providerKey}>sk-••••{p.keySuffix}</div>
           <div className={styles.btnRow} style={{ marginTop: 10 }}>
-            {!p.isActive && (
-              <button
-                className={styles.btnSecondary}
-                style={{ fontSize: ".7rem", padding: "4px 12px", borderColor: "rgba(0,180,255,.25)", color: "var(--electric)" }}
-                onClick={() => setActive.mutate(p.id)}
-              >
-                Set active
-              </button>
-            )}
+            <button
+              className={styles.btnSecondary}
+              style={{
+                fontSize: ".7rem", padding: "4px 12px",
+                borderColor: p.isActive ? "rgba(255,255,255,.12)" : "rgba(0,180,255,.25)",
+                color: p.isActive ? "var(--silver)" : "var(--electric)",
+              }}
+              disabled={setActive.isPending}
+              onClick={() => setActive.mutate({ id: p.id, active: !p.isActive })}
+            >
+              {p.isActive ? "Deactivate" : "Activate"}
+            </button>
             <button className={styles.btnSecondary} style={{ fontSize: ".7rem", padding: "4px 12px" }} onClick={() => startEdit(p)}>
               Edit
             </button>
-            <button className={styles.btnDanger} onClick={() => del.mutate(p.id)} disabled={p.isActive && providers.length === 1}>
+            <button className={styles.btnDanger} onClick={() => del.mutate(p.id)}>
               Delete
             </button>
           </div>

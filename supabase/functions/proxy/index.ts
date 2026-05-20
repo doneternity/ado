@@ -100,59 +100,81 @@ Deno.serve(async (req: Request) => {
     return errResp(req, 401, "UNAUTHORIZED", "account banned");
   }
 
-  // ── Active provider ───────────────────────────────────────────────────────
-  const { data: provider, error: provErr } = await supabase
+  // ── Active providers (failover order, oldest first) ───────────────────────
+  const { data: providers, error: provErr } = await supabase
     .from("providers")
     .select("base_url, api_key")
     .eq("is_active", true)
-    .single();
+    .order("created_at", { ascending: true });
   if (provErr) {
     console.error("provider query error:", JSON.stringify(provErr));
     return errResp(req, 503, "NO_PROVIDER", `provider query failed: ${provErr.message}`);
   }
-  if (!provider) {
-    return errResp(req, 503, "NO_PROVIDER", "no active provider row found");
+  if (!providers?.length) {
+    return errResp(req, 503, "NO_PROVIDER", "no active provider configured");
   }
 
-  let plainApiKey: string;
-  try {
-    plainApiKey = await decryptApiKey(provider.api_key);
-  } catch {
-    return errResp(req, 500, "INTERNAL", "provider configuration error");
+  // Some providers (e.g. fanzisima) reject non-SDK User-Agents; "node" is
+  // accepted by every provider we route to.
+  function upstreamHeaders(apiKey: string): Record<string, string> {
+    return {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "User-Agent": "node",
+    };
   }
 
-  // ── /models — free, no quota ───────────────────────────────────────────────
-  const upstreamHeaders = {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${plainApiKey}`,
-    "User-Agent": "ADO-Proxy/1.0",
-  };
-
+  // ── /models — merge every provider's catalogue, free, no quota ────────────
   if (path === "/models" && req.method === "GET") {
-    const upstream = await fetch(`${provider.base_url}/models`, {
-      headers: upstreamHeaders,
-    });
-    const body = await upstream.text();
-    return new Response(body, {
-      status: upstream.status,
+    const merged: unknown[] = [];
+    const seen = new Set<string>();
+    for (const p of providers) {
+      let apiKey: string;
+      try { apiKey = await decryptApiKey(p.api_key); } catch { continue; }
+      try {
+        const upstream = await fetch(`${p.base_url}/models`, { headers: upstreamHeaders(apiKey) });
+        if (!upstream.ok) continue;
+        const json = await upstream.json() as { data?: { id?: string }[] };
+        for (const m of json.data ?? []) {
+          if (m.id && !seen.has(m.id)) { seen.add(m.id); merged.push(m); }
+        }
+      } catch { /* skip unreachable provider */ }
+    }
+    return new Response(JSON.stringify({ object: "list", data: merged }), {
       headers: { ...cors(req), "Content-Type": "application/json" },
     });
   }
 
-  // ── Forward to upstream LLM ───────────────────────────────────────────────
-  const upstreamUrl = `${provider.base_url}${path}`;
-  const body = req.method !== "GET" ? await req.text() : undefined;
+  // ── Forward to upstream — try each provider until one returns 2xx ─────────
+  const reqBody = req.method !== "GET" ? await req.text() : undefined;
+  let lastErr: { status: number; body: string; contentType: string } | null = null;
 
-  const upResp = await fetch(upstreamUrl, {
-    method: req.method,
-    headers: {
-      ...upstreamHeaders,
-    },
-    body,
-  });
+  for (const p of providers) {
+    let apiKey: string;
+    try { apiKey = await decryptApiKey(p.api_key); } catch { continue; }
 
-  // ── Quota — charge only on successful upstream response ───────────────────
-  if (upResp.ok) {
+    let upResp: Response;
+    try {
+      upResp = await fetch(`${p.base_url}${path}`, {
+        method: req.method,
+        headers: upstreamHeaders(apiKey),
+        body: reqBody,
+      });
+    } catch {
+      continue; // provider unreachable — try the next
+    }
+
+    if (!upResp.ok) {
+      // Buffer the error so it can be surfaced if every provider fails.
+      lastErr = {
+        status: upResp.status,
+        body: await upResp.text(),
+        contentType: upResp.headers.get("Content-Type") ?? "application/json",
+      };
+      continue;
+    }
+
+    // This provider handled the request — charge quota, then stream back.
     const { data: used, error: quotaErr } = await supabase.rpc("charge_quota", {
       p_key_id: key.key_id,
       p_daily_limit: key.daily_limit,
@@ -165,19 +187,28 @@ Deno.serve(async (req: Request) => {
         limit: key.daily_limit,
       });
     }
+
+    const contentType = upResp.headers.get("Content-Type") ?? "application/json";
+    const isStream = contentType.includes("text/event-stream");
+    return new Response(upResp.body, {
+      status: upResp.status,
+      headers: {
+        ...cors(req),
+        "Content-Type": contentType,
+        ...(isStream && {
+          "Cache-Control": "no-cache",
+          "X-Accel-Buffering": "no",
+        }),
+      },
+    });
   }
 
-  const contentType = upResp.headers.get("Content-Type") ?? "application/json";
-  const isStream = contentType.includes("text/event-stream");
-  return new Response(upResp.body, {
-    status: upResp.status,
-    headers: {
-      ...cors(req),
-      "Content-Type": contentType,
-      ...(isStream && {
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",
-      }),
-    },
-  });
+  // Every active provider rejected the request — surface the last error.
+  if (lastErr) {
+    return new Response(lastErr.body, {
+      status: lastErr.status,
+      headers: { ...cors(req), "Content-Type": lastErr.contentType },
+    });
+  }
+  return errResp(req, 502, "NO_PROVIDER", "no active provider could handle the request");
 });

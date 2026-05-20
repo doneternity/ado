@@ -295,6 +295,7 @@
 .badgeWarn    { background: rgba(255, 138, 61, 0.12); color: var(--orange); border: 1px solid rgba(255,138,61,.25); }
 .badgeUser    { background: rgba(255, 255, 255, 0.05); color: var(--silver); border: 1px solid var(--border-sub); }
 .badgeGreen   { background: rgba(5, 196, 139, 0.1); color: var(--green); border: 1px solid rgba(5,196,139,.25); }
+.badgeInactive { background: rgba(255, 255, 255, 0.04); color: var(--silver); border: 1px solid var(--border-sub); }
 
 /* Form row */
 .formRow {

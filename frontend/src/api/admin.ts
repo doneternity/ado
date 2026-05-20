@@ -35,11 +35,13 @@ export function useUpdateProvider() {
   });
 }
 
-export function useSetActiveProvider() {
+export function useSetProviderActive() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<void>(`/api/admin/providers/${id}/active`, { method: "PATCH" }),
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      apiFetch<void>(`/api/admin/providers/${id}/active`, {
+        method: "PATCH", body: JSON.stringify({ active }),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "providers"] }),
   });
 }

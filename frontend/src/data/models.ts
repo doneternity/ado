@@ -1,6 +1,6 @@
 // Single source of truth for the model catalogue shown across the app
-// (Models page, Playground picker, Dashboard featured list). IDs are the
-// real identifiers accepted by the active upstream provider.
+// (Models page, Playground picker, Dashboard featured list). Every id below is
+// a real identifier returned by one of ADO's active upstream providers.
 
 export type ModelProvider = "claude" | "gemini" | "deepseek" | "other";
 export type Capability = "Vision" | "Tools" | "Streaming" | "Reasoning" | "Long context";
@@ -28,34 +28,16 @@ export const MODELS: ModelDef[] = [
     description: "Anthropic's most capable model. Frontier reasoning and long-context analysis.",
   },
   {
-    id: "claude-sonnet-4-6-thinking",
-    name: "Claude Sonnet 4.6 Thinking",
-    provider: "claude",
-    context: "200K tokens",
-    speed: 2,
-    capabilities: ["Tools", "Streaming", "Reasoning"],
-    description: "Extended thinking mode — deeper reasoning with visible chain-of-thought.",
-  },
-  {
-    id: "claude-sonnet-4-6",
-    name: "Claude Sonnet 4.6",
+    id: "claude-opus-4-5",
+    name: "Claude Opus 4.5",
     provider: "claude",
     context: "200K tokens",
     speed: 2,
     capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
-    description: "Balanced Claude for everyday coding and instruction-following.",
+    description: "Previous Opus release — strong coding and instruction-following.",
   },
   {
-    id: "claude-haiku-4-5",
-    name: "Claude Haiku 4.5",
-    provider: "claude",
-    context: "200K tokens",
-    speed: 1,
-    capabilities: ["Vision", "Tools", "Streaming"],
-    description: "Fastest Claude. Snappy responses for high-volume, lightweight tasks.",
-  },
-  {
-    id: "vertex-gemini-3.1-pro-preview",
+    id: "[GG]gemini-3.1-pro-preview",
     name: "Gemini 3.1 Pro Preview",
     provider: "gemini",
     context: "1M tokens",
@@ -65,7 +47,7 @@ export const MODELS: ModelDef[] = [
     description: "Latest Gemini Pro preview with improved reasoning and multimodal support.",
   },
   {
-    id: "vertex-gemini-2.5-pro",
+    id: "[GG]gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
     provider: "gemini",
     context: "1M tokens",
@@ -73,6 +55,15 @@ export const MODELS: ModelDef[] = [
     capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
     tag: "Most capable",
     description: "Frontier-level reasoning and coding with a 1M-token context window.",
+  },
+  {
+    id: "[GG]gemini-3-flash-preview",
+    name: "Gemini 3 Flash Preview",
+    provider: "gemini",
+    context: "1M tokens",
+    speed: 1,
+    capabilities: ["Vision", "Tools", "Streaming"],
+    description: "Fast next-gen Flash preview. Great speed-to-quality for everyday tasks.",
   },
   {
     id: "deepseek-v4-pro",
@@ -85,22 +76,13 @@ export const MODELS: ModelDef[] = [
     description: "DeepSeek's most capable model. Top-tier coding, math, and reasoning.",
   },
   {
-    id: "deepseek-v4-pro-thinking",
-    name: "DeepSeek V4 Pro Thinking",
-    provider: "deepseek",
-    context: "128K tokens",
-    speed: 2,
-    capabilities: ["Tools", "Streaming", "Reasoning"],
-    description: "Extended reasoning mode for DeepSeek V4 Pro.",
-  },
-  {
-    id: "deepseek-v4-flash",
-    name: "DeepSeek V4 Flash",
+    id: "[beagle]deepseek-ai/DeepSeek-V3.2",
+    name: "DeepSeek V3.2",
     provider: "deepseek",
     context: "128K tokens",
     speed: 1,
     capabilities: ["Tools", "Streaming"],
-    description: "Fast DeepSeek V4 variant. Excellent speed-to-quality ratio for everyday tasks.",
+    description: "Stable previous-generation DeepSeek. Fast for coding and analysis.",
   },
   {
     id: "GLM-5.1",
@@ -112,21 +94,30 @@ export const MODELS: ModelDef[] = [
     description: "Zhipu's latest GLM. Strong multilingual reasoning and tool use.",
   },
   {
-    id: "GLM-5",
-    name: "GLM 5",
-    provider: "other",
-    context: "128K tokens",
-    speed: 2,
-    capabilities: ["Tools", "Streaming"],
-    description: "Stable GLM 5 release. Reliable general-purpose generation.",
-  },
-  {
-    id: "deepinfra-Kimi-K2.6",
+    id: "Kimi-K2.6",
     name: "Kimi K2.6",
     provider: "other",
     context: "128K tokens",
     speed: 2,
     capabilities: ["Tools", "Streaming", "Reasoning"],
     description: "Moonshot AI's latest model. Strong long-context reasoning and tool use.",
+  },
+  {
+    id: "MiniMax-M2.5",
+    name: "MiniMax M2.5",
+    provider: "other",
+    context: "128K tokens",
+    speed: 2,
+    capabilities: ["Tools", "Streaming", "Reasoning"],
+    description: "MiniMax's flagship model — capable general-purpose reasoning.",
+  },
+  {
+    id: "[Aie]Mimo-V2.5-Pro",
+    name: "Mimo V2.5 Pro",
+    provider: "other",
+    context: "128K tokens",
+    speed: 2,
+    capabilities: ["Streaming", "Reasoning"],
+    description: "High-efficiency model optimized for long-form generation.",
   },
 ];

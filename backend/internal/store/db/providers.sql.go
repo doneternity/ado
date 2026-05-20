@@ -115,12 +115,17 @@ func (q *Queries) ListProviders(ctx context.Context) ([]Provider, error) {
 	return items, nil
 }
 
-const setProviderActive = `-- name: SetProviderActive :exec
-UPDATE providers SET is_active = (id = $1), updated_at = NOW()
+const setProviderActiveState = `-- name: SetProviderActiveState :exec
+UPDATE providers SET is_active = $2, updated_at = NOW() WHERE id = $1
 `
 
-func (q *Queries) SetProviderActive(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, setProviderActive, id)
+type SetProviderActiveStateParams struct {
+	ID       uuid.UUID
+	IsActive bool
+}
+
+func (q *Queries) SetProviderActiveState(ctx context.Context, arg SetProviderActiveStateParams) error {
+	_, err := q.db.Exec(ctx, setProviderActiveState, arg.ID, arg.IsActive)
 	return err
 }
 

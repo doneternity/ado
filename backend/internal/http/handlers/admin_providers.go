@@ -69,21 +69,19 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "encrypt key"))
 		return
 	}
-	count, _ := h.d.Q.CountProviders(r.Context())
-	isActive := count == 0
+	// New providers are active by default — the proxy fails over across all
+	// active providers, so an extra one only widens model coverage.
 	p, err := h.d.Q.CreateProvider(r.Context(), db.CreateProviderParams{
 		Name:     req.Name,
 		BaseUrl:  req.BaseURL,
 		ApiKey:   encKey,
-		IsActive: isActive,
+		IsActive: true,
 	})
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "create provider"))
 		return
 	}
-	if isActive {
-		h.d.Registry.Swap(p.BaseUrl, req.APIKey) // pass plaintext to registry
-	}
+	h.d.Registry.Swap(p.BaseUrl, req.APIKey) // pass plaintext to registry
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(maskedProvider(p, h.d.ProviderKeySecret))
@@ -142,27 +140,33 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(maskedProvider(p, h.d.ProviderKeySecret))
 }
 
+// SetActive toggles a single provider's active flag. Multiple providers may be
+// active at once; the proxy fails over across all of them.
 func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
 		return
 	}
-	if err := h.d.Q.SetProviderActive(r.Context(), id); err != nil {
+	var req struct {
+		Active bool `json:"active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", "bad JSON"))
+		return
+	}
+	if err := h.d.Q.SetProviderActiveState(r.Context(), db.SetProviderActiveStateParams{
+		ID: id, IsActive: req.Active,
+	}); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set active"))
 		return
 	}
-	active, err := h.d.Q.GetActiveProvider(r.Context())
-	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "load active"))
-		return
+	// Point the local-dev Go forwarder at the first active provider, if any.
+	if active, aerr := h.d.Q.GetActiveProvider(r.Context()); aerr == nil {
+		if plainKey, derr := keyencrypt.Decrypt(active.ApiKey, h.d.ProviderKeySecret); derr == nil {
+			h.d.Registry.Swap(active.BaseUrl, plainKey)
+		}
 	}
-	plainKey, err := keyencrypt.Decrypt(active.ApiKey, h.d.ProviderKeySecret)
-	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "decrypt key"))
-		return
-	}
-	h.d.Registry.Swap(active.BaseUrl, plainKey)
 	w.WriteHeader(http.StatusNoContent)
 }
 

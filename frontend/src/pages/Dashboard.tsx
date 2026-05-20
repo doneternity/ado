@@ -16,9 +16,9 @@ import styles from "./Dashboard.module.scss";
 const PROXY_BASE = API_BASE_URL;
 
 const FEATURED_MODELS = [
-  { id: "claude-opus-4-6",  name: "Claude Opus 4.6",  cap: "Reasoning" },
-  { id: "deepseek-v4-pro",  name: "DeepSeek V4 Pro",  cap: "Coding"    },
-  { id: "GLM-5.1",          name: "GLM 5.1",          cap: "Speed"     },
+  { id: "claude-opus-4-6",     name: "Claude Opus 4.6", cap: "Reasoning"   },
+  { id: "[GG]gemini-2.5-pro",  name: "Gemini 2.5 Pro",  cap: "Multimodal"  },
+  { id: "deepseek-v4-pro",     name: "DeepSeek V4 Pro", cap: "Coding"      },
 ];
 
 const stagger = {

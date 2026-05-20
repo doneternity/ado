@@ -18,8 +18,8 @@ RETURNING *;
 -- name: UpdateProviderKey :exec
 UPDATE providers SET api_key = $2, updated_at = NOW() WHERE id = $1;
 
--- name: SetProviderActive :exec
-UPDATE providers SET is_active = (id = $1), updated_at = NOW();
+-- name: SetProviderActiveState :exec
+UPDATE providers SET is_active = $2, updated_at = NOW() WHERE id = $1;
 
 -- name: DeleteProvider :exec
 DELETE FROM providers WHERE id = $1;

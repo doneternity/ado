@@ -70,7 +70,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/functions\/v1\/proxy/, "") || "/";
+  // Supabase routes /functions/v1/proxy/* to this function; inside the function
+  // the path arrives as /proxy/*. Strip whichever prefix is present.
+  const path = url.pathname
+    .replace(/^\/functions\/v1\/proxy/, "")
+    .replace(/^\/proxy/, "") || "/";
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const auth = req.headers.get("Authorization") ?? "";

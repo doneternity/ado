@@ -22,6 +22,27 @@ func TestGenerate_Format(t *testing.T) {
 	if len(hash) != 32 {
 		t.Fatalf("hash len=%d, want 32", len(hash))
 	}
+	body := strings.TrimPrefix(raw, "ado-")
+	for _, c := range body {
+		isAlphanumeric := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+		if !isAlphanumeric {
+			t.Fatalf("raw body contains non-alphanumeric char %q", c)
+		}
+	}
+}
+
+func TestGenerate_Unique(t *testing.T) {
+	seen := make(map[string]bool)
+	for i := 0; i < 1000; i++ {
+		raw, _, _, err := Generate()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if seen[raw] {
+			t.Fatalf("duplicate key generated: %q", raw)
+		}
+		seen[raw] = true
+	}
 }
 
 func TestGenerate_HashMatches(t *testing.T) {

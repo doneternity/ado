@@ -43,8 +43,8 @@
   height: 18px;
   font-size: .6rem;
   font-weight: 900;
-  color: var(--electric);
-  background: rgba(0, 180, 255, 0.1);
+  color: var(--silver);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 50%;
   margin-right: 6px;
   flex-shrink: 0;
@@ -104,7 +104,7 @@
   gap: 10px;
 }
 
-.titleIcon { color: var(--electric); flex-shrink: 0; }
+.titleIcon { color: rgba(255, 255, 255, 0.35); flex-shrink: 0; }
 
 .subtitle {
   color: var(--silver);
@@ -183,7 +183,7 @@
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 
   &:hover {
-    border-color: rgba(0, 180, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.15);
     box-shadow: var(--shadow-lift);
   }
 }
@@ -195,18 +195,18 @@
 }
 
 .moduleIcon {
-  background: rgba(0, 180, 255, 0.08);
-  border: 1px solid rgba(0, 180, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--r-md);
   padding: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--electric);
+  color: rgba(255, 255, 255, 0.5);
   flex-shrink: 0;
 }
 
-.moduleArrow { color: rgba(0, 180, 255, 0.4); flex-shrink: 0; }
+.moduleArrow { color: rgba(255, 255, 255, 0.2); flex-shrink: 0; }
 
 .moduleTitle {
   font-size: .88rem;
@@ -381,7 +381,7 @@
 /* Inline form panel */
 .inlineForm {
   background: var(--bg-card);
-  border: 1px dashed rgba(0, 180, 255, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
   border-radius: var(--r-md);
   padding: 20px;
   margin-top: 16px;
@@ -401,8 +401,8 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: rgba(0, 180, 255, 0.04);
-  border: 1px solid rgba(0, 180, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--r-md);
   padding: 10px 14px;
   margin-bottom: 20px;
@@ -410,7 +410,7 @@
   color: var(--silver);
   line-height: 1.5;
 
-  svg { color: var(--electric); margin-top: 1px; }
+  svg { color: rgba(255, 255, 255, 0.3); margin-top: 1px; }
 }
 
 /* Empty state */
@@ -439,8 +439,8 @@
 }
 
 .providerCardActive {
-  border-color: rgba(0, 180, 255, 0.25);
-  background: rgba(0, 180, 255, 0.02);
+  border-color: rgba(5, 196, 139, 0.25);
+  background: rgba(5, 196, 139, 0.02);
 }
 
 .providerCardInner {
@@ -533,9 +533,9 @@
   }
 
   input:checked + span {
-    background: rgba(0,180,255,.2);
-    border-color: rgba(0,180,255,.4);
-    &::after { transform: translateX(22px); background: var(--electric); }
+    background: rgba(5,196,139,.2);
+    border-color: rgba(5,196,139,.4);
+    &::after { transform: translateX(22px); background: var(--green); }
   }
 }
 
@@ -579,7 +579,7 @@
   text-align: left;
   transition: color var(--t-fast), background var(--t-fast);
 
-  svg { color: var(--electric); flex-shrink: 0; }
+  svg { color: rgba(255, 255, 255, 0.35); flex-shrink: 0; }
   &:hover { color: var(--black); background: var(--bg-raised); }
 }
 
@@ -645,7 +645,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: var(--electric);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .previewGroupCount {
@@ -666,7 +666,7 @@
   padding: 8px 10px;
   transition: border-color var(--t-fast);
 
-  &:hover { border-color: rgba(0,180,255,.2); }
+  &:hover { border-color: rgba(255,255,255,.15); }
 }
 
 .previewModelTop {

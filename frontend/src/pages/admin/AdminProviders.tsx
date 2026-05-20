@@ -34,8 +34,7 @@ export function AdminProviders() {
   const [form, setForm] = useState<FormState>(empty);
 
   const activeCount = providers.filter((p) => p.isActive).length;
-  // Only disable the specific toggle that's in-flight, not all of them
-  const pendingToggleId = setActive.isPending ? setActive.variables?.id : null;
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,10 +95,19 @@ export function AdminProviders() {
             key={p.id}
             provider={p}
             order={i + 1}
-            onToggleActive={() => setActive.mutate({ id: p.id, active: !p.isActive })}
+            onToggleActive={() => {
+              setPendingIds(prev => new Set([...prev, p.id]));
+              setActive.mutate({ id: p.id, active: !p.isActive }, {
+                onSettled: () => setPendingIds(prev => {
+                  const next = new Set(prev);
+                  next.delete(p.id);
+                  return next;
+                }),
+              });
+            }}
             onEdit={() => startEdit(p)}
             onDelete={() => { if (confirm(`Remove "${p.name}"?`)) del.mutate(p.id); }}
-            isPending={pendingToggleId === p.id}
+            isPending={pendingIds.has(p.id)}
           />
         ))
       )}

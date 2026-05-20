@@ -3,19 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { AuthForm } from "../components/AuthForm";
 import { GoogleButton } from "../components/GoogleButton";
 import { useLogin, useSignup } from "../api/mutations";
+import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
-
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://adoai.space/v1";
 
 const CODE_SNIPPET = `import OpenAI from "openai";
 
 const ado = new OpenAI({
   apiKey:  "ado-your-key",
-  baseURL: "${PROXY_BASE}",
+  baseURL: "${API_BASE_URL}",
 });
 
 const msg = await ado.chat.completions.create({
-  model:    "[kmo]claude-opus-4.7",
+  model:    "claude-opus-4-6",
   messages: [{ role: "user", content: "Hello!" }],
 });
 

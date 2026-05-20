@@ -2,42 +2,22 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
 import { useMe } from "../api/queries";
 import { useRawKey } from "../api/queries";
+import { MODELS } from "../data/models";
+import type { ModelDef, ModelProvider } from "../data/models";
+import { PROXY_REQUEST_BASE } from "../config";
 import styles from "./Playground.module.scss";
 
 type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string; id: number };
 
-interface ModelDef {
-  id: string;
-  label: string;
-  provider: "anthropic" | "google" | "deepseek" | "other";
-  tag?: string;
-}
-
-const MODELS: ModelDef[] = [
-  { id: "[kmo]claude-opus-4.7",          label: "Claude Opus 4.7",          provider: "anthropic", tag: "Newest" },
-  { id: "[kmo]claude-opus-4.7-thinking", label: "Claude Opus 4.7 Thinking", provider: "anthropic" },
-  { id: "[kmo]claude-opus-4.6",          label: "Claude Opus 4.6",          provider: "anthropic" },
-  { id: "[kmo]claude-opus-4.6-thinking", label: "Claude Opus 4.6 Thinking", provider: "anthropic" },
-  { id: "[kmo]claude-opus-4.5",          label: "Claude Opus 4.5",          provider: "anthropic" },
-  { id: "[GG]gemini-2.5-pro",            label: "Gemini 2.5 Pro",           provider: "google",    tag: "Most capable" },
-  { id: "[GG]gemini-3-flash-preview",    label: "Gemini 3 Flash",           provider: "google",    tag: "Preview" },
-  { id: "[GG]gemini-3.1-pro-preview",    label: "Gemini 3.1 Pro",           provider: "google" },
-  { id: "[momo神秘V4]DeepSeek-V4-Pro",  label: "DeepSeek V4 Pro",          provider: "deepseek",  tag: "Strongest" },
-  { id: "[momo]DeepSeek-V4-Flash",       label: "DeepSeek V4 Flash",        provider: "deepseek" },
-  { id: "[beagle]deepseek-ai/DeepSeek-V3.2", label: "DeepSeek V3.2",      provider: "deepseek" },
-  { id: "[momo]Kimi-K2.6",               label: "Kimi K2.6",                provider: "other" },
-  { id: "[Aie]Mimo-V2.5-Pro",            label: "Mimo V2.5 Pro",            provider: "other" },
-];
-
-const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
-  anthropic: "Anthropic",
-  google:    "Google",
-  deepseek:  "DeepSeek",
-  other:     "Other",
+const PROVIDER_LABEL: Record<ModelProvider, string> = {
+  claude:   "Anthropic",
+  gemini:   "Google",
+  deepseek: "DeepSeek",
+  other:    "Other",
 };
 
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "/v1";
+const PROXY_BASE = PROXY_REQUEST_BASE;
 
 async function streamCompletion(
   apiKey: string,
@@ -130,7 +110,7 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (id: string
         aria-expanded={open}
       >
         <span className={`${styles.pickerDot} ${styles[`dot_${current.provider}`]}`} />
-        <span className={styles.pickerLabel}>{current.label}</span>
+        <span className={styles.pickerLabel}>{current.name}</span>
         {current.tag && <span className={styles.pickerTag}>{current.tag}</span>}
         <ChevronDown size={12} className={`${styles.pickerCaret}${open ? ` ${styles.pickerCaretOpen}` : ""}`} />
       </button>
@@ -147,7 +127,7 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (id: string
                   onClick={() => { onChange(m.id); setOpen(false); }}
                 >
                   <span className={`${styles.pickerDot} ${styles[`dot_${m.provider}`]}`} />
-                  <span>{m.label}</span>
+                  <span>{m.name}</span>
                   {m.tag && <span className={styles.pickerOptionTag}>{m.tag}</span>}
                 </button>
               ))}
@@ -315,7 +295,7 @@ export function Playground() {
             <p className={styles.emptyTitle}>Ask anything.</p>
             <p className={styles.emptyModel}>
               <span className={`${styles.provDot} ${styles[`dot_${currentModel.provider}`]}`} />
-              {currentModel.label}
+              {currentModel.name}
             </p>
             <div className={styles.emptyHints}>
               <span>Enter to send</span>

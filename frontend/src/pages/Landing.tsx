@@ -29,9 +29,9 @@ const STEPS = [
 
 const REGIONS = [
   { name: "Anthropic", nodes: 4, status: "operational" },
-  { name: "Google",    nodes: 3, status: "operational" },
-  { name: "DeepSeek",  nodes: 2, status: "operational" },
-  { name: "OpenAI",    nodes: 1, status: "coming soon" },
+  { name: "Google",    nodes: 2, status: "operational" },
+  { name: "DeepSeek",  nodes: 3, status: "operational" },
+  { name: "OpenAI",    nodes: 0, status: "coming soon" },
 ];
 
 // Bluesminds-exact animation config
@@ -210,7 +210,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model: "claude-opus-4-5",
+  model: "claude-opus-4-6",
   messages: [{ role: "user", content: "Hello!" }],
 });`}</pre>
             </div>
@@ -408,7 +408,9 @@ const res = await client.chat.completions.create({
                   <span className={styles.providerStatus}>{r.status}</span>
                 </div>
                 <span className={styles.providerName}>{r.name}</span>
-                <span className={styles.providerNodes}>{r.nodes} models</span>
+                <span className={styles.providerNodes}>
+                  {r.nodes > 0 ? `${r.nodes} model${r.nodes === 1 ? "" : "s"}` : "Not yet available"}
+                </span>
               </motion.div>
             ))}
           </motion.div>
@@ -502,7 +504,7 @@ const res = await client.chat.completions.create({
                 id: "01",
                 name: "Anthropic Claude",
                 tagline: "State-of-the-art reasoning and vision",
-                desc: "claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5 and the full model family — available through one ADO key.",
+                desc: "claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 and the full model family — available through one ADO key.",
                 tags: ["Reasoning", "Vision", "Tool use", "Streaming"],
                 href: "/models",
               },
@@ -510,7 +512,7 @@ const res = await client.chat.completions.create({
                 id: "02",
                 name: "Google Gemini",
                 tagline: "Long context and multimodal AI",
-                desc: "gemini-2.5-flash, gemini-2.5-pro — Google's fastest and most capable models, routing through ADO.",
+                desc: "gemini-2.5-pro and gemini-3.1-pro-preview — Google's most capable models, with a 1M-token context window.",
                 tags: ["Multimodal", "Long context", "Fast"],
                 href: "/models",
               },
@@ -518,7 +520,7 @@ const res = await client.chat.completions.create({
                 id: "03",
                 name: "DeepSeek",
                 tagline: "High-performance open reasoning",
-                desc: "deepseek-chat and deepseek-reasoner — open-weight models with exceptional reasoning and code generation.",
+                desc: "deepseek-v4-pro and deepseek-v4-flash — open-weight models with exceptional reasoning and code generation.",
                 tags: ["Reasoning", "Code", "Open weights"],
                 href: "/models",
               },

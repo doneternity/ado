@@ -165,10 +165,10 @@
   flex-shrink: 0;
 }
 
-.dot_anthropic { background: rgba(236,168,214,0.8); }
-.dot_google    { background: rgba(0,180,255,0.7); }
-.dot_deepseek  { background: rgba(5,196,139,0.7); }
-.dot_other     { background: rgba(255,255,255,0.3); }
+.dot_claude   { background: rgba(236,168,214,0.8); }
+.dot_gemini   { background: rgba(0,180,255,0.7); }
+.dot_deepseek { background: rgba(5,196,139,0.7); }
+.dot_other    { background: rgba(255,255,255,0.3); }
 
 /* ── Control buttons ── */
 .ctrlBtn {

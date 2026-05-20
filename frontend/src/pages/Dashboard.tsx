@@ -10,14 +10,15 @@ import {
 import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe } from "../api/queries";
 import { useRotateKey } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
+import { API_BASE_URL } from "../config";
 import styles from "./Dashboard.module.scss";
 
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://adoai.space/v1";
+const PROXY_BASE = API_BASE_URL;
 
 const FEATURED_MODELS = [
-  { id: "[kmo]claude-opus-4.7",         name: "Claude Opus 4.7",  cap: "Reasoning" },
-  { id: "[GG]gemini-3-flash-preview",   name: "Gemini 3 Flash",   cap: "Speed"     },
-  { id: "[momo神秘V4]DeepSeek-V4-Pro",  name: "DeepSeek V4 Pro",  cap: "Coding"    },
+  { id: "claude-opus-4-6",  name: "Claude Opus 4.6",  cap: "Reasoning" },
+  { id: "deepseek-v4-pro",  name: "DeepSeek V4 Pro",  cap: "Coding"    },
+  { id: "GLM-5.1",          name: "GLM 5.1",          cap: "Speed"     },
 ];
 
 const stagger = {
@@ -114,7 +115,7 @@ function KeyCard() {
   }
 
   function copyCurl() {
-    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw?.key ?? current?.keyPrefix + "…"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"[kmo]claude-opus-4.7","messages":[{"role":"user","content":"Hello!"}]}'`;
+    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw?.key ?? current?.keyPrefix + "…"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"claude-opus-4-6","messages":[{"role":"user","content":"Hello!"}]}'`;
     void navigator.clipboard.writeText(snippet);
     setCopiedCurl(true);
     setTimeout(() => setCopiedCurl(false), 1800);
@@ -212,7 +213,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model:    "[kmo]claude-opus-4.7",
+  model:    "claude-opus-4-6",
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(res.choices[0].message.content);`;

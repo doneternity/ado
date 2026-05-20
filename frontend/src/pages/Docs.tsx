@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
+import { API_BASE_URL } from "../config";
 import styles from "./Docs.module.scss";
 
 const NAV = [
@@ -88,7 +89,7 @@ function Param({
 
 export function Docs() {
   const [activeId, setActiveId] = useState("quick-start");
-  const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL ?? "https://adoai.space/v1";
+  const PROXY_BASE = API_BASE_URL;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -141,7 +142,7 @@ export function Docs() {
           <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Getting Started</span>
           <h1 className={styles.pageTitle}>Quick start</h1>
           <p className={styles.lead}>
-            ADO exposes an OpenAI-compatible API backed by Google Gemini.
+            ADO exposes an OpenAI-compatible API that routes to Claude, Gemini, DeepSeek, and more.
             Any client that works with the OpenAI API works with ADO — swap the base URL and key, nothing else.
           </p>
           <div className={styles.steps}>
@@ -159,7 +160,7 @@ export function Docs() {
               {
                 n: "03",
                 title: "Pick a model",
-                body: "Use any model ID from the /models list, e.g. [kmo]claude-opus-4.7 or [GG]gemini-2.5-pro. The model field is required on every request.",
+                body: "Use any model ID from the /models list, e.g. claude-opus-4-6 or deepseek-v4-pro. The model field is required on every request.",
               },
             ].map(({ n, title, body }) => (
               <div key={n} className={styles.step}>
@@ -237,7 +238,7 @@ export function Docs() {
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "[kmo]claude-opus-4.7",
+    "model": "claude-opus-4-6",
     "messages": [
       { "role": "system", "content": "You are a helpful assistant." },
       { "role": "user",   "content": "Hello!" }
@@ -248,7 +249,7 @@ export function Docs() {
           <Code lang="json">{`{
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
-  "model": "[kmo]claude-opus-4.7",
+  "model": "claude-opus-4-6",
   "choices": [
     {
       "index": 0,
@@ -355,7 +356,7 @@ curl ${PROXY_BASE}/chat/completions \\
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "[kmo]claude-opus-4.7",
+    "model": "claude-opus-4-6",
     "messages": [{ "role": "user", "content": "Write a haiku." }]
   }'
 
@@ -365,7 +366,7 @@ curl ${PROXY_BASE}/chat/completions \\
   -H "Content-Type: application/json" \\
   --no-buffer \\
   -d '{
-    "model": "[kmo]claude-opus-4.7",
+    "model": "claude-opus-4-6",
     "messages": [{ "role": "user", "content": "Write a haiku." }],
     "stream": true
   }'`}</Code>
@@ -387,14 +388,14 @@ const client = new OpenAI({
 
 // Non-streaming
 const res = await client.chat.completions.create({
-  model:    "[kmo]claude-opus-4.7",
+  model:    "claude-opus-4-6",
   messages: [{ role: "user", content: "Write a haiku." }],
 });
 console.log(res.choices[0].message.content);
 
 // Streaming
 const stream = await client.chat.completions.create({
-  model:    "[kmo]claude-opus-4.7",
+  model:    "claude-opus-4-6",
   messages: [{ role: "user", content: "Write a haiku." }],
   stream:   true,
 });
@@ -418,14 +419,14 @@ client = OpenAI(
 
 # Non-streaming
 response = client.chat.completions.create(
-    model    = "[kmo]claude-opus-4.7",
+    model    = "claude-opus-4-6",
     messages = [{"role": "user", "content": "Write a haiku."}],
 )
 print(response.choices[0].message.content)
 
 # Streaming
 with client.chat.completions.stream(
-    model    = "[kmo]claude-opus-4.7",
+    model    = "claude-opus-4-6",
     messages = [{"role": "user", "content": "Write a haiku."}],
 ) as stream:
     for text in stream.text_stream:

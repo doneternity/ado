@@ -202,7 +202,13 @@ func (a *Auth) ResendVerify(rdb *redis.Client) http.HandlerFunc {
 
 		// 60s cooldown per email (NX fails if key exists).
 		set, err := rdb.SetNX(r.Context(), "verify_cd:"+req.Email, 1, 60*time.Second).Result()
-		if err == nil && !set {
+		if err != nil {
+			// Redis unavailable — fail-safe: don't send mail, return ok to avoid enumeration.
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+			return
+		}
+		if !set {
 			ttl, _ := rdb.TTL(r.Context(), "verify_cd:"+req.Email).Result()
 			apperr.Write(w, apperr.TooMany("COOLDOWN", "wait before resending").
 				WithExtra("retryAfter", int(ttl.Seconds())))

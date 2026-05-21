@@ -125,6 +125,7 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 			apperr.Write(w, apperr.Internal("INTERNAL", "update key"))
 			return
 		}
+		p.ApiKey = encKey // use new key when building masked response below
 		if p.IsActive {
 			h.d.Registry.Swap(p.BaseUrl, req.APIKey) // pass plaintext to registry
 		}

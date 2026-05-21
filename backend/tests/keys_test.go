@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/cookiejar"
@@ -47,5 +48,16 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 	r.Body.Close()
 	if rot.Key == "" || rot.Key == originalKey {
 		t.Fatalf("rotate produced %q, want different non-empty key", rot.Key)
+	}
+
+	// Old key must be rejected now that it is revoked.
+	chatBody := []byte(`{"model":"gemini-test","messages":[{"role":"user","content":"hi"}]}`)
+	req, _ = http.NewRequest("POST", fx.server.URL+"/api/v1/chat/completions", bytes.NewReader(chatBody))
+	req.Header.Set("Authorization", "Bearer "+originalKey)
+	req.Header.Set("Content-Type", "application/json")
+	r, _ = c.Do(req)
+	r.Body.Close()
+	if r.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("revoked key should be rejected with 401, got %d", r.StatusCode)
 	}
 }

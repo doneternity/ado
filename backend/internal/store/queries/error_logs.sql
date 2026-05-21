@@ -13,4 +13,4 @@ SELECT COUNT(*) FROM error_logs;
 DELETE FROM error_logs WHERE id = $1;
 
 -- name: DeleteOldErrorLogs :exec
-DELETE FROM error_logs WHERE created_at < NOW() - ($1 || ' days')::interval;
+DELETE FROM error_logs WHERE created_at < NOW() - INTERVAL '1 day' * $1;

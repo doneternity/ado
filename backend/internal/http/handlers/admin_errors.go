@@ -52,8 +52,7 @@ func (h *AdminErrors) BulkDelete(w http.ResponseWriter, r *http.Request) {
 	if err != nil || days < 1 {
 		days = 7
 	}
-	daysStr := strconv.Itoa(days)
-	if err := h.q.DeleteOldErrorLogs(r.Context(), &daysStr); err != nil {
+	if err := h.q.DeleteOldErrorLogs(r.Context(), int32(days)); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "bulk delete"))
 		return
 	}

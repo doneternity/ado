@@ -30,11 +30,11 @@ func (q *Queries) DeleteErrorLog(ctx context.Context, id int64) error {
 }
 
 const deleteOldErrorLogs = `-- name: DeleteOldErrorLogs :exec
-DELETE FROM error_logs WHERE created_at < NOW() - ($1 || ' days')::interval
+DELETE FROM error_logs WHERE created_at < NOW() - INTERVAL '1 day' * $1
 `
 
-func (q *Queries) DeleteOldErrorLogs(ctx context.Context, dollar_1 *string) error {
-	_, err := q.db.Exec(ctx, deleteOldErrorLogs, dollar_1)
+func (q *Queries) DeleteOldErrorLogs(ctx context.Context, days int32) error {
+	_, err := q.db.Exec(ctx, deleteOldErrorLogs, days)
 	return err
 }
 

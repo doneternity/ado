@@ -124,6 +124,21 @@ func (c *captureMailer) SendVerification(_ context.Context, _, link string) erro
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+	return buildFixture(t, nil)
+}
+
+// newFixtureRealAdmin returns a fixture wired with the real RequireAdmin
+// middleware so admin-route protection tests are meaningful.
+func newFixtureRealAdmin(t *testing.T) *fixture {
+	t.Helper()
+	return buildFixture(t, mw.RequireAdmin)
+}
+
+// buildFixture constructs a full test fixture. adminMWFactory, if non-nil, is
+// called with db.Queries to produce the admin middleware; otherwise a pass-through
+// stub is used so test helpers that don't need admin protection stay simple.
+func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handler) http.Handler) *fixture {
+	t.Helper()
 	ctx := context.Background()
 
 	// Reset DB state: drop all tables then re-run migrations.
@@ -185,7 +200,12 @@ func newFixture(t *testing.T) *fixture {
 	quotaSvc := quota.NewService(q)
 	proxyH := handlers.NewProxy(handlers.ProxyDeps{Registry: reg, Maintenance: maint, Quota: quotaSvc})
 
-	adminMW := func(next http.Handler) http.Handler { return next }
+	var adminMW func(http.Handler) http.Handler
+	if adminMWFactory != nil {
+		adminMW = adminMWFactory(q)
+	} else {
+		adminMW = func(next http.Handler) http.Handler { return next }
+	}
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: q, Registry: reg})
 	adminUsersH := handlers.NewAdminUsers(q)
 	adminStatsH := handlers.NewAdminStats(q)

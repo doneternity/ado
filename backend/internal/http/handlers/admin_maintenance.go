@@ -35,7 +35,7 @@ func (h *AdminMaintenance) Toggle(w http.ResponseWriter, r *http.Request) {
 	if body.Enabled {
 		val = "true"
 	}
-	_ = h.q.SetSetting(r.Context(), db.SetSettingParams{Key: "maintenance_mode", Value: val})
+	_ = h.q.SetSetting(r.Context(), db.SetSettingParams{Key: settingMaintenanceMode, Value: val})
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]bool{"enabled": body.Enabled})
 }

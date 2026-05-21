@@ -50,7 +50,8 @@ func (h *AdminErrors) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AdminErrors) BulkDelete(w http.ResponseWriter, r *http.Request) {
 	days, err := strconv.Atoi(r.URL.Query().Get("days"))
 	if err != nil || days < 1 {
-		days = 7
+		apperr.Write(w, apperr.BadRequest("INVALID", "days must be a positive integer"))
+		return
 	}
 	if err := h.q.DeleteOldErrorLogs(r.Context(), int32(days)); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "bulk delete"))

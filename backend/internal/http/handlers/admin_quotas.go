@@ -17,7 +17,7 @@ type AdminQuotas struct{ q *db.Queries }
 func NewAdminQuotas(q *db.Queries) *AdminQuotas { return &AdminQuotas{q: q} }
 
 func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
-	global, err := h.q.GetSetting(r.Context(), "global_daily_quota")
+	global, err := h.q.GetSetting(r.Context(), settingGlobalDailyQuota)
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "get quota"))
 		return
@@ -51,7 +51,7 @@ func (h *AdminQuotas) SetGlobal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.q.SetSetting(r.Context(), db.SetSettingParams{
-		Key: "global_daily_quota", Value: strconv.Itoa(req.Limit),
+		Key: settingGlobalDailyQuota, Value: strconv.Itoa(req.Limit),
 	}); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set quota"))
 		return

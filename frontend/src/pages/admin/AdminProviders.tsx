@@ -239,7 +239,9 @@ function LivePreview() {
   const [err, setErr] = useState<string | null>(null);
 
   async function load() {
-    const k = keyInput.trim();
+    // Strip stray characters — pasted keys sometimes carry invisible chars
+    // that the Authorization header rejects.
+    const k = keyInput.trim().replace(/[^A-Za-z0-9-]/g, "");
     if (!k) return;
     setLoading(true);
     setErr(null);

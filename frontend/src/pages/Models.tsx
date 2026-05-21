@@ -135,7 +135,9 @@ export function Models() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function doLoad(key?: string) {
-    const k = (key ?? keyInput).trim();
+    // Strip stray characters — pasted keys sometimes carry invisible chars
+    // that the Authorization header rejects.
+    const k = (key ?? keyInput).trim().replace(/[^A-Za-z0-9-]/g, "");
     if (!k) return;
     setLoading(true);
     setLoadErr(null);

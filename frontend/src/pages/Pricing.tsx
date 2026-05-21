@@ -22,7 +22,7 @@ const STATS = [
   { icon: Cpu,   value: "20+",       label: "models available" },
   { icon: Globe, value: "2",         label: "providers" },
   { icon: Clock, value: "UTC 00:00", label: "daily reset" },
-  { icon: Zap,   value: "instant",   label: "key generation" },
+  { icon: Zap,   value: "<30s",      label: "to first request" },
 ];
 
 const FAQ = [

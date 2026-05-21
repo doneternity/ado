@@ -55,10 +55,17 @@ func (s *Service) EnsureForUser(ctx context.Context, userID uuid.UUID) (Issued, 
 	return Issued{Raw: raw, Prefix: row.KeyPrefix, DailyLimit: row.DailyLimit}, nil
 }
 
-// Rotate revokes any active key and issues a new one.
+// Rotate revokes any active key and issues a new one, carrying today's usage
+// forward so the quota cannot be reset for free by rotating.
 // Non-transactional is acceptable: the partial unique index ado_keys_one_active_per_user
 // prevents a double-issue race.
 func (s *Service) Rotate(ctx context.Context, userID uuid.UUID) (Issued, error) {
+	// Fetch the old key so we can copy its usage to the new one.
+	oldKey, err := s.q.GetActiveKeyByUser(ctx, userID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return Issued{}, err
+	}
+
 	if err := s.q.RevokeActiveKeyForUser(ctx, userID); err != nil {
 		return Issued{}, err
 	}
@@ -75,6 +82,16 @@ func (s *Service) Rotate(ctx context.Context, userID uuid.UUID) (Issued, error) 
 	if err != nil {
 		return Issued{}, err
 	}
+
+	// Carry today's usage from the old key to the new key so rotating doesn't
+	// reset the daily quota counter.
+	if oldKey.ID != (uuid.UUID{}) {
+		_ = s.q.CarryUsageToNewKey(ctx, db.CarryUsageToNewKeyParams{
+			OldKeyID: oldKey.ID,
+			NewKeyID: row.ID,
+		})
+	}
+
 	return Issued{Raw: raw, Prefix: row.KeyPrefix, DailyLimit: row.DailyLimit}, nil
 }
 

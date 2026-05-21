@@ -11,6 +11,24 @@ import (
 	"github.com/google/uuid"
 )
 
+const carryUsageToNewKey = `-- name: CarryUsageToNewKey :exec
+INSERT INTO daily_usage (key_id, day, used)
+SELECT $2, day, used
+FROM daily_usage
+WHERE key_id = $1 AND day = CURRENT_DATE
+ON CONFLICT DO NOTHING
+`
+
+type CarryUsageToNewKeyParams struct {
+	OldKeyID uuid.UUID
+	NewKeyID uuid.UUID
+}
+
+func (q *Queries) CarryUsageToNewKey(ctx context.Context, arg CarryUsageToNewKeyParams) error {
+	_, err := q.db.Exec(ctx, carryUsageToNewKey, arg.OldKeyID, arg.NewKeyID)
+	return err
+}
+
 const incrementUsage = `-- name: IncrementUsage :one
 INSERT INTO daily_usage (key_id, day, used)
 VALUES ($1, CURRENT_DATE, 1)

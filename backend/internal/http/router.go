@@ -63,7 +63,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Route("/api/keys", func(r chi.Router) {
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Get("/current", d.Keys.Current)
-		r.With(mw.CSRF).Post("/rotate", d.Keys.Rotate)
+		r.With(mw.CSRF, d.Limiter.PerIP("rl:keys:rotate:ip", 5, time.Hour)).Post("/rotate", d.Keys.Rotate)
 		r.Get("/flash", d.Keys.Flash)
 	})
 

@@ -32,7 +32,7 @@ type Config struct {
 	ResendAPIKey string `env:"RESEND_API_KEY"`
 	MailFrom     string `env:"MAIL_FROM"`
 
-	ProviderKeySecret string `env:"PROVIDER_KEY_SECRET"`
+	ProviderKeySecret string `env:"PROVIDER_KEY_SECRET,required"`
 
 	AdminBootstrapEmail string `env:"ADMIN_BOOTSTRAP_EMAIL"`
 }

@@ -18,7 +18,8 @@ func deriveKey(secret string) []byte {
 }
 
 // Encrypt returns an "enc:<base64>" string. If secret is empty the plaintext
-// is returned unchanged so callers do not need to special-case an unset secret.
+// is returned unchanged (raw provider key stored in DB) — PROVIDER_KEY_SECRET
+// must always be set; config.Load() now enforces this at startup.
 func Encrypt(plaintext, secret string) (string, error) {
 	if secret == "" {
 		return plaintext, nil

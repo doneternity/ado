@@ -1,4 +1,4 @@
-.PHONY: dev migrate sqlc test lint build deploy
+.PHONY: dev migrate migrate-down sqlc test lint build install-tools
 
 dev:
 	docker compose up
@@ -27,6 +27,3 @@ install-tools:
 
 build:
 	docker build -t ado:local .
-
-deploy:
-	flyctl deploy

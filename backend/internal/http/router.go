@@ -37,7 +37,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(mw.Recover)
 	r.Use(mw.Logger)
 	r.Use(mw.ErrorLogger(d.Queries))
-	r.Use(mw.LoadSession(d.Sessions))
+	r.Use(mw.LoadSession(d.Sessions, d.Queries))
 
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -58,15 +58,16 @@
   gap: 8px;
   width: 100%;
   padding: 13px 18px;
-  background: var(--electric);
-  border: 2px solid var(--electric);
-  color: var(--bg);
-  font-weight: 900;
+  background: #ffffff;
+  border: none;
+  color: #050508;
+  font-weight: 700;
   font-size: .88rem;
+  border-radius: var(--r-pill);
   cursor: pointer;
-  transition: background var(--t-fast) ease, box-shadow var(--t-base) ease, transform var(--t-base) ease;
+  transition: opacity var(--t-fast) ease;
 
-  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+  &:hover { opacity: 0.85; }
 }
 
 /* skeleton placeholder row */

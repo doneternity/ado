@@ -42,7 +42,7 @@
   width: 18px;
   height: 18px;
   font-size: .6rem;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--silver);
   background: rgba(255, 255, 255, 0.06);
   border-radius: 50%;
@@ -95,9 +95,11 @@
 .inputSm { width: 120px; }
 
 .title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -.03em;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 400;
+  letter-spacing: -.025em;
+  line-height: .95;
   color: var(--black);
   display: flex;
   align-items: center;
@@ -144,7 +146,7 @@
 
 .statValueSm {
   font-size: 1rem;
-  font-weight: 900;
+  font-weight: 600;
   color: var(--black);
   word-break: break-all;
 }
@@ -184,7 +186,7 @@
 
   &:hover {
     border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: var(--shadow-lift);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
   }
 }
 
@@ -210,7 +212,7 @@
 
 .moduleTitle {
   font-size: .88rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--black);
 }
 
@@ -282,14 +284,13 @@
   align-items: center;
   gap: 4px;
   font-size: .62rem;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: .06em;
   text-transform: uppercase;
   padding: 3px 8px;
   border-radius: var(--r-pill);
 }
 
-.badgeActive  { background: rgba(0, 180, 255, 0.12); color: var(--electric); border: 1px solid rgba(0,180,255,.25); }
 .badgeAdmin   { background: rgba(110, 90, 253, 0.15); color: var(--purple); border: 1px solid rgba(110,90,253,.25); }
 .badgeError   { background: rgba(225, 29, 72, 0.12); color: var(--error); border: 1px solid rgba(225,29,72,.25); }
 .badgeWarn    { background: rgba(255, 138, 61, 0.12); color: var(--orange); border: 1px solid rgba(255,138,61,.25); }
@@ -325,7 +326,7 @@
   outline: none;
   transition: border-color var(--t-fast);
 
-  &:focus { border-color: var(--electric); }
+  &:focus { border-color: rgba(255,255,255,0.25); }
   &::placeholder { color: rgba(255, 255, 255, 0.2); }
 }
 
@@ -389,7 +390,7 @@
 
 .inlineFormTitle {
   font-size: .72rem;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .06em;
   color: var(--silver);
@@ -547,7 +548,7 @@
 
 .maintenanceBadge {
   font-size: 1rem;
-  font-weight: 900;
+  font-weight: 700;
   padding: 6px 18px;
   border-radius: var(--r-pill);
   letter-spacing: .06em;
@@ -642,7 +643,7 @@
 
 .previewGroupName {
   font-size: .72rem;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .06em;
   color: rgba(255, 255, 255, 0.65);

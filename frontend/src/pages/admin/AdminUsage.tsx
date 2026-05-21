@@ -25,7 +25,7 @@ export function AdminUsage() {
               title={`${d.day}: ${d.total}`}
               style={{
                 flex: 1,
-                background: `rgba(0,180,255,${0.15 + 0.7 * (d.total / maxVal)})`,
+                background: `rgba(236,168,214,${0.15 + 0.7 * (d.total / maxVal)})`,
                 borderRadius: "3px 3px 0 0",
                 height: `${Math.max(4, (d.total / maxVal) * 100)}%`,
                 minWidth: 6,

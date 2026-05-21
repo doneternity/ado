@@ -57,7 +57,7 @@
   font-size: .78rem;
   outline: none;
   transition: border-color var(--t-fast);
-  &:focus { border-color: var(--electric); }
+  &:focus { border-color: rgba(255,255,255,.25); }
   &::placeholder { color: rgba(255,255,255,.2); }
 }
 
@@ -66,18 +66,18 @@
   align-items: center;
   gap: 6px;
   padding: 10px 20px;
-  background: var(--electric);
-  color: var(--bg);
+  background: #ffffff;
+  color: #050508;
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-pill);
   font-size: .8rem;
-  font-weight: 700;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
   transition: opacity var(--t-fast);
-  &:hover:not(:disabled) { opacity: .88; }
-  &:disabled { opacity: .4; cursor: not-allowed; }
+  &:hover:not(:disabled) { opacity: .85; }
+  &:disabled { opacity: .45; cursor: not-allowed; }
 }
 
 .btnSpinner {

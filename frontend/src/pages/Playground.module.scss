@@ -5,6 +5,8 @@
   background: #000000;
   color: #ffffff;
   overflow: hidden;
+
+  @media (max-width: 859px) { height: calc(100dvh - 80px - 64px); }
 }
 
 /* ── Top bar ── */
@@ -15,8 +17,10 @@
   padding: 10px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 10px;
+  flex-wrap: nowrap;
+
+  @media (max-width: 600px) { padding: 8px 14px; }
 }
 
 .topLeft {
@@ -39,6 +43,8 @@
   font-size: .62rem;
   letter-spacing: .02em;
   color: rgba(255,255,255,0.18);
+
+  @media (max-width: 600px) { display: none; }
 }
 
 .controls {
@@ -65,6 +71,8 @@
   cursor: pointer;
   transition: border-color var(--t-fast), background var(--t-fast);
   min-width: 180px;
+
+  @media (max-width: 600px) { min-width: 0; padding: 7px 10px; font-size: .75rem; }
 
   &:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); }
 }
@@ -355,6 +363,8 @@
   flex-wrap: wrap;
   justify-content: center;
 
+  @media (max-width: 600px) { display: none; }
+
   span {
     font-family: var(--font-mono);
     font-size: .6rem;
@@ -512,6 +522,8 @@
   color: rgba(255,255,255,0.13);
   text-transform: uppercase;
   letter-spacing: .05em;
+
+  @media (max-width: 600px) { display: none; }
 }
 
 .sendBtn {

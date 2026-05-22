@@ -63,17 +63,15 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className={`${styles.shell}${isHero ? ` ${styles.shellHero}` : ""}`}>{children}</div>
 
-      {!isDark && (
-        <nav className={styles.mobileBottomNav}>
-          <Link to="/models"     className={`${styles.mobileNavItem}${pathname === "/models"     ? ` ${styles.mobileNavActive}` : ""}`}>Models</Link>
-          <Link to="/docs"       className={`${styles.mobileNavItem}${pathname === "/docs"       ? ` ${styles.mobileNavActive}` : ""}`}>Docs</Link>
-          <Link to="/pricing"    className={`${styles.mobileNavItem}${pathname === "/pricing"    ? ` ${styles.mobileNavActive}` : ""}`}>Pricing</Link>
-          <Link to="/playground" className={`${styles.mobileNavItem}${pathname === "/playground" ? ` ${styles.mobileNavActive}` : ""}`}>Play</Link>
-          <Link to={me ? "/dashboard" : "/login"} className={`${styles.mobileNavItem} ${styles.mobileNavCta}`}>
-            {me ? "Dash" : "Sign in"}
-          </Link>
-        </nav>
-      )}
+      <nav className={styles.mobileBottomNav}>
+        <Link to="/models"     className={`${styles.mobileNavItem}${pathname === "/models"     ? ` ${styles.mobileNavActive}` : ""}`}>Models</Link>
+        <Link to="/docs"       className={`${styles.mobileNavItem}${pathname === "/docs"       ? ` ${styles.mobileNavActive}` : ""}`}>Docs</Link>
+        <Link to="/pricing"    className={`${styles.mobileNavItem}${pathname === "/pricing"    ? ` ${styles.mobileNavActive}` : ""}`}>Pricing</Link>
+        <Link to="/playground" className={`${styles.mobileNavItem}${pathname === "/playground" ? ` ${styles.mobileNavActive}` : ""}`}>Play</Link>
+        <Link to={me ? "/dashboard" : "/login"} className={`${styles.mobileNavItem} ${styles.mobileNavCta}`}>
+          {me ? "Dash" : "Sign in"}
+        </Link>
+      </nav>
 
       {!isDark && <Footer />}
       <Toast />

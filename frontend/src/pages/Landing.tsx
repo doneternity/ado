@@ -34,24 +34,26 @@ const REGIONS = [
   { name: "OpenAI",    nodes: 0, status: "coming soon" },
 ];
 
-// Bluesminds-exact animation config
-const EASE = [0.16, 1, 0.3, 1] as const;
-const VP   = { once: true, margin: "-8% 0px" } as const;
+const EASE = [0.22, 1, 0.36, 1] as const;
+const VP   = { once: true, margin: "-5% 0px" } as const;
+
+const spring = { type: "spring" as const, damping: 26, stiffness: 110 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 40 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.75, ease: EASE } },
+  hidden: { opacity: 0, y: 52, filter: "blur(5px)" },
+  show:   { opacity: 1, y: 0, filter: "blur(0px)",
+            transition: { duration: 0.9, ease: EASE } },
 };
 const fadeIn = {
-  hidden: { opacity: 0 },
-  show:   { opacity: 1, transition: { duration: 0.6, ease: EASE } },
+  hidden: { opacity: 0, scale: 0.96 },
+  show:   { opacity: 1, scale: 1, transition: { duration: 0.5, ease: EASE } },
 };
 const slideLeft = {
-  hidden: { opacity: 0, x: -32 },
-  show:   { opacity: 1, x: 0, transition: { duration: 0.75, ease: EASE } },
+  hidden: { opacity: 0, x: -52, filter: "blur(4px)" },
+  show:   { opacity: 1, x: 0, filter: "blur(0px)", transition: spring },
 };
-const stagger14 = { hidden: {}, show: { transition: { staggerChildren: 0.14 } } };
-const stagger10 = { hidden: {}, show: { transition: { staggerChildren: 0.10 } } };
+const stagger14 = { hidden: {}, show: { transition: { staggerChildren: 0.11, delayChildren: 0.04 } } };
+const stagger10 = { hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } } };
 
 const MotionLink = motion.create(Link);
 

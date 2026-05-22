@@ -75,8 +75,27 @@ func (q *Queries) DeleteProvider(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getProvider = `-- name: GetProvider :one
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at FROM providers WHERE id = $1
+`
+
+func (q *Queries) GetProvider(ctx context.Context, id uuid.UUID) (Provider, error) {
+	row := q.db.QueryRow(ctx, getProvider, id)
+	var i Provider
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.BaseUrl,
+		&i.ApiKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getActiveProvider = `-- name: GetActiveProvider :one
-SELECT id, name, base_url, api_key, is_active, created_at, updated_at FROM providers WHERE is_active = TRUE LIMIT 1
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at FROM providers WHERE is_active = TRUE ORDER BY updated_at DESC LIMIT 1
 `
 
 func (q *Queries) GetActiveProvider(ctx context.Context) (Provider, error) {

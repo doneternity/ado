@@ -3,12 +3,14 @@ import { Send, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
 import { useMe } from "../api/queries";
 import { useRawKey } from "../api/queries";
 import { MODELS } from "../data/models";
-import type { ModelDef, ModelProvider } from "../data/models";
+import type { ModelProvider } from "../data/models";
 import { PROXY_REQUEST_BASE } from "../config";
 import styles from "./Playground.module.scss";
 
 type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string; id: number };
+
+type PickerModel = { id: string; name: string; provider: ModelProvider; tag?: string };
 
 const PROVIDER_LABEL: Record<ModelProvider, string> = {
   claude:   "Anthropic",
@@ -18,6 +20,25 @@ const PROVIDER_LABEL: Record<ModelProvider, string> = {
 };
 
 const PROXY_BASE = PROXY_REQUEST_BASE;
+
+function inferProvider(id: string): ModelProvider {
+  if (/gemini|google|\[GG\]/i.test(id)) return "gemini";
+  if (/claude|anthropic/i.test(id)) return "claude";
+  if (/deepseek|\[beagle\]/i.test(id)) return "deepseek";
+  return "other";
+}
+
+function toPickerModels(ids: string[]): PickerModel[] {
+  return ids.map(id => {
+    const static_ = MODELS.find(m => m.id === id);
+    if (static_) return { id, name: static_.name, provider: static_.provider, tag: static_.tag };
+    return {
+      id,
+      name: id.replace(/^\[[^\]]+\]/, "").replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()).trim(),
+      provider: inferProvider(id),
+    };
+  });
+}
 
 async function streamCompletion(
   apiKey: string,
@@ -83,10 +104,14 @@ async function streamCompletion(
 
 let msgIdCounter = 0;
 
-function ModelPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+function ModelPicker({ value, onChange, models }: {
+  value: string;
+  onChange: (id: string) => void;
+  models: PickerModel[];
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const current = MODELS.find(m => m.id === value) ?? MODELS[0]!;
+  const current = models.find(m => m.id === value) ?? models[0];
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -96,11 +121,13 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (id: string
     return () => document.removeEventListener("mousedown", handle);
   }, []);
 
-  const grouped = MODELS.reduce<Record<string, ModelDef[]>>((acc, m) => {
+  const grouped = models.reduce<Record<string, PickerModel[]>>((acc, m) => {
     const p = PROVIDER_LABEL[m.provider];
     (acc[p] ??= []).push(m);
     return acc;
   }, {});
+
+  if (!current) return null;
 
   return (
     <div className={styles.pickerWrap} ref={ref}>
@@ -117,10 +144,10 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (id: string
 
       {open && (
         <div className={styles.pickerDropdown}>
-          {Object.entries(grouped).map(([provider, models]) => (
+          {Object.entries(grouped).map(([provider, ms]) => (
             <div key={provider} className={styles.pickerGroup}>
               <span className={styles.pickerGroupLabel}>{provider}</span>
-              {models.map(m => (
+              {ms.map(m => (
                 <button
                   key={m.id}
                   className={`${styles.pickerOption}${m.id === value ? ` ${styles.pickerOptionActive}` : ""}`}
@@ -139,31 +166,58 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (id: string
   );
 }
 
+const STATIC_MODELS: PickerModel[] = MODELS.map(m => ({
+  id: m.id, name: m.name, provider: m.provider, tag: m.tag,
+}));
+
 export function Playground() {
   const { data: me } = useMe();
   const raw = useRawKey();
 
-  const [apiKey, setApiKey]       = useState(() => raw?.key ?? "");
-  const [model, setModel]         = useState(MODELS[0]!.id);
-  const [systemPrompt, setSystem] = useState("");
-  const [showSystem, setShowSys]  = useState(false);
-  const [messages, setMessages]   = useState<Msg[]>([]);
-  const [input, setInput]         = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+  const [apiKey, setApiKey]         = useState(() => raw?.key ?? "");
+  const [model, setModel]           = useState(MODELS[0]!.id);
+  const [pickerModels, setPickerModels] = useState<PickerModel[]>(STATIC_MODELS);
+  const [systemPrompt, setSystem]   = useState("");
+  const [showSystem, setShowSys]    = useState(false);
+  const [messages, setMessages]     = useState<Msg[]>([]);
+  const [input, setInput]           = useState("");
+  const [streaming, setStreaming]   = useState(false);
+  const [error, setError]           = useState<string | null>(null);
 
-  const bottomRef  = useRef<HTMLDivElement>(null);
-  const inputRef   = useRef<HTMLTextAreaElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (raw?.key && !apiKey) setApiKey(raw.key);
   }, [raw, apiKey]);
 
+  const keyValid = (k: string) => k.startsWith("ado-") && k.length > 6 && /^[\x20-\x7E]+$/.test(k);
+
+  // Fetch live model list from the proxy whenever we have a valid key.
+  useEffect(() => {
+    if (!keyValid(apiKey)) {
+      setPickerModels(STATIC_MODELS);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${PROXY_BASE}/models`, { headers: { Authorization: `Bearer ${apiKey}` } })
+      .then(r => r.json())
+      .then((d: { data?: { id: string }[] }) => {
+        if (cancelled || !d.data?.length) return;
+        const live = toPickerModels(d.data.map(m => m.id));
+        setPickerModels(live);
+        // If the current model isn't in the live list, switch to the first live model.
+        if (!live.find(m => m.id === model)) setModel(live[0]!.id);
+      })
+      .catch(() => { /* keep static list */ });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-grow textarea
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -173,7 +227,7 @@ export function Playground() {
 
   const send = useCallback(async () => {
     const text = input.trim();
-    if (!text || streaming || !apiKey.startsWith("ado-")) return;
+    if (!text || streaming || !keyValid(apiKey)) return;
     setError(null);
 
     const userMsg: Msg = { role: "user", content: text, id: ++msgIdCounter };
@@ -211,10 +265,10 @@ export function Playground() {
 
   function clearChat() { setMessages([]); setError(null); }
 
-  const keyValid = apiKey.startsWith("ado-") && apiKey.length > 6 && /^[\x20-\x7E]+$/.test(apiKey);
-  const canSend  = keyValid && input.trim().length > 0 && !streaming;
-  const empty    = messages.length === 0;
-  const currentModel = MODELS.find(m => m.id === model) ?? MODELS[0]!;
+  const isKeyValid  = keyValid(apiKey);
+  const canSend     = isKeyValid && input.trim().length > 0 && !streaming;
+  const empty       = messages.length === 0;
+  const currentModel = pickerModels.find(m => m.id === model) ?? pickerModels[0];
 
   return (
     <div className={styles.page}>
@@ -226,7 +280,7 @@ export function Playground() {
           {me && <span className={styles.subtitle}>{me.user.email}</span>}
         </div>
         <div className={styles.controls}>
-          <ModelPicker value={model} onChange={setModel} />
+          <ModelPicker value={model} onChange={setModel} models={pickerModels} />
 
           <button
             className={`${styles.ctrlBtn}${showSystem ? ` ${styles.ctrlBtnActive}` : ""}`}
@@ -249,7 +303,7 @@ export function Playground() {
       </div>
 
       {/* ── Key banner ── */}
-      {!keyValid && (
+      {!isKeyValid && (
         <div className={styles.keyBanner}>
           <span className={styles.keyLabel}>ADO Key</span>
           <input
@@ -294,8 +348,12 @@ export function Playground() {
           <div className={styles.emptyState}>
             <p className={styles.emptyTitle}>Ask anything.</p>
             <p className={styles.emptyModel}>
-              <span className={`${styles.provDot} ${styles[`dot_${currentModel.provider}`]}`} />
-              {currentModel.name}
+              {currentModel && (
+                <>
+                  <span className={`${styles.provDot} ${styles[`dot_${currentModel.provider}`]}`} />
+                  {currentModel.name}
+                </>
+              )}
             </p>
             <div className={styles.emptyHints}>
               <span>Enter to send</span>
@@ -344,8 +402,8 @@ export function Playground() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder={keyValid ? "Message…" : "Enter your API key above first"}
-            disabled={!keyValid || streaming}
+            placeholder={isKeyValid ? "Message…" : "Enter your API key above first"}
+            disabled={!isKeyValid || streaming}
             rows={1}
           />
           <div className={styles.inputFooter}>

@@ -247,7 +247,7 @@ function LivePreview() {
     setErr(null);
     setModels(null);
     try {
-      const base = import.meta.env.VITE_PROXY_BASE_URL ?? PROXY_REQUEST_BASE;
+      const base = import.meta.env.VITE_PROXY_BASE_URL || PROXY_REQUEST_BASE;
       const r = await fetch(`${base}/models`, {
         headers: { Authorization: `Bearer ${k}` },
       });

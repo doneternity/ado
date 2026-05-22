@@ -51,6 +51,28 @@ func (l *Limiter) PerIP(prefix string, limit int, window time.Duration) func(htt
 	}
 }
 
+// PerKey enforces a limit per API key ID extracted from the Bearer context.
+// Falls back to PerIP behaviour if no bearer key is present in context.
+func (l *Limiter) PerKey(prefix string, limit int, window time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var redisKey string
+			if bk, ok := BearerFromContext(r.Context()); ok {
+				redisKey = prefix + ":" + bk.KeyID.String()
+			} else {
+				redisKey = prefix + ":ip:" + ClientIP(r)
+			}
+			allowed, retry, err := l.Check(r.Context(), redisKey, limit, window)
+			if err == nil && !allowed {
+				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())))
+				apperr.Write(w, apperr.TooMany("RATE_LIMITED", "too many requests"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func ClientIP(r *http.Request) string {
 	// Fly.io sets this header and it cannot be spoofed by clients.
 	if fly := r.Header.Get("Fly-Client-IP"); fly != "" {

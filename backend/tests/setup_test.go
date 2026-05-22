@@ -1,18 +1,19 @@
 package tests
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -33,11 +34,9 @@ import (
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
-// sharedDSN and sharedRedisURL are set once by TestMain and reused across all tests.
 var sharedDSN string
 var sharedRedisURL string
 
-// TestMain creates containers once for the entire package (or uses CI service containers).
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
@@ -52,7 +51,7 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "initial migrations: %v\n", err)
 			os.Exit(1)
 		}
-		sqlDB.Close() //nolint:errcheck
+		sqlDB.Close()
 	} else {
 		pgC, err := postgres.Run(ctx, "postgres:16-alpine",
 			postgres.WithDatabase("ado"),
@@ -64,15 +63,12 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "postgres container: %v\n", err)
 			os.Exit(1)
 		}
-		defer pgC.Terminate(ctx) //nolint:errcheck
-
+		defer pgC.Terminate(ctx)
 		sharedDSN, err = pgC.ConnectionString(ctx, "sslmode=disable")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "postgres connection string: %v\n", err)
 			os.Exit(1)
 		}
-
-		// Prime the schema so each test can safely call goose.Reset.
 		sqlDB, err := sql.Open("pgx", sharedDSN)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "open db: %v\n", err)
@@ -95,8 +91,7 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "redis container: %v\n", err)
 			os.Exit(1)
 		}
-		defer rC.Terminate(ctx) //nolint:errcheck
-
+		defer rC.Terminate(ctx)
 		sharedRedisURL, err = rC.ConnectionString(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "redis connection string: %v\n", err)
@@ -111,15 +106,9 @@ type fixture struct {
 	server     *httptest.Server
 	pool       *pgxpool.Pool
 	rdb        *redis.Client
-	mailer     *captureMailer
 	fakeGemini *httptest.Server
-}
-
-type captureMailer struct{ Last string }
-
-func (c *captureMailer) SendVerification(_ context.Context, _, link string) error {
-	c.Last = link
-	return nil
+	sessions   *auth.Sessions
+	keys       *keys.Service
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -127,21 +116,15 @@ func newFixture(t *testing.T) *fixture {
 	return buildFixture(t, nil)
 }
 
-// newFixtureRealAdmin returns a fixture wired with the real RequireAdmin
-// middleware so admin-route protection tests are meaningful.
 func newFixtureRealAdmin(t *testing.T) *fixture {
 	t.Helper()
 	return buildFixture(t, mw.RequireAdmin)
 }
 
-// buildFixture constructs a full test fixture. adminMWFactory, if non-nil, is
-// called with db.Queries to produce the admin middleware; otherwise a pass-through
-// stub is used so test helpers that don't need admin protection stay simple.
 func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handler) http.Handler) *fixture {
 	t.Helper()
 	ctx := context.Background()
 
-	// Reset DB state: drop all tables then re-run migrations.
 	sqlDB, err := sql.Open("pgx", sharedDSN)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +143,6 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 	}
 	t.Cleanup(pool.Close)
 
-	// Flush Redis.
 	opt, err := redis.ParseURL(sharedRedisURL)
 	if err != nil {
 		t.Fatal(err)
@@ -177,20 +159,16 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		SessionIdleDays:     7,
 		SessionAbsoluteDays: 30,
 		SessionCookieSecure: false,
+		DiscordGuildID:      "1506040288182014043",
 	}
 	sessions := auth.NewSessions(q, auth.SessionConfig{IdleDays: 7, AbsoluteDays: 30, CookieSecure: false})
-	verifier := auth.NewVerifier(q)
-	cap := &captureMailer{}
 	keysSvc := keys.NewService(q, rdb)
-	authH := handlers.NewAuth(handlers.AuthDeps{
-		Cfg: cfg, Q: q, Sessions: sessions, Verifier: verifier, Mailer: cap, Keys: keysSvc,
-	})
+	authH := handlers.NewAuth(handlers.AuthDeps{Q: q, Sessions: sessions})
 	limiter := mw.NewLimiter(rdb)
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: q, Keys: keysSvc})
 
 	fakeGemini := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
 		_, _ = w.Write([]byte(`{"id":"chatcmpl-test","object":"chat.completion","model":"gemini-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}]}`))
 	}))
 	t.Cleanup(fakeGemini.Close)
@@ -215,68 +193,68 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions, Auth: authH, Limiter: limiter, Rdb: rdb, Keys: keysH,
-		Proxy: proxyH, Queries: q,
-		AdminProviders: adminProvH, AdminUsers: adminUsersH, AdminStats: adminStatsH,
-		AdminQuotas: adminQuotasH, AdminErrors: adminErrorsH, AdminMaintenance: adminMaintH,
-		AdminMiddleware: adminMW,
+		Proxy: proxyH, Queries: q, AdminProviders: adminProvH, AdminUsers: adminUsersH,
+		AdminStats: adminStatsH, AdminQuotas: adminQuotasH, AdminErrors: adminErrorsH,
+		AdminMaintenance: adminMaintH, AdminMiddleware: adminMW,
 	})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
+	_ = cfg
 
-	_ = os.Setenv("APP_BASE_URL", srv.URL)
-
-	return &fixture{server: srv, pool: pool, rdb: rdb, mailer: cap, fakeGemini: fakeGemini}
-}
-
-func mustToken(s string) string {
-	i := lastIndex(s, "token=")
-	if i < 0 {
-		return ""
+	return &fixture{
+		server:     srv,
+		pool:       pool,
+		rdb:        rdb,
+		fakeGemini: fakeGemini,
+		sessions:   sessions,
+		keys:       keysSvc,
 	}
-	return s[i+len("token="):]
 }
 
-// signupAndVerify completes the full signup → email verification flow and
-// returns the verify-response body. The caller's cookie jar holds the session.
-func signupAndVerify(t *testing.T, fx *fixture, c *http.Client, email, pass string) map[string]any {
+// createDiscordUser inserts a Discord user, creates a session, applies the
+// session cookie to c's jar, and returns (csrfToken, rawAPIKey).
+func createDiscordUser(t *testing.T, fx *fixture, c *http.Client, discordID, email string) (csrfToken, rawKey string) {
 	t.Helper()
-	body, _ := json.Marshal(map[string]string{"email": email, "password": pass})
-	r, err := c.Post(fx.server.URL+"/api/auth/signup", "application/json", bytes.NewReader(body))
-	if err != nil {
-		t.Fatalf("signup: %v", err)
-	}
-	if r.StatusCode != 201 {
-		b, _ := io.ReadAll(r.Body)
-		t.Fatalf("signup status=%d body=%s", r.StatusCode, b)
-	}
-	r.Body.Close()
+	ctx := context.Background()
 
-	tok := mustToken(fx.mailer.Last)
-	if tok == "" {
-		t.Fatalf("no verification token captured (mailer.Last=%q)", fx.mailer.Last)
+	var userID uuid.UUID
+	if err := fx.pool.QueryRow(ctx, `
+		INSERT INTO users (email, email_verified, discord_id, display_name, role)
+		VALUES ($1, true, $2, 'Test User', 'user') RETURNING id`,
+		email, discordID).Scan(&userID); err != nil {
+		t.Fatalf("createDiscordUser: %v", err)
 	}
-	vbody, _ := json.Marshal(map[string]string{"token": tok})
-	r, err = c.Post(fx.server.URL+"/api/auth/verify", "application/json", bytes.NewReader(vbody))
+
+	sess, cookieValue, err := fx.sessions.Create(ctx, userID, "test-agent", "")
 	if err != nil {
-		t.Fatalf("verify: %v", err)
+		t.Fatalf("createDiscordUser session: %v", err)
 	}
-	if r.StatusCode != 200 {
-		b, _ := io.ReadAll(r.Body)
-		t.Fatalf("verify status=%d body=%s", r.StatusCode, b)
+
+	u, err := url.Parse(fx.server.URL)
+	if err != nil {
+		t.Fatalf("createDiscordUser: parse server URL: %v", err)
 	}
-	var out map[string]any
-	_ = json.NewDecoder(r.Body).Decode(&out)
-	r.Body.Close()
-	return out
+	c.Jar.SetCookies(u, []*http.Cookie{{
+		Name:  auth.CookieName,
+		Value: cookieValue,
+	}})
+
+	issued, err := fx.keys.EnsureForUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("createDiscordUser key: %v", err)
+	}
+	if issued.Raw == "" {
+		t.Fatal("createDiscordUser: EnsureForUser returned no key")
+	}
+	return base64.RawURLEncoding.EncodeToString(sess.CSRFToken), issued.Raw
 }
 
-func lastIndex(s, sub string) int {
-	for i := len(s) - len(sub); i >= 0; i-- {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
+func decodeJSON(t *testing.T, r *http.Response, v any) {
+	t.Helper()
+	defer r.Body.Close()
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		t.Fatalf("decodeJSON: %v", err)
 	}
-	return -1
 }
 
 var _ = fmt.Sprintf

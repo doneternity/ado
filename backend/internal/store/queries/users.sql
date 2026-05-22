@@ -2,8 +2,8 @@
 SELECT * FROM users WHERE email = $1;
 
 -- name: CreateUser :one
-INSERT INTO users (email, email_verified, password_hash, google_sub, display_name, photo_url, role)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO users (email, email_verified, password_hash, google_sub, discord_id, display_name, photo_url, role)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: GetUserByID :one
@@ -12,12 +12,23 @@ SELECT * FROM users WHERE id = $1;
 -- name: GetUserByGoogleSub :one
 SELECT * FROM users WHERE google_sub = $1;
 
+-- name: GetUserByDiscordID :one
+SELECT * FROM users WHERE discord_id = $1;
+
 -- name: SetEmailVerified :exec
 UPDATE users SET email_verified = TRUE, updated_at = now() WHERE id = $1;
 
 -- name: LinkGoogleSub :exec
 UPDATE users
 SET google_sub = sqlc.arg(google_sub),
+    photo_url = COALESCE(NULLIF(sqlc.arg(photo_url),''), photo_url),
+    display_name = COALESCE(NULLIF(sqlc.arg(display_name),''), display_name),
+    updated_at = now()
+WHERE id = sqlc.arg(id);
+
+-- name: LinkDiscordID :exec
+UPDATE users
+SET discord_id = sqlc.arg(discord_id),
     photo_url = COALESCE(NULLIF(sqlc.arg(photo_url),''), photo_url),
     display_name = COALESCE(NULLIF(sqlc.arg(display_name),''), display_name),
     updated_at = now()

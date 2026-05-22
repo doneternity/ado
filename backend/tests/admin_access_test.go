@@ -22,7 +22,7 @@ func TestAdminRoutes_RequireAuth(t *testing.T) {
 	}
 
 	// Regular verified user → 403.
-	signupAndVerify(t, fx, c, "regular@example.com", "hunter2-correct-horse")
+	createDiscordUser(t, fx, c, "discord-admin-001", "regular@example.com")
 	r, _ = c.Get(fx.server.URL + "/api/admin/users")
 	r.Body.Close()
 	if r.StatusCode != http.StatusForbidden {

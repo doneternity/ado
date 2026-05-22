@@ -87,8 +87,8 @@ func (s *Service) Rotate(ctx context.Context, userID uuid.UUID) (Issued, error) 
 	// reset the daily quota counter.
 	if oldKey.ID != (uuid.UUID{}) {
 		_ = s.q.CarryUsageToNewKey(ctx, db.CarryUsageToNewKeyParams{
-			OldKeyID: oldKey.ID,
-			NewKeyID: row.ID,
+			KeyID:   oldKey.ID,
+			KeyID_2: row.ID,
 		})
 	}
 

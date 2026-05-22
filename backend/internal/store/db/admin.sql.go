@@ -113,6 +113,20 @@ func (q *Queries) RemoveUserQuotaOverride(ctx context.Context, id uuid.UUID) err
 	return err
 }
 
+const setUserBanned = `-- name: SetUserBanned :exec
+UPDATE users SET banned = $2, updated_at = NOW() WHERE id = $1
+`
+
+type SetUserBannedParams struct {
+	ID     uuid.UUID
+	Banned bool
+}
+
+func (q *Queries) SetUserBanned(ctx context.Context, arg SetUserBannedParams) error {
+	_, err := q.db.Exec(ctx, setUserBanned, arg.ID, arg.Banned)
+	return err
+}
+
 const setUserQuotaOverride = `-- name: SetUserQuotaOverride :exec
 UPDATE users SET daily_quota_override = $2, updated_at = NOW() WHERE id = $1
 `
@@ -138,20 +152,6 @@ type SetUserRoleParams struct {
 
 func (q *Queries) SetUserRole(ctx context.Context, arg SetUserRoleParams) error {
 	_, err := q.db.Exec(ctx, setUserRole, arg.ID, arg.Role)
-	return err
-}
-
-const setUserBanned = `-- name: SetUserBanned :exec
-UPDATE users SET banned = $2, updated_at = NOW() WHERE id = $1
-`
-
-type SetUserBannedParams struct {
-	ID     uuid.UUID
-	Banned bool
-}
-
-func (q *Queries) SetUserBanned(ctx context.Context, arg SetUserBannedParams) error {
-	_, err := q.db.Exec(ctx, setUserBanned, arg.ID, arg.Banned)
 	return err
 }
 

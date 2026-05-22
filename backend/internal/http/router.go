@@ -18,7 +18,7 @@ type Deps struct {
 	Auth             *handlers.Auth
 	Limiter          *mw.Limiter
 	Rdb              *redis.Client
-	Google           *handlers.Google
+	Discord          *handlers.DiscordHandler
 	Keys             *handlers.Keys
 	Proxy            *handlers.Proxy
 	Queries          *db.Queries
@@ -38,6 +38,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(mw.Logger)
 	r.Use(mw.ErrorLogger(d.Queries))
 	r.Use(mw.LoadSession(d.Sessions, d.Queries))
+	r.Use(mw.MaxBodySize(1 << 20)) // 1 MB hard cap for all routes
 
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -46,17 +47,12 @@ func NewRouter(d Deps) http.Handler {
 
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
-		r.With(d.Limiter.PerIP("rl:auth:signup:ip", 5, time.Hour)).
-			Post("/signup", d.Auth.Signup)
-		r.With(d.Limiter.PerIP("rl:auth:login:ip", 10, time.Hour)).
-			Post("/login", d.Auth.Login)
-		r.Post("/verify", d.Auth.Verify)
-		r.Post("/verify/resend", d.Auth.ResendVerify(d.Rdb))
 		r.With(mw.CSRF).Post("/logout", d.Auth.Logout)
 		r.Get("/me", d.Auth.Me)
-		if d.Google != nil {
-			r.Get("/google", d.Google.Start)
-			r.Get("/google/callback", d.Google.Callback)
+		if d.Discord != nil {
+			r.With(d.Limiter.PerIP("rl:auth:discord:ip", 20, time.Hour)).
+				Get("/discord", d.Discord.Start)
+			r.Get("/discord/callback", d.Discord.Callback)
 		}
 	})
 
@@ -70,11 +66,14 @@ func NewRouter(d Deps) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)
 		r.Use(mw.Bearer(d.Queries))
-		r.Get("/models", d.Proxy.Models)
-		r.Post("/chat/completions", d.Proxy.ChatCompletions)
+		r.With(d.Limiter.PerKey("rl:v1:models:key", 30, time.Minute)).
+			Get("/models", d.Proxy.Models)
+		r.With(d.Limiter.PerKey("rl:v1:chat:key", 60, time.Minute)).
+			Post("/chat/completions", d.Proxy.ChatCompletions)
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {
+		r.Use(d.Limiter.PerIP("rl:admin:ip", 60, time.Hour))
 		r.Use(d.AdminMiddleware)
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Use(mw.CSRF)

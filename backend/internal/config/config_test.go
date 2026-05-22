@@ -34,3 +34,23 @@ func TestLoad_AllRequiredPresent(t *testing.T) {
 		t.Fatalf("default SessionIdleDays=%d, want 7", cfg.SessionIdleDays)
 	}
 }
+
+func TestLoad_ProviderKeySecretTooShort(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("DATABASE_URL", "postgres://x")
+	os.Setenv("REDIS_URL", "redis://y")
+	os.Setenv("PROVIDER_KEY_SECRET", "short")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for short PROVIDER_KEY_SECRET, got nil")
+	}
+}
+
+func TestLoad_ProviderKeySecretExactly32(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("DATABASE_URL", "postgres://x")
+	os.Setenv("REDIS_URL", "redis://y")
+	os.Setenv("PROVIDER_KEY_SECRET", "12345678901234567890123456789012") // exactly 32 bytes
+	if _, err := Load(); err != nil {
+		t.Fatalf("expected no error for 32-byte secret, got %v", err)
+	}
+}

@@ -19,9 +19,10 @@ type Config struct {
 	SessionIdleDays     int  `env:"SESSION_IDLE_DAYS"      envDefault:"7"`
 	SessionAbsoluteDays int  `env:"SESSION_ABSOLUTE_DAYS"  envDefault:"30"`
 
-	GoogleOAuthClientID     string `env:"GOOGLE_OAUTH_CLIENT_ID"`
-	GoogleOAuthClientSecret string `env:"GOOGLE_OAUTH_CLIENT_SECRET"`
-	GoogleOAuthRedirectURL  string `env:"GOOGLE_OAUTH_REDIRECT_URL"`
+	DiscordClientID     string `env:"DISCORD_CLIENT_ID"`
+	DiscordClientSecret string `env:"DISCORD_CLIENT_SECRET"`
+	DiscordRedirectURL  string `env:"DISCORD_REDIRECT_URL"`
+	DiscordGuildID      string `env:"DISCORD_GUILD_ID"      envDefault:"1506040288182014043"`
 
 	FrontendOrigin string `env:"FRONTEND_ORIGIN" envDefault:""`
 
@@ -49,6 +50,17 @@ func Load() (*Config, error) {
 		if cfg.MailFrom == "" {
 			return nil, fmt.Errorf("config: MAILER=resend requires MAIL_FROM")
 		}
+	}
+	if cfg.DiscordClientID != "" {
+		if cfg.DiscordClientSecret == "" {
+			return nil, fmt.Errorf("config: DISCORD_CLIENT_ID set but DISCORD_CLIENT_SECRET is empty")
+		}
+		if cfg.DiscordRedirectURL == "" {
+			return nil, fmt.Errorf("config: DISCORD_CLIENT_ID set but DISCORD_REDIRECT_URL is empty")
+		}
+	}
+	if len(cfg.ProviderKeySecret) < 32 {
+		return nil, fmt.Errorf("config: PROVIDER_KEY_SECRET must be at least 32 bytes")
 	}
 	return cfg, nil
 }

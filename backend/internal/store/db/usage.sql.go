@@ -15,17 +15,17 @@ const carryUsageToNewKey = `-- name: CarryUsageToNewKey :exec
 INSERT INTO daily_usage (key_id, day, used)
 SELECT $2, day, used
 FROM daily_usage
-WHERE key_id = $1 AND day = CURRENT_DATE
+WHERE daily_usage.key_id = $1 AND day = CURRENT_DATE
 ON CONFLICT DO NOTHING
 `
 
 type CarryUsageToNewKeyParams struct {
-	OldKeyID uuid.UUID
-	NewKeyID uuid.UUID
+	KeyID   uuid.UUID
+	KeyID_2 uuid.UUID
 }
 
 func (q *Queries) CarryUsageToNewKey(ctx context.Context, arg CarryUsageToNewKeyParams) error {
-	_, err := q.db.Exec(ctx, carryUsageToNewKey, arg.OldKeyID, arg.NewKeyID)
+	_, err := q.db.Exec(ctx, carryUsageToNewKey, arg.KeyID, arg.KeyID_2)
 	return err
 }
 

@@ -38,9 +38,9 @@ func (q *Queries) CreateEmailVerificationToken(ctx context.Context, arg CreateEm
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, email_verified, password_hash, google_sub, display_name, photo_url, role)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override
+INSERT INTO users (email, email_verified, password_hash, google_sub, discord_id, display_name, photo_url, role)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id
 `
 
 type CreateUserParams struct {
@@ -48,6 +48,7 @@ type CreateUserParams struct {
 	EmailVerified bool
 	PasswordHash  *string
 	GoogleSub     *string
+	DiscordID     *string
 	DisplayName   *string
 	PhotoUrl      *string
 	Role          string
@@ -59,6 +60,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.EmailVerified,
 		arg.PasswordHash,
 		arg.GoogleSub,
+		arg.DiscordID,
 		arg.DisplayName,
 		arg.PhotoUrl,
 		arg.Role,
@@ -77,6 +79,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyQuotaOverride,
+		&i.DiscordID,
 	)
 	return i, err
 }
@@ -99,17 +102,6 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const hasAdmin = `-- name: HasAdmin :one
-SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin') AS has_admin
-`
-
-func (q *Queries) HasAdmin(ctx context.Context) (bool, error) {
-	row := q.db.QueryRow(ctx, hasAdmin)
-	var has bool
-	err := row.Scan(&has)
-	return has, err
-}
-
 const getEmailVerificationToken = `-- name: GetEmailVerificationToken :one
 SELECT token_hash, user_id, expires_at, consumed_at FROM email_verification_tokens WHERE token_hash = $1
 `
@@ -126,8 +118,33 @@ func (q *Queries) GetEmailVerificationToken(ctx context.Context, tokenHash []byt
 	return i, err
 }
 
+const getUserByDiscordID = `-- name: GetUserByDiscordID :one
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id FROM users WHERE discord_id = $1
+`
+
+func (q *Queries) GetUserByDiscordID(ctx context.Context, discordID *string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByDiscordID, discordID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerified,
+		&i.PasswordHash,
+		&i.GoogleSub,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.Banned,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DailyQuotaOverride,
+		&i.DiscordID,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override FROM users WHERE email = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -146,12 +163,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyQuotaOverride,
+		&i.DiscordID,
 	)
 	return i, err
 }
 
 const getUserByGoogleSub = `-- name: GetUserByGoogleSub :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override FROM users WHERE google_sub = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id FROM users WHERE google_sub = $1
 `
 
 func (q *Queries) GetUserByGoogleSub(ctx context.Context, googleSub *string) (User, error) {
@@ -170,12 +188,13 @@ func (q *Queries) GetUserByGoogleSub(ctx context.Context, googleSub *string) (Us
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyQuotaOverride,
+		&i.DiscordID,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override FROM users WHERE id = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -194,8 +213,46 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DailyQuotaOverride,
+		&i.DiscordID,
 	)
 	return i, err
+}
+
+const hasAdmin = `-- name: HasAdmin :one
+SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin') AS has_admin
+`
+
+func (q *Queries) HasAdmin(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, hasAdmin)
+	var has_admin bool
+	err := row.Scan(&has_admin)
+	return has_admin, err
+}
+
+const linkDiscordID = `-- name: LinkDiscordID :exec
+UPDATE users
+SET discord_id = $1,
+    photo_url = COALESCE(NULLIF($2,''), photo_url),
+    display_name = COALESCE(NULLIF($3,''), display_name),
+    updated_at = now()
+WHERE id = $4
+`
+
+type LinkDiscordIDParams struct {
+	DiscordID   *string
+	PhotoUrl    interface{}
+	DisplayName interface{}
+	ID          uuid.UUID
+}
+
+func (q *Queries) LinkDiscordID(ctx context.Context, arg LinkDiscordIDParams) error {
+	_, err := q.db.Exec(ctx, linkDiscordID,
+		arg.DiscordID,
+		arg.PhotoUrl,
+		arg.DisplayName,
+		arg.ID,
+	)
+	return err
 }
 
 const linkGoogleSub = `-- name: LinkGoogleSub :exec

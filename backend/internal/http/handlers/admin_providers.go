@@ -11,6 +11,7 @@ import (
 	"github.com/ado/ado/backend/internal/keyencrypt"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
+	"github.com/ado/ado/backend/internal/validate"
 )
 
 type AdminProvidersDeps struct {
@@ -60,8 +61,16 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 		BaseURL string `json:"baseUrl"`
 		APIKey  string `json:"apiKey"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" || req.BaseURL == "" || req.APIKey == "" {
-		apperr.Write(w, apperr.BadRequest("INVALID", "name, baseUrl, and apiKey are required"))
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	vc := validate.Fields()
+	vc.Field("name", req.Name).Required().MaxLen(100)
+	vc.Field("baseUrl", req.BaseURL).Required().MaxLen(500).URL()
+	vc.Field("apiKey", req.APIKey).Required().MaxLen(512)
+	if err := vc.Err(); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
 	encKey, err := keyencrypt.Encrypt(req.APIKey, h.d.ProviderKeySecret)
@@ -98,12 +107,18 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		BaseURL string `json:"baseUrl"`
 		APIKey  string `json:"apiKey"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "bad JSON"))
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
-	if req.Name == "" || req.BaseURL == "" {
-		apperr.Write(w, apperr.BadRequest("INVALID", "name and baseUrl are required"))
+	vc := validate.Fields()
+	vc.Field("name", req.Name).Required().MaxLen(100)
+	vc.Field("baseUrl", req.BaseURL).Required().MaxLen(500).URL()
+	if req.APIKey != "" {
+		vc.Field("apiKey", req.APIKey).MaxLen(512)
+	}
+	if err := vc.Err(); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
 	p, err := h.d.Q.UpdateProviderMeta(r.Context(), db.UpdateProviderMetaParams{
@@ -152,8 +167,8 @@ func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Active bool `json:"active"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "bad JSON"))
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
 	if err := h.d.Q.SetProviderActiveState(r.Context(), db.SetProviderActiveStateParams{

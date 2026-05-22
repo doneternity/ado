@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/ado/ado/backend/internal/apperr"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
+	"github.com/ado/ado/backend/internal/validate"
 )
 
 type AdminMaintenance struct {
@@ -26,9 +28,9 @@ func (h *AdminMaintenance) Toggle(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Enabled bool `json:"enabled"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		// Fall back to toggling for backwards compatibility with clients that send no body.
-		body.Enabled = !h.flag.Enabled()
+	if err := validate.Bind(r, &body); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
 	}
 	h.flag.Set(body.Enabled)
 	val := "false"

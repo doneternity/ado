@@ -82,4 +82,5 @@ type User struct {
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	DailyQuotaOverride *int32
+	DiscordID          *string
 }

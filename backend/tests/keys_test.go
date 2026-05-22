@@ -2,7 +2,6 @@ package tests
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/cookiejar"
 	"testing"
@@ -13,23 +12,15 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 	jar, _ := cookiejar.New(nil)
 	c := &http.Client{Jar: jar}
 
-	verifyResp := signupAndVerify(t, fx, c, "carol@example.com", "hunter2-correct-horse")
-
-	csrf, _ := verifyResp["csrfToken"].(string)
-	issued, _ := verifyResp["keyJustIssued"].(map[string]any)
-	if issued == nil {
-		t.Fatal("expected keyJustIssued in verify response")
-	}
-	originalKey, _ := issued["key"].(string)
+	csrf, originalKey := createDiscordUser(t, fx, c, "discord-keys-001", "carol@example.com")
 	if originalKey == "" {
-		t.Fatal("expected non-empty key in verify response")
+		t.Fatal("expected a raw API key from createDiscordUser")
 	}
 
-	// /api/keys/current returns the prefix but never the raw.
+	// /api/keys/current returns the prefix but never the raw key.
 	r, _ := c.Get(fx.server.URL + "/api/keys/current")
 	var current map[string]any
-	json.NewDecoder(r.Body).Decode(&current)
-	r.Body.Close()
+	decodeJSON(t, r, &current)
 	if _, has := current["key"]; has {
 		t.Fatal("/current must not return raw key")
 	}
@@ -44,8 +35,7 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 	var rot struct {
 		Key string `json:"key"`
 	}
-	json.NewDecoder(r.Body).Decode(&rot)
-	r.Body.Close()
+	decodeJSON(t, r, &rot)
 	if rot.Key == "" || rot.Key == originalKey {
 		t.Fatalf("rotate produced %q, want different non-empty key", rot.Key)
 	}

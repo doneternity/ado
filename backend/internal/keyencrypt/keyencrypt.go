@@ -12,6 +12,7 @@ import (
 
 const prefix = "enc:"
 
+// deriveKey hashes the secret with SHA-256 to produce a 32-byte AES-256 key.
 func deriveKey(secret string) []byte {
 	sum := sha256.Sum256([]byte(secret))
 	return sum[:]
@@ -20,6 +21,11 @@ func deriveKey(secret string) []byte {
 // Encrypt returns an "enc:<base64>" string. If secret is empty the plaintext
 // is returned unchanged (raw provider key stored in DB) — PROVIDER_KEY_SECRET
 // must always be set; config.Load() now enforces this at startup.
+//
+// AES-256-GCM: key derived via SHA-256(secret). Each call generates a fresh
+// 12-byte random nonce (OWASP: never reuse a nonce with the same key).
+// The GCM authentication tag (16 bytes, appended by Seal) ensures ciphertext
+// integrity — any tampering causes Decrypt to fail.
 func Encrypt(plaintext, secret string) (string, error) {
 	if secret == "" {
 		return plaintext, nil
@@ -32,6 +38,7 @@ func Encrypt(plaintext, secret string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// crypto/rand provides a CSPRNG nonce; nonce is prepended to the ciphertext.
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err = rand.Read(nonce); err != nil {
 		return "", err

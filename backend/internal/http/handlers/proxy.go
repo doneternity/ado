@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -31,6 +34,25 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
 		return
 	}
+
+	// Validate body is JSON and cap at 512 KB before forwarding.
+	const maxChatBody = 512 * 1024
+	data, err := io.ReadAll(io.LimitReader(r.Body, maxChatBody+1))
+	if err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "could not read request body"))
+		return
+	}
+	if int64(len(data)) > maxChatBody {
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "request body too large"))
+		return
+	}
+	if !json.Valid(data) {
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "invalid JSON"))
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(data))
+	r.ContentLength = int64(len(data))
+
 	if _, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit); err != nil {
 		if errors.Is(err, quota.ErrExceeded) {
 			apperr.Write(w, apperr.TooMany("QUOTA_EXCEEDED", "daily quota exceeded").

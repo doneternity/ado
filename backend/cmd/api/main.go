@@ -21,7 +21,6 @@ import (
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keyencrypt"
 	"github.com/ado/ado/backend/internal/keys"
-	"github.com/ado/ado/backend/internal/mailer"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/quota"
 	"github.com/ado/ado/backend/internal/store/db"
@@ -31,7 +30,6 @@ import (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		// Use basic logger before structured one is configured.
 		slog.Error("config load", "err", err)
 		os.Exit(1)
 	}
@@ -53,7 +51,6 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Run migrations before opening the pool so the schema is always current.
 	sqlDB, err := sql.Open("pgx", cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("migration db open", "err", err)
@@ -89,45 +86,28 @@ func main() {
 		CookieSecure: cfg.SessionCookieSecure,
 		CrossOrigin:  cfg.FrontendOrigin != "",
 	})
-	verifier := auth.NewVerifier(queries)
 
-	var ml mailer.Mailer
-	switch cfg.Mailer {
-	case "resend":
-		ml = mailer.NewResend(cfg.ResendAPIKey, cfg.MailFrom)
-	default:
-		ml = mailer.NewConsole(os.Stdout)
-	}
-
-	authH := handlers.NewAuth(handlers.AuthDeps{
-		Cfg: cfg, Q: queries, Sessions: sessions, Verifier: verifier, Mailer: ml, Keys: keysSvc,
-	})
+	authH := handlers.NewAuth(handlers.AuthDeps{Q: queries, Sessions: sessions})
 	limiter := mw.NewLimiter(rdb)
 
-	var googleH *handlers.Google
-	if cfg.GoogleOAuthClientID == "" {
-		slog.Info("google oauth not configured")
+	var discordH *handlers.DiscordHandler
+	if cfg.DiscordClientID == "" {
+		slog.Info("discord oauth not configured")
 	} else {
-		googleClient, err := oauth.NewGoogle(ctx, oauth.Config{
-			ClientID:     cfg.GoogleOAuthClientID,
-			ClientSecret: cfg.GoogleOAuthClientSecret,
-			RedirectURL:  cfg.GoogleOAuthRedirectURL,
+		discordClient := oauth.NewDiscord(oauth.DiscordConfig{
+			ClientID:     cfg.DiscordClientID,
+			ClientSecret: cfg.DiscordClientSecret,
+			RedirectURL:  cfg.DiscordRedirectURL,
 		}, rdb)
-		if err != nil {
-			slog.Warn("google oauth disabled", "err", err)
-		} else {
-			googleH = handlers.NewGoogle(handlers.GoogleDeps{
-				Cfg: cfg, Q: queries, Sessions: sessions, Google: googleClient, Keys: keysSvc,
-			})
-		}
+		discordH = handlers.NewDiscord(handlers.DiscordDeps{
+			Cfg: cfg, Q: queries, Sessions: sessions, Discord: discordClient, Keys: keysSvc,
+		})
 	}
 
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc})
 
-	// Load active provider from DB; fall back to env config on first deploy.
 	var reg *proxy.Registry
 	maint := &proxy.MaintenanceFlag{}
-
 	{
 		active, err := queries.GetActiveProvider(ctx)
 		if err == nil {
@@ -141,8 +121,6 @@ func main() {
 			reg = proxy.NewRegistry(cfg.GeminiBaseURL, cfg.GeminiAPIKey)
 		}
 	}
-
-	// Load maintenance mode from DB.
 	{
 		v, err := queries.GetSetting(ctx, "maintenance_mode")
 		if err == nil {
@@ -157,7 +135,6 @@ func main() {
 		Quota:       quotaSvc,
 	})
 
-	// Admin handlers
 	adminMW := mw.RequireAdmin(queries)
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: queries, Registry: reg, ProviderKeySecret: cfg.ProviderKeySecret})
 	adminUsersH := handlers.NewAdminUsers(queries)
@@ -186,7 +163,7 @@ func main() {
 		Auth:             authH,
 		Limiter:          limiter,
 		Rdb:              rdb,
-		Google:           googleH,
+		Discord:          discordH,
 		Keys:             keysH,
 		Proxy:            proxyH,
 		Queries:          queries,
@@ -205,7 +182,7 @@ func main() {
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      0, // streaming
+		WriteTimeout:      0,
 		IdleTimeout:       120 * time.Second,
 	}
 

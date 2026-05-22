@@ -10,5 +10,5 @@ RETURNING used;
 INSERT INTO daily_usage (key_id, day, used)
 SELECT $2, day, used
 FROM daily_usage
-WHERE key_id = $1 AND day = CURRENT_DATE
+WHERE daily_usage.key_id = $1 AND day = CURRENT_DATE
 ON CONFLICT DO NOTHING;

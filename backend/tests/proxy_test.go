@@ -55,14 +55,9 @@ func TestProxy_QuotaTrips(t *testing.T) {
 	jar, _ := cookiejar.New(nil)
 	c := &http.Client{Jar: jar}
 
-	verifyResp := signupAndVerify(t, fx, c, "dave@example.com", "hunter2-correct-horse")
-	issued, _ := verifyResp["keyJustIssued"].(map[string]any)
-	if issued == nil {
-		t.Fatal("expected keyJustIssued in verify response")
-	}
-	rawKey, _ := issued["key"].(string)
+	_, rawKey := createDiscordUser(t, fx, c, "discord-proxy-001", "dave@example.com")
 	if rawKey == "" {
-		t.Fatal("expected non-empty key in verify response")
+		t.Fatal("expected non-empty key from createDiscordUser")
 	}
 
 	chatBody := []byte(`{"model":"gemini-test","messages":[{"role":"user","content":"hi"}]}`)

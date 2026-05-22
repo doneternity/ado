@@ -11,23 +11,23 @@ import (
 	"github.com/google/uuid"
 )
 
-const countProviders = `-- name: CountProviders :one
-SELECT COUNT(*) FROM providers
-`
-
-func (q *Queries) CountProviders(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countProviders)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countActiveProviders = `-- name: CountActiveProviders :one
 SELECT COUNT(*) FROM providers WHERE is_active = TRUE
 `
 
 func (q *Queries) CountActiveProviders(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, countActiveProviders)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countProviders = `-- name: CountProviders :one
+SELECT COUNT(*) FROM providers
+`
+
+func (q *Queries) CountProviders(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countProviders)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

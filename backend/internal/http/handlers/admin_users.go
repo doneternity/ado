@@ -10,6 +10,7 @@ import (
 
 	"github.com/ado/ado/backend/internal/apperr"
 	"github.com/ado/ado/backend/internal/store/db"
+	"github.com/ado/ado/backend/internal/validate"
 )
 
 type AdminUsers struct{ q *db.Queries }
@@ -57,8 +58,14 @@ func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Role string `json:"role"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || (req.Role != "user" && req.Role != "admin") {
-		apperr.Write(w, apperr.BadRequest("INVALID", "role must be 'user' or 'admin'"))
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	v := validate.Fields()
+	v.Field("role", req.Role).Required().OneOf("user", "admin")
+	if err := v.Err(); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
 	if err := h.q.SetUserRole(r.Context(), db.SetUserRoleParams{ID: id, Role: req.Role}); err != nil {
@@ -77,8 +84,8 @@ func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Banned bool `json:"banned"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "bad JSON"))
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
 	if err := h.q.SetUserBanned(r.Context(), db.SetUserBannedParams{ID: id, Banned: req.Banned}); err != nil {

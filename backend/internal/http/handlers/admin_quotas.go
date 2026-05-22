@@ -10,6 +10,7 @@ import (
 
 	"github.com/ado/ado/backend/internal/apperr"
 	"github.com/ado/ado/backend/internal/store/db"
+	"github.com/ado/ado/backend/internal/validate"
 )
 
 type AdminQuotas struct{ q *db.Queries }
@@ -46,7 +47,11 @@ func (h *AdminQuotas) SetGlobal(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Limit int `json:"limit"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Limit < 1 {
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	if req.Limit < 1 {
 		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
 		return
 	}
@@ -68,7 +73,11 @@ func (h *AdminQuotas) SetUserOverride(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Limit int32 `json:"limit"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Limit < 1 {
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	if req.Limit < 1 {
 		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
 		return
 	}

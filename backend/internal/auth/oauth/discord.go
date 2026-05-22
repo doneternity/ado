@@ -18,6 +18,9 @@ const (
 	discordAPIBase  = "https://discord.com/api/v10"
 )
 
+// timeout so a slow discord cannot pin a request goroutine
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
 type Discord struct {
 	clientID     string
 	clientSecret string
@@ -41,14 +44,14 @@ func NewDiscord(c DiscordConfig, rdb *redis.Client) *Discord {
 }
 
 // AuthURL generates a state token, stores it in Redis (10m TTL), and returns
-// the Discord authorization URL.
-func (d *Discord) AuthURL(ctx context.Context) (string, error) {
-	state, err := randURL(32)
+// the Discord authorization URL and the state token.
+func (d *Discord) AuthURL(ctx context.Context) (authURL, state string, err error) {
+	state, err = randURL(32)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if err := d.rdb.Set(ctx, "oauth_state:discord:"+state, "1", 10*time.Minute).Err(); err != nil {
-		return "", err
+		return "", "", err
 	}
 	params := url.Values{
 		"client_id":     {d.clientID},
@@ -57,7 +60,7 @@ func (d *Discord) AuthURL(ctx context.Context) (string, error) {
 		"scope":         {"identify email guilds"},
 		"state":         {state},
 	}
-	return discordAuthURL + "?" + params.Encode(), nil
+	return discordAuthURL + "?" + params.Encode(), state, nil
 }
 
 // DiscordIdentity holds the user info returned by GET /users/@me.
@@ -66,6 +69,7 @@ type DiscordIdentity struct {
 	Email    string
 	Username string
 	Avatar   string // hash — build full URL with AvatarURL()
+	Verified bool   // email verified by discord
 }
 
 // AvatarURL returns the CDN URL for the user's avatar, or empty string if none.
@@ -125,7 +129,7 @@ func (d *Discord) exchangeCode(ctx context.Context, code string) (string, error)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -154,7 +158,7 @@ func (d *Discord) fetchIdentity(ctx context.Context, accessToken string) (Discor
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return DiscordIdentity{}, err
 	}
@@ -165,10 +169,11 @@ func (d *Discord) fetchIdentity(ctx context.Context, accessToken string) (Discor
 	}
 
 	var u struct {
-		ID     string `json:"id"`
-		Email  string `json:"email"`
-		Name   string `json:"username"`
-		Avatar string `json:"avatar"`
+		ID       string `json:"id"`
+		Email    string `json:"email"`
+		Name     string `json:"username"`
+		Avatar   string `json:"avatar"`
+		Verified bool   `json:"verified"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
 		return DiscordIdentity{}, err
@@ -179,7 +184,7 @@ func (d *Discord) fetchIdentity(ctx context.Context, accessToken string) (Discor
 	if u.Email == "" {
 		return DiscordIdentity{}, fmt.Errorf("discord account has no email address")
 	}
-	return DiscordIdentity{ID: u.ID, Email: u.Email, Username: u.Name, Avatar: u.Avatar}, nil
+	return DiscordIdentity{ID: u.ID, Email: u.Email, Username: u.Name, Avatar: u.Avatar, Verified: u.Verified}, nil
 }
 
 func (d *Discord) fetchGuilds(ctx context.Context, accessToken string) ([]DiscordGuild, error) {
@@ -189,7 +194,7 @@ func (d *Discord) fetchGuilds(ctx context.Context, accessToken string) ([]Discor
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

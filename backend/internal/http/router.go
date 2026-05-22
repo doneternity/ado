@@ -50,7 +50,7 @@ func NewRouter(d Deps) http.Handler {
 		r.With(mw.CSRF).Post("/logout", d.Auth.Logout)
 		r.Get("/me", d.Auth.Me)
 		if d.Discord != nil {
-			r.With(d.Limiter.PerIP("rl:auth:discord:ip", 20, time.Hour)).
+			r.With(d.Limiter.PerIP("rl:auth:discord:ip", 20, time.Hour, false)).
 				Get("/discord", d.Discord.Start)
 			r.Get("/discord/callback", d.Discord.Callback)
 		}
@@ -59,21 +59,21 @@ func NewRouter(d Deps) http.Handler {
 	r.Route("/api/keys", func(r chi.Router) {
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Get("/current", d.Keys.Current)
-		r.With(mw.CSRF, d.Limiter.PerIP("rl:keys:rotate:ip", 5, time.Hour)).Post("/rotate", d.Keys.Rotate)
+		r.With(mw.CSRF, d.Limiter.PerIP("rl:keys:rotate:ip", 5, time.Hour, true)).Post("/rotate", d.Keys.Rotate)
 		r.Get("/flash", d.Keys.Flash)
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)
 		r.Use(mw.Bearer(d.Queries))
-		r.With(d.Limiter.PerKey("rl:v1:models:key", 30, time.Minute)).
+		r.With(d.Limiter.PerKey("rl:v1:models:key", 30, time.Minute, false)).
 			Get("/models", d.Proxy.Models)
-		r.With(d.Limiter.PerKey("rl:v1:chat:key", 60, time.Minute)).
+		r.With(d.Limiter.PerKey("rl:v1:chat:key", 60, time.Minute, false)).
 			Post("/chat/completions", d.Proxy.ChatCompletions)
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {
-		r.Use(d.Limiter.PerIP("rl:admin:ip", 60, time.Hour))
+		r.Use(d.Limiter.PerIP("rl:admin:ip", 60, time.Hour, false))
 		r.Use(d.AdminMiddleware)
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Use(mw.CSRF)

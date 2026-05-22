@@ -6,6 +6,10 @@ ON CONFLICT (key_id, day) DO UPDATE
   WHERE daily_usage.used < sqlc.arg(daily_limit)
 RETURNING used;
 
+-- name: DecrementUsage :exec
+UPDATE daily_usage SET used = used - 1
+WHERE key_id = $1 AND day = CURRENT_DATE AND used > 0;
+
 -- name: CarryUsageToNewKey :exec
 INSERT INTO daily_usage (key_id, day, used)
 SELECT $2, day, used

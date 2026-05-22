@@ -173,7 +173,8 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 	}))
 	t.Cleanup(fakeGemini.Close)
 
-	reg := proxy.NewRegistry(fakeGemini.URL, "test-upstream-key")
+	reg := proxy.NewRegistry()
+	reg.Swap([]*proxy.Forwarder{proxy.New(fakeGemini.URL, "test-upstream-key")})
 	maint := &proxy.MaintenanceFlag{}
 	quotaSvc := quota.NewService(q)
 	proxyH := handlers.NewProxy(handlers.ProxyDeps{Registry: reg, Maintenance: maint, Quota: quotaSvc})

@@ -29,21 +29,21 @@ func TestForwarder_Streams(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	f := proxy.New(upstream.URL, "SECRET")
-
-	r := httptest.NewRequest("POST", "/chat/completions",
-		bytes.NewReader([]byte(`{"model":"gemini-pro","messages":[{"role":"user","content":"hi"}]}`)))
+	body := []byte(`{"model":"gemini-pro","messages":[{"role":"user","content":"hi"}]}`)
+	r := httptest.NewRequest("POST", "/chat/completions", bytes.NewReader(body))
 	r.Header.Set("Authorization", "Bearer ado-anything") // overridden by Forward
 	r.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	if err := f.Forward(rr, r, "/chat/completions"); err != nil {
+	reg := proxy.NewRegistry()
+	reg.Swap([]*proxy.Forwarder{proxy.New(upstream.URL, "SECRET")})
+	if _, err := reg.Forward(rr, r, "/chat/completions", body); err != nil {
 		t.Fatal(err)
 	}
 
-	body, _ := io.ReadAll(rr.Body)
-	if !strings.Contains(string(body), "chunk1") || !strings.Contains(string(body), "chunk2") {
-		t.Fatalf("did not see both chunks: %q", string(body))
+	got, _ := io.ReadAll(rr.Body)
+	if !strings.Contains(string(got), "chunk1") || !strings.Contains(string(got), "chunk2") {
+		t.Fatalf("did not see both chunks: %q", string(got))
 	}
 	if rr.Header().Get("Content-Type") != "text/event-stream" {
 		t.Fatal("missing Content-Type pass-through")

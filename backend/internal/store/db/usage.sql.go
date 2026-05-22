@@ -29,6 +29,16 @@ func (q *Queries) CarryUsageToNewKey(ctx context.Context, arg CarryUsageToNewKey
 	return err
 }
 
+const decrementUsage = `-- name: DecrementUsage :exec
+UPDATE daily_usage SET used = used - 1
+WHERE key_id = $1 AND day = CURRENT_DATE AND used > 0
+`
+
+func (q *Queries) DecrementUsage(ctx context.Context, keyID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, decrementUsage, keyID)
+	return err
+}
+
 const incrementUsage = `-- name: IncrementUsage :one
 INSERT INTO daily_usage (key_id, day, used)
 VALUES ($1, CURRENT_DATE, 1)

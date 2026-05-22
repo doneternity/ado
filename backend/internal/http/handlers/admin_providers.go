@@ -1,13 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/ado/ado/backend/internal/apperr"
 	"github.com/ado/ado/backend/internal/keyencrypt"
@@ -32,6 +32,7 @@ type providerItem struct {
 	BaseURL   string    `json:"baseUrl"`
 	KeySuffix string    `json:"keySuffix"`
 	IsActive  bool      `json:"isActive"`
+	Priority  int32     `json:"priority"`
 }
 
 func maskedProvider(p db.Provider, secret string) providerItem {
@@ -40,26 +41,29 @@ func maskedProvider(p db.Provider, secret string) providerItem {
 	if len(suf) > 4 {
 		suf = suf[len(suf)-4:]
 	}
-	return providerItem{p.ID, p.Name, p.BaseUrl, suf, p.IsActive}
+	return providerItem{p.ID, p.Name, p.BaseUrl, suf, p.IsActive, p.Priority}
 }
 
-// swapToActive loads the most-recently-updated active provider and points the
-// registry at it. If no active provider exists, the registry is cleared so
-// proxy requests fail with a clear error instead of silently using a stale key.
-func (h *AdminProviders) swapToActive(r *http.Request) {
-	active, err := h.d.Q.GetActiveProvider(r.Context())
-	if errors.Is(err, pgx.ErrNoRows) {
-		h.d.Registry.Swap("", "")
-		return
-	}
+func RebuildChain(ctx context.Context, q *db.Queries, secret string, reg *proxy.Registry) {
+	providers, err := q.ListActiveProviders(ctx)
 	if err != nil {
+		slog.Warn("rebuild chain: list active providers failed", "err", err)
 		return
 	}
-	plainKey, err := keyencrypt.Decrypt(active.ApiKey, h.d.ProviderKeySecret)
-	if err != nil {
-		return
+	chain := make([]*proxy.Forwarder, 0, len(providers))
+	for _, p := range providers {
+		key, err := keyencrypt.Decrypt(p.ApiKey, secret)
+		if err != nil {
+			slog.Warn("rebuild chain: decrypt key failed", "id", p.ID, "err", err)
+			continue
+		}
+		chain = append(chain, proxy.New(p.BaseUrl, key))
 	}
-	h.d.Registry.Swap(active.BaseUrl, plainKey)
+	reg.Swap(chain)
+}
+
+func (h *AdminProviders) rebuildChain(r *http.Request) {
+	RebuildChain(r.Context(), h.d.Q, h.d.ProviderKeySecret, h.d.Registry)
 }
 
 func (h *AdminProviders) List(w http.ResponseWriter, r *http.Request) {
@@ -78,9 +82,10 @@ func (h *AdminProviders) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name    string `json:"name"`
-		BaseURL string `json:"baseUrl"`
-		APIKey  string `json:"apiKey"`
+		Name     string `json:"name"`
+		BaseURL  string `json:"baseUrl"`
+		APIKey   string `json:"apiKey"`
+		Priority int32  `json:"priority"`
 	}
 	if err := validate.Bind(r, &req); err != nil {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
@@ -104,13 +109,13 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 		BaseUrl:  req.BaseURL,
 		ApiKey:   encKey,
 		IsActive: true,
+		Priority: req.Priority,
 	})
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "create provider"))
 		return
 	}
-	// Newly created provider becomes active immediately.
-	h.d.Registry.Swap(p.BaseUrl, req.APIKey)
+	h.rebuildChain(r)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(maskedProvider(p, h.d.ProviderKeySecret))
@@ -123,9 +128,10 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name    string `json:"name"`
-		BaseURL string `json:"baseUrl"`
-		APIKey  string `json:"apiKey"`
+		Name     string `json:"name"`
+		BaseURL  string `json:"baseUrl"`
+		APIKey   string `json:"apiKey"`
+		Priority int32  `json:"priority"`
 	}
 	if err := validate.Bind(r, &req); err != nil {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
@@ -142,7 +148,7 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := h.d.Q.UpdateProviderMeta(r.Context(), db.UpdateProviderMetaParams{
-		ID: id, Name: req.Name, BaseUrl: req.BaseURL,
+		ID: id, Name: req.Name, BaseUrl: req.BaseURL, Priority: req.Priority,
 	})
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "update provider"))
@@ -162,9 +168,7 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		}
 		p.ApiKey = encKey
 	}
-	if p.IsActive {
-		h.swapToActive(r)
-	}
+	h.rebuildChain(r)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(maskedProvider(p, h.d.ProviderKeySecret))
 }
@@ -188,18 +192,7 @@ func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set active"))
 		return
 	}
-	if req.Active {
-		// Point the registry at this specific provider.
-		p, err := h.d.Q.GetProvider(r.Context(), id)
-		if err == nil {
-			if plainKey, derr := keyencrypt.Decrypt(p.ApiKey, h.d.ProviderKeySecret); derr == nil {
-				h.d.Registry.Swap(p.BaseUrl, plainKey)
-			}
-		}
-	} else {
-		// Deactivated — fall back to the next active provider or clear.
-		h.swapToActive(r)
-	}
+	h.rebuildChain(r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -209,16 +202,10 @@ func (h *AdminProviders) Delete(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
 		return
 	}
-	// Check if this was the active provider before deleting.
-	p, _ := h.d.Q.GetProvider(r.Context(), id)
-	wasActive := p.IsActive
-
 	if err := h.d.Q.DeleteProvider(r.Context(), id); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "delete"))
 		return
 	}
-	if wasActive {
-		h.swapToActive(r)
-	}
+	h.rebuildChain(r)
 	w.WriteHeader(http.StatusNoContent)
 }

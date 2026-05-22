@@ -53,6 +53,7 @@ export type AdminProvider = {
   baseUrl: string;
   keySuffix: string;
   isActive: boolean;
+  priority: number;
 };
 
 export type AdminUser = {

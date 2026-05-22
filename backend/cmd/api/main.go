@@ -19,7 +19,6 @@ import (
 	httpapi "github.com/ado/ado/backend/internal/http"
 	"github.com/ado/ado/backend/internal/http/handlers"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
-	"github.com/ado/ado/backend/internal/keyencrypt"
 	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/quota"
@@ -106,22 +105,9 @@ func main() {
 
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc})
 
-	var reg *proxy.Registry
+	reg := proxy.NewRegistry()
+	handlers.RebuildChain(ctx, queries, cfg.ProviderKeySecret, reg)
 	maint := &proxy.MaintenanceFlag{}
-	{
-		active, err := queries.GetActiveProvider(ctx)
-		if err == nil {
-			plainKey, kerr := keyencrypt.Decrypt(active.ApiKey, cfg.ProviderKeySecret)
-			if kerr != nil {
-				slog.Error("decrypt active provider key", "err", kerr)
-				os.Exit(1)
-			}
-			reg = proxy.NewRegistry(active.BaseUrl, plainKey)
-		} else {
-			slog.Warn("no active provider in database; proxy requests will fail until one is configured")
-			reg = proxy.NewRegistry("", "")
-		}
-	}
 	{
 		v, err := queries.GetSetting(ctx, "maintenance_mode")
 		if err == nil {

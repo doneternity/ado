@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ func (l *Limiter) Check(ctx context.Context, key string, limit int, window time.
 	incr := pipe.Incr(ctx, key)
 	pipe.Expire(ctx, key, window)
 	if _, err := pipe.Exec(ctx); err != nil {
-		return true, 0, err // fail-open on Redis hiccup; alarm via logs upstream
+		return false, 0, err
 	}
 	if incr.Val() > int64(limit) {
 		ttl, _ := l.rdb.TTL(ctx, key).Result()
@@ -35,51 +36,51 @@ func (l *Limiter) Check(ctx context.Context, key string, limit int, window time.
 	return true, 0, nil
 }
 
+func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Handler, prefix, redisKey string, limit int, window time.Duration, failClosed bool) {
+	allowed, retry, err := l.Check(r.Context(), redisKey, limit, window)
+	if err != nil {
+		slog.Warn("rate limiter check failed", "prefix", prefix, "failClosed", failClosed, "err", err)
+		if failClosed {
+			apperr.Write(w, apperr.ServiceUnavailable("RATE_LIMITER_DOWN", "rate limiter unavailable"))
+			return
+		}
+		next.ServeHTTP(w, r)
+		return
+	}
+	if !allowed {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())))
+		apperr.Write(w, apperr.TooMany("RATE_LIMITED", "too many requests"))
+		return
+	}
+	next.ServeHTTP(w, r)
+}
+
 // PerIP wraps a handler to enforce a limit per remote IP.
-func (l *Limiter) PerIP(prefix string, limit int, window time.Duration) func(http.Handler) http.Handler {
+func (l *Limiter) PerIP(prefix string, limit int, window time.Duration, failClosed bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := ClientIP(r)
-			ok, retry, err := l.Check(r.Context(), prefix+":"+ip, limit, window)
-			if err == nil && !ok {
-				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())))
-				apperr.Write(w, apperr.TooMany("RATE_LIMITED", "too many requests"))
-				return
-			}
-			next.ServeHTTP(w, r)
+			l.enforce(w, r, next, prefix, prefix+":"+ClientIP(r), limit, window, failClosed)
 		})
 	}
 }
 
 // PerKey enforces a limit per API key ID extracted from the Bearer context.
 // Falls back to PerIP behaviour if no bearer key is present in context.
-func (l *Limiter) PerKey(prefix string, limit int, window time.Duration) func(http.Handler) http.Handler {
+func (l *Limiter) PerKey(prefix string, limit int, window time.Duration, failClosed bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var redisKey string
+			redisKey := prefix + ":ip:" + ClientIP(r)
 			if bk, ok := BearerFromContext(r.Context()); ok {
 				redisKey = prefix + ":" + bk.KeyID.String()
-			} else {
-				redisKey = prefix + ":ip:" + ClientIP(r)
 			}
-			allowed, retry, err := l.Check(r.Context(), redisKey, limit, window)
-			if err == nil && !allowed {
-				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())))
-				apperr.Write(w, apperr.TooMany("RATE_LIMITED", "too many requests"))
-				return
-			}
-			next.ServeHTTP(w, r)
+			l.enforce(w, r, next, prefix, redisKey, limit, window, failClosed)
 		})
 	}
 }
 
 func ClientIP(r *http.Request) string {
-	// Fly.io sets this header and it cannot be spoofed by clients.
-	if fly := r.Header.Get("Fly-Client-IP"); fly != "" {
-		return strings.TrimSpace(fly)
-	}
-	// Fall back to the last (rightmost) entry in X-Forwarded-For, which is
-	// set by the nearest trusted proxy and cannot be injected by the client.
+	// koyeb appends the real client ip as the rightmost x-forwarded-for entry;
+	// earlier entries are client-supplied and spoofable
 	if xf := r.Header.Get("X-Forwarded-For"); xf != "" {
 		parts := strings.Split(xf, ",")
 		return strings.TrimSpace(parts[len(parts)-1])

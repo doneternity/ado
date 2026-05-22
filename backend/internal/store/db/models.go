@@ -51,6 +51,7 @@ type Provider struct {
 	IsActive  bool
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+	Priority  int32
 }
 
 type Session struct {

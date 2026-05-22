@@ -16,7 +16,7 @@ export function useAdminProviders() {
 export function useCreateProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; baseUrl: string; apiKey: string }) =>
+    mutationFn: (data: { name: string; baseUrl: string; apiKey: string; priority?: number }) =>
       apiFetch<AdminProvider>("/api/admin/providers", {
         method: "POST", body: JSON.stringify(data),
       }),
@@ -27,7 +27,7 @@ export function useCreateProvider() {
 export function useUpdateProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name: string; baseUrl: string; apiKey?: string }) =>
+    mutationFn: ({ id, ...data }: { id: string; name: string; baseUrl: string; apiKey?: string; priority?: number }) =>
       apiFetch<AdminProvider>(`/api/admin/providers/${id}`, {
         method: "PUT", body: JSON.stringify(data),
       }),

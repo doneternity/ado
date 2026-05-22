@@ -11,8 +11,8 @@ import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
-type FormState = { name: string; baseUrl: string; apiKey: string };
-const empty: FormState = { name: "", baseUrl: "", apiKey: "" };
+type FormState = { name: string; baseUrl: string; apiKey: string; priority: number };
+const empty: FormState = { name: "", baseUrl: "", apiKey: "", priority: 0 };
 
 type LiveModel = {
   id: string;
@@ -51,7 +51,7 @@ export function AdminProviders() {
 
   const startEdit = (p: AdminProvider) => {
     setEditing(p);
-    setForm({ name: p.name, baseUrl: p.baseUrl, apiKey: "" });
+    setForm({ name: p.name, baseUrl: p.baseUrl, apiKey: "", priority: p.priority });
     setShowForm(true);
   };
 
@@ -135,6 +135,16 @@ export function AdminProviders() {
                   value={form.baseUrl}
                   onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
                   required
+                />
+              </div>
+              <div className={styles.field} style={{ maxWidth: 110 }}>
+                <label className={styles.label}>Priority</label>
+                <input
+                  className={styles.input}
+                  type="number"
+                  placeholder="0"
+                  value={form.priority}
+                  onChange={(e) => setForm((f) => ({ ...f, priority: Number(e.target.value) }))}
                 />
               </div>
             </div>

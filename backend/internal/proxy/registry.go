@@ -2,19 +2,23 @@ package proxy
 
 import "sync/atomic"
 
-// Registry holds the active forwarder and allows hot-swap without restart.
 type Registry struct {
-	p atomic.Pointer[Forwarder]
+	chain atomic.Pointer[[]*Forwarder]
 }
 
-func NewRegistry(baseURL, apiKey string) *Registry {
+func NewRegistry() *Registry {
 	r := &Registry{}
-	r.p.Store(New(baseURL, apiKey))
+	r.Swap(nil)
 	return r
 }
 
-func (r *Registry) Get() *Forwarder { return r.p.Load() }
+func (r *Registry) Get() []*Forwarder {
+	if p := r.chain.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
 
-func (r *Registry) Swap(baseURL, apiKey string) {
-	r.p.Store(New(baseURL, apiKey))
+func (r *Registry) Swap(chain []*Forwarder) {
+	r.chain.Store(&chain)
 }

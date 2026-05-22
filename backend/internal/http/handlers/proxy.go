@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -35,7 +34,6 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate body is JSON and cap at 512 KB before forwarding.
 	const maxChatBody = 512 * 1024
 	data, err := io.ReadAll(io.LimitReader(r.Body, maxChatBody+1))
 	if err != nil {
@@ -50,8 +48,6 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "invalid JSON"))
 		return
 	}
-	r.Body = io.NopCloser(bytes.NewReader(data))
-	r.ContentLength = int64(len(data))
 
 	if _, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit); err != nil {
 		if errors.Is(err, quota.ErrExceeded) {
@@ -62,9 +58,15 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
 		return
 	}
-	if err := p.d.Registry.Get().Forward(w, r, "/chat/completions"); err != nil {
+	started, err := p.d.Registry.Forward(w, r, "/chat/completions", data)
+	if err != nil {
 		slog.Warn("proxy forward failed", "path", "/chat/completions", "err", err)
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", err.Error()))
+		if !started {
+			if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
+				slog.Warn("quota refund failed", "err", rerr)
+			}
+			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		}
 	}
 }
 
@@ -77,8 +79,11 @@ func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
 		return
 	}
-	if err := p.d.Registry.Get().Forward(w, r, "/models"); err != nil {
+	started, err := p.d.Registry.Forward(w, r, "/models", nil)
+	if err != nil {
 		slog.Warn("proxy forward failed", "path", "/models", "err", err)
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", err.Error()))
+		if !started {
+			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		}
 	}
 }

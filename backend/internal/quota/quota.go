@@ -31,3 +31,8 @@ func (s *Service) Charge(ctx context.Context, keyID uuid.UUID, dailyLimit int32)
 	}
 	return used, nil
 }
+
+// Refund returns one charged unit to the daily counter.
+func (s *Service) Refund(ctx context.Context, keyID uuid.UUID) error {
+	return s.q.DecrementUsage(ctx, keyID)
+}

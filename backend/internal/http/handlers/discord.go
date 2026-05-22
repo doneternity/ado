@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"net/http"
@@ -29,12 +30,28 @@ type DiscordHandler struct{ d DiscordDeps }
 
 func NewDiscord(d DiscordDeps) *DiscordHandler { return &DiscordHandler{d: d} }
 
+// binds the oauth callback to the browser that started the flow
+const oauthStateCookie = "ado_oauth_state"
+
+func (h *DiscordHandler) setStateCookie(w http.ResponseWriter, value string, maxAge int) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     oauthStateCookie,
+		Value:    value,
+		Path:     "/api/auth/discord",
+		HttpOnly: true,
+		Secure:   h.d.Cfg.SessionCookieSecure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   maxAge,
+	})
+}
+
 func (h *DiscordHandler) Start(w http.ResponseWriter, r *http.Request) {
-	authURL, err := h.d.Discord.AuthURL(r.Context())
+	authURL, state, err := h.d.Discord.AuthURL(r.Context())
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "auth url"))
 		return
 	}
+	h.setStateCookie(w, state, 600)
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -45,6 +62,14 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "missing code/state"))
 		return
 	}
+
+	// state must match the cookie set when the flow began
+	stateCookie, cerr := r.Cookie(oauthStateCookie)
+	if cerr != nil || subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(state)) != 1 {
+		apperr.Write(w, apperr.BadRequest("INVALID_STATE", "invalid or expired state"))
+		return
+	}
+	h.setStateCookie(w, "", -1)
 
 	ident, guilds, err := h.d.Discord.Exchange(r.Context(), code, state)
 	if errors.Is(err, oauth.ErrInvalidState) {
@@ -63,6 +88,12 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			base = h.d.Cfg.FrontendOrigin
 		}
 		http.Redirect(w, r, base+"/join-required", http.StatusFound)
+		return
+	}
+
+	// an unverified email could match a victim's account (takeover)
+	if !ident.Verified {
+		apperr.Write(w, apperr.Forbidden("EMAIL_UNVERIFIED", "your Discord email address must be verified"))
 		return
 	}
 

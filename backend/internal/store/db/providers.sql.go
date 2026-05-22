@@ -34,9 +34,9 @@ func (q *Queries) CountProviders(ctx context.Context) (int64, error) {
 }
 
 const createProvider = `-- name: CreateProvider :one
-INSERT INTO providers (name, base_url, api_key, is_active)
-VALUES ($1, $2, $3, $4)
-RETURNING id, name, base_url, api_key, is_active, created_at, updated_at
+INSERT INTO providers (name, base_url, api_key, is_active, priority)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, name, base_url, api_key, is_active, created_at, updated_at, priority
 `
 
 type CreateProviderParams struct {
@@ -44,6 +44,7 @@ type CreateProviderParams struct {
 	BaseUrl  string
 	ApiKey   string
 	IsActive bool
+	Priority int32
 }
 
 func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) (Provider, error) {
@@ -52,6 +53,7 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 		arg.BaseUrl,
 		arg.ApiKey,
 		arg.IsActive,
+		arg.Priority,
 	)
 	var i Provider
 	err := row.Scan(
@@ -62,6 +64,7 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Priority,
 	)
 	return i, err
 }
@@ -76,7 +79,7 @@ func (q *Queries) DeleteProvider(ctx context.Context, id uuid.UUID) error {
 }
 
 const getProvider = `-- name: GetProvider :one
-SELECT id, name, base_url, api_key, is_active, created_at, updated_at FROM providers WHERE id = $1
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority FROM providers WHERE id = $1
 `
 
 func (q *Queries) GetProvider(ctx context.Context, id uuid.UUID) (Provider, error) {
@@ -90,12 +93,13 @@ func (q *Queries) GetProvider(ctx context.Context, id uuid.UUID) (Provider, erro
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Priority,
 	)
 	return i, err
 }
 
 const getActiveProvider = `-- name: GetActiveProvider :one
-SELECT id, name, base_url, api_key, is_active, created_at, updated_at FROM providers WHERE is_active = TRUE ORDER BY updated_at DESC LIMIT 1
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority FROM providers WHERE is_active = TRUE ORDER BY updated_at DESC LIMIT 1
 `
 
 func (q *Queries) GetActiveProvider(ctx context.Context) (Provider, error) {
@@ -109,12 +113,46 @@ func (q *Queries) GetActiveProvider(ctx context.Context) (Provider, error) {
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Priority,
 	)
 	return i, err
 }
 
+const listActiveProviders = `-- name: ListActiveProviders :many
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority FROM providers WHERE is_active = TRUE ORDER BY priority ASC, created_at ASC
+`
+
+func (q *Queries) ListActiveProviders(ctx context.Context) ([]Provider, error) {
+	rows, err := q.db.Query(ctx, listActiveProviders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Provider
+	for rows.Next() {
+		var i Provider
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.BaseUrl,
+			&i.ApiKey,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Priority,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProviders = `-- name: ListProviders :many
-SELECT id, name, base_url, api_key, is_active, created_at, updated_at FROM providers ORDER BY created_at ASC
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority FROM providers ORDER BY created_at ASC
 `
 
 func (q *Queries) ListProviders(ctx context.Context) ([]Provider, error) {
@@ -134,6 +172,7 @@ func (q *Queries) ListProviders(ctx context.Context) ([]Provider, error) {
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Priority,
 		); err != nil {
 			return nil, err
 		}
@@ -175,19 +214,20 @@ func (q *Queries) UpdateProviderKey(ctx context.Context, arg UpdateProviderKeyPa
 
 const updateProviderMeta = `-- name: UpdateProviderMeta :one
 UPDATE providers
-SET name = $2, base_url = $3, updated_at = NOW()
+SET name = $2, base_url = $3, priority = $4, updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, base_url, api_key, is_active, created_at, updated_at
+RETURNING id, name, base_url, api_key, is_active, created_at, updated_at, priority
 `
 
 type UpdateProviderMetaParams struct {
-	ID      uuid.UUID
-	Name    string
-	BaseUrl string
+	ID       uuid.UUID
+	Name     string
+	BaseUrl  string
+	Priority int32
 }
 
 func (q *Queries) UpdateProviderMeta(ctx context.Context, arg UpdateProviderMetaParams) (Provider, error) {
-	row := q.db.QueryRow(ctx, updateProviderMeta, arg.ID, arg.Name, arg.BaseUrl)
+	row := q.db.QueryRow(ctx, updateProviderMeta, arg.ID, arg.Name, arg.BaseUrl, arg.Priority)
 	var i Provider
 	err := row.Scan(
 		&i.ID,
@@ -197,6 +237,7 @@ func (q *Queries) UpdateProviderMeta(ctx context.Context, arg UpdateProviderMeta
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Priority,
 	)
 	return i, err
 }

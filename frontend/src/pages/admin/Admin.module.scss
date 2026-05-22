@@ -332,8 +332,8 @@
 
 /* Buttons — match site-wide pill-btn convention */
 .btnPrimary {
-  background: #ffffff;
-  color: #050508;
+  background: var(--purple);
+  color: #ffffff;
   border: none;
   padding: 9px 22px;
   border-radius: var(--r-pill);

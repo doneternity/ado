@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/ado/ado/backend/internal/apperr"
 	"github.com/ado/ado/backend/internal/store/db"
@@ -19,9 +21,12 @@ func NewAdminQuotas(q *db.Queries) *AdminQuotas { return &AdminQuotas{q: q} }
 
 func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	global, err := h.q.GetSetting(r.Context(), settingGlobalDailyQuota)
-	if err != nil {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "get quota"))
 		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		global = "100"
 	}
 	users, err := h.q.ListUsersAdmin(r.Context())
 	if err != nil {

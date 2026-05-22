@@ -57,7 +57,7 @@ func (q *Queries) DailyRequestCounts(ctx context.Context) ([]DailyRequestCountsR
 }
 
 const listUsersAdmin = `-- name: ListUsersAdmin :many
-SELECT u.id, u.email, u.role, u.banned, u.created_at, u.daily_quota_override,
+SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override,
        COALESCE(SUM(du.used), 0)::int4 AS requests_today
 FROM users u
 LEFT JOIN ado_keys k ON k.user_id = u.id
@@ -69,6 +69,7 @@ ORDER BY u.created_at DESC
 type ListUsersAdminRow struct {
 	ID                 uuid.UUID
 	Email              string
+	DisplayName        *string
 	Role               string
 	Banned             bool
 	CreatedAt          pgtype.Timestamptz
@@ -88,6 +89,7 @@ func (q *Queries) ListUsersAdmin(ctx context.Context) ([]ListUsersAdminRow, erro
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
+			&i.DisplayName,
 			&i.Role,
 			&i.Banned,
 			&i.CreatedAt,

@@ -1,5 +1,5 @@
 -- name: ListUsersAdmin :many
-SELECT u.id, u.email, u.role, u.banned, u.created_at, u.daily_quota_override,
+SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override,
        COALESCE(SUM(du.used), 0)::int4 AS requests_today
 FROM users u
 LEFT JOIN ado_keys k ON k.user_id = u.id

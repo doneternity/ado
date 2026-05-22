@@ -24,3 +24,6 @@ Thumbs.db
 *.swp
 .superpowers/
 .worktrees
+
+# Local-only docs
+CLAUDE.md

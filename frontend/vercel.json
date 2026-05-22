@@ -12,7 +12,7 @@
   ],
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/:path*" },
-    { "source": "/v1/:path*",  "destination": "https://rfpxotgjqdliycfcwumh.supabase.co/functions/v1/proxy/:path*" },
+    { "source": "/v1/:path*",  "destination": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/v1/:path*" },
     { "source": "/(.*)",       "destination": "/index.html" }
   ],
   "buildCommand": "npm run build",

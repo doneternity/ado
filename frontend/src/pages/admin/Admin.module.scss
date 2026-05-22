@@ -501,6 +501,26 @@
 .providerName { font-weight: 700; font-size: .88rem; color: var(--black); }
 .providerUrl  { font-size: .68rem; font-family: var(--font-mono); color: var(--silver); margin-top: 3px; word-break: break-all; }
 
+.fieldHint {
+  font-size: .6rem;
+  color: var(--silver);
+  opacity: 0.6;
+  margin-top: 1px;
+}
+
+.providerPriorityChip {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--silver);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-sub);
+  border-radius: var(--r-pill);
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
 .activeBadge {
   position: absolute;
   top: 14px;

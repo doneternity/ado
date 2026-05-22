@@ -79,8 +79,8 @@ export function AdminProviders() {
       <div className={styles.infoBanner}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
         <span>
-          All active providers are used simultaneously — requests try each one in order (oldest first) until one succeeds.
-          Activate multiple providers for automatic failover coverage.
+          Requests try each active provider by priority (lower number first) until one succeeds.
+          Priority 0 is tried first — set it on your preferred provider.
         </span>
       </div>
 
@@ -137,29 +137,33 @@ export function AdminProviders() {
                   required
                 />
               </div>
-              <div className={styles.field} style={{ maxWidth: 110 }}>
+            </div>
+            <div className={styles.formRow}>
+              <div className={styles.field} style={{ maxWidth: 140 }}>
                 <label className={styles.label}>Priority</label>
                 <input
                   className={styles.input}
                   type="number"
+                  min={0}
                   placeholder="0"
                   value={form.priority}
-                  onChange={(e) => setForm((f) => ({ ...f, priority: Number(e.target.value) }))}
+                  onChange={(e) => setForm((f) => ({ ...f, priority: Math.max(0, Number(e.target.value)) }))}
+                />
+                <span className={styles.fieldHint}>lower = tried first</span>
+              </div>
+              <div className={styles.field} style={{ flex: 1 }}>
+                <label className={styles.label}>
+                  API Key{editing ? " — leave blank to keep existing" : ""}
+                </label>
+                <input
+                  className={styles.input}
+                  type="password"
+                  placeholder="sk-••••••••••••••••"
+                  value={form.apiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+                  required={!editing}
                 />
               </div>
-            </div>
-            <div className={styles.field} style={{ marginBottom: 16 }}>
-              <label className={styles.label}>
-                API Key{editing ? " — leave blank to keep existing" : ""}
-              </label>
-              <input
-                className={styles.input}
-                type="password"
-                placeholder="sk-••••••••••••••••"
-                value={form.apiKey}
-                onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                required={!editing}
-              />
             </div>
             <div className={styles.btnRow}>
               <button
@@ -214,6 +218,7 @@ function ProviderCard({
         </div>
 
         <div className={styles.providerCardRight}>
+          <span className={styles.providerPriorityChip}>P · {p.priority}</span>
           <span className={`${styles.badge} ${p.isActive ? styles.badgeGreen : styles.badgeInactive}`}>
             {p.isActive ? "active" : "inactive"}
           </span>

@@ -192,7 +192,6 @@ export function Models() {
       transition={{ duration: 0.28, ease: "easeOut" }}
     >
       <div className={styles.header}>
-        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />MULTI-PROVIDER // ALL ROUTES</span>
         <h1 className={styles.headline}>all models.<br />one key.</h1>
         <p className={styles.lede}>
           Every model below is reachable with your ADO key via the OpenAI-compatible API.

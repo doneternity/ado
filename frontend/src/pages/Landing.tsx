@@ -11,7 +11,7 @@ const STEPS = [
     number: "01",
     title: "Sign up",
     subtitle: "for free",
-    description: "Create an account with email or Google. No credit card, no waitlist — your ADO key is issued instantly.",
+    description: "Join with your Discord account. No credit card, no waitlist — your ADO key is issued instantly.",
   },
   {
     number: "02",
@@ -121,10 +121,6 @@ export function Landing() {
 
         <div className={styles.heroInner}>
           <div className={`${styles.heroContent} ${mounted ? styles.heroContentIn : ""}`}>
-            <div className={`${styles.heroEyebrow} ${mounted ? styles.heroEyebrowIn : ""}`}>
-              <span className={styles.eyebrowDash} />
-              Unified AI API
-            </div>
             <h1 className={styles.heroHeadline}>
               <span className={styles.heroHeadlineLine1}>The intelligence</span>
               <span className={styles.heroHeadlineLine2}>
@@ -168,9 +164,6 @@ export function Landing() {
             viewport={VP}
           >
             <motion.div className={styles.sectionHeaderLeft} variants={fadeUp}>
-              <span className={styles.eyebrow}>
-                <span className={styles.eyebrowDash} />Capabilities
-              </span>
               <h2 className={styles.displayHeadline}>
                 Compatible<br />
                 <span className={styles.dim}>with everything.</span>
@@ -227,17 +220,6 @@ const res = await client.chat.completions.create({
         <div className={styles.container}>
           <div className={styles.howTop}>
             {/* Eyebrow slides in from left */}
-            <motion.div
-              className={styles.howEyebrow}
-              variants={slideLeft}
-              initial="hidden"
-              whileInView="show"
-              viewport={VP}
-            >
-              <span className={styles.eyebrowDash} />Process
-            </motion.div>
-
-            {/* Headline lines stagger in one by one — the bluesminds signature */}
             <motion.h2
               className={styles.howHeadline}
               variants={stagger14}
@@ -293,15 +275,6 @@ const res = await client.chat.completions.create({
       <section className={styles.infraSection}>
         <div className={styles.container}>
           <div className={styles.infraTop}>
-            <motion.span
-              className={styles.eyebrow}
-              variants={slideLeft}
-              initial="hidden"
-              whileInView="show"
-              viewport={VP}
-            >
-              <span className={styles.eyebrowDash} />Always online
-            </motion.span>
             <motion.div
               className={styles.infraTitleRow}
               variants={stagger14}
@@ -430,9 +403,6 @@ const res = await client.chat.completions.create({
             whileInView="show"
             viewport={VP}
           >
-            <motion.span className={styles.eyebrow} variants={slideLeft}>
-              <span className={styles.eyebrowDash} />Developer SDK
-            </motion.span>
             <motion.h2 className={styles.displayHeadline} variants={fadeUp}>
               Code your app.<br />
               <span className={styles.dim}>Or use any client.</span>
@@ -483,9 +453,6 @@ const res = await client.chat.completions.create({
             whileInView="show"
             viewport={VP}
           >
-            <motion.span className={styles.eyebrow} variants={slideLeft}>
-              <span className={styles.eyebrowDash} />Models
-            </motion.span>
             <motion.h2 className={styles.displayHeadline} variants={fadeUp}>
               What we<br />
               <span className={styles.dim}>route.</span>

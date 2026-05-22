@@ -122,7 +122,6 @@ export function Pricing() {
       <div className={styles.bottomCta}>
         <h2 className={styles.ctaHeadline}>Ready to start?</h2>
         <Link to="/login" className={styles.ctaBtn}>Create free account</Link>
-        <Link to="/playground" className={styles.ctaSecondary}>Try playground first</Link>
       </div>
 
     </motion.div>

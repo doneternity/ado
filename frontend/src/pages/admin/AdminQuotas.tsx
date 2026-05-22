@@ -12,7 +12,7 @@ export function AdminQuotas() {
   const setUser = useSetUserQuota();
   const removeUser = useRemoveUserQuota();
   const [globalInput, setGlobalInput] = useState("");
-  const [overrideId, setOverrideId] = useState("");
+  const [overrideEmail, setOverrideEmail] = useState("");
   const [overrideLimit, setOverrideLimit] = useState("");
 
   return (
@@ -67,9 +67,9 @@ export function AdminQuotas() {
         <div className={styles.inlineFormTitle}>Add override</div>
         <div className={styles.formRow}>
           <div className={styles.field}>
-            <label className={styles.label}>User ID</label>
-            <input className={styles.input} placeholder="uuid" value={overrideId}
-              onChange={(e) => setOverrideId(e.target.value)} />
+            <label className={styles.label}>Email</label>
+            <input className={styles.input} type="email" placeholder="user@example.com"
+              value={overrideEmail} onChange={(e) => setOverrideEmail(e.target.value)} />
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Daily Limit</label>
@@ -79,8 +79,8 @@ export function AdminQuotas() {
         </div>
         <button
           className={styles.btnPrimary}
-          onClick={() => { setUser.mutate({ id: overrideId, limit: Number(overrideLimit) }); setOverrideId(""); setOverrideLimit(""); }}
-          disabled={!overrideId || !overrideLimit}
+          onClick={() => { setUser.mutate({ email: overrideEmail, limit: Number(overrideLimit) }); setOverrideEmail(""); setOverrideLimit(""); }}
+          disabled={!overrideEmail || !overrideLimit}
         >
           Save override
         </button>

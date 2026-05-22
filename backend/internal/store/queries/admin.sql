@@ -19,6 +19,15 @@ UPDATE users SET daily_quota_override = $2, updated_at = NOW() WHERE id = $1;
 -- name: RemoveUserQuotaOverride :exec
 UPDATE users SET daily_quota_override = NULL, updated_at = NOW() WHERE id = $1;
 
+-- name: SetAllKeyDailyLimits :exec
+UPDATE ado_keys SET daily_limit = $1
+WHERE revoked_at IS NULL
+  AND user_id IN (SELECT id FROM users WHERE daily_quota_override IS NULL);
+
+-- name: SetUserKeyDailyLimit :exec
+UPDATE ado_keys SET daily_limit = $2
+WHERE revoked_at IS NULL AND user_id = $1;
+
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
 

@@ -192,3 +192,29 @@ func (q *Queries) TopUsersByUsageThisMonth(ctx context.Context) ([]TopUsersByUsa
 	}
 	return items, nil
 }
+
+const setAllKeyDailyLimits = `-- name: SetAllKeyDailyLimits :exec
+UPDATE ado_keys SET daily_limit = $1
+WHERE revoked_at IS NULL
+  AND user_id IN (SELECT id FROM users WHERE daily_quota_override IS NULL)
+`
+
+func (q *Queries) SetAllKeyDailyLimits(ctx context.Context, dailyLimit int32) error {
+	_, err := q.db.Exec(ctx, setAllKeyDailyLimits, dailyLimit)
+	return err
+}
+
+const setUserKeyDailyLimit = `-- name: SetUserKeyDailyLimit :exec
+UPDATE ado_keys SET daily_limit = $2
+WHERE revoked_at IS NULL AND user_id = $1
+`
+
+type SetUserKeyDailyLimitParams struct {
+	UserID     uuid.UUID
+	DailyLimit int32
+}
+
+func (q *Queries) SetUserKeyDailyLimit(ctx context.Context, arg SetUserKeyDailyLimitParams) error {
+	_, err := q.db.Exec(ctx, setUserKeyDailyLimit, arg.UserID, arg.DailyLimit)
+	return err
+}

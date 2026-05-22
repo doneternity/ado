@@ -116,9 +116,9 @@ export function useSetGlobalQuota() {
 export function useSetUserQuota() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, limit }: { id: string; limit: number }) =>
-      apiFetch<void>(`/api/admin/quotas/users/${id}`, {
-        method: "PUT", body: JSON.stringify({ limit }),
+    mutationFn: ({ email, limit }: { email: string; limit: number }) =>
+      apiFetch<void>(`/api/admin/quotas/users/by-email`, {
+        method: "PUT", body: JSON.stringify({ email, limit }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "quotas"] }),
   });

@@ -92,7 +92,7 @@ func NewRouter(d Deps) http.Handler {
 
 		r.Get("/quotas", d.AdminQuotas.Get)
 		r.Put("/quotas/global", d.AdminQuotas.SetGlobal)
-		r.Put("/quotas/users/{id}", d.AdminQuotas.SetUserOverride)
+		r.Put("/quotas/users/by-email", d.AdminQuotas.SetUserOverride)
 		r.Delete("/quotas/users/{id}", d.AdminQuotas.RemoveUserOverride)
 
 		r.Get("/errors", d.AdminErrors.List)

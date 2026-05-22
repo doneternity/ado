@@ -3,8 +3,7 @@ import { createBrowserRouter, Navigate, Outlet, ScrollRestoration } from "react-
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/AdminLayout";
 import { Login } from "./pages/Login";
-import { Verify } from "./pages/Verify";
-import { VerifyPending } from "./pages/VerifyPending";
+import { JoinRequired } from "./pages/JoinRequired";
 import { Dashboard } from "./pages/Dashboard";
 import { NotFound } from "./pages/NotFound";
 import { Landing } from "./pages/Landing";
@@ -68,18 +67,17 @@ export const router = createBrowserRouter([
   {
     element: <Root />,
     children: [
-      { path: "/",            element: <Landing /> },
-      { path: "/models",      element: <Models /> },
-      { path: "/docs",        element: <Docs /> },
-      { path: "/pricing",     element: <Pricing /> },
-      { path: "/playground",  element: <Playground /> },
-      { path: "/privacy",     element: <Privacy /> },
-      { path: "/terms",       element: <Terms /> },
-      { path: "/login",       element: <RedirectIfAuthed><Login /></RedirectIfAuthed> },
-      { path: "/verify",      element: <Verify /> },
-      { path: "/verify-pending", element: <VerifyPending /> },
-      { path: "/dashboard",   element: <RequireAuth><Dashboard /></RequireAuth> },
-      { path: "*",            element: <NotFound /> },
+      { path: "/",              element: <Landing /> },
+      { path: "/models",        element: <Models /> },
+      { path: "/docs",          element: <Docs /> },
+      { path: "/pricing",       element: <Pricing /> },
+      { path: "/playground",    element: <Playground /> },
+      { path: "/privacy",       element: <Privacy /> },
+      { path: "/terms",         element: <Terms /> },
+      { path: "/login",         element: <RedirectIfAuthed><Login /></RedirectIfAuthed> },
+      { path: "/join-required", element: <JoinRequired /> },
+      { path: "/dashboard",     element: <RequireAuth><Dashboard /></RequireAuth> },
+      { path: "*",              element: <NotFound /> },
     ],
   },
   {

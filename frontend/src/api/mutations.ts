@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AuthResponse, KeyJustIssued, SignupResponse } from "../types/api";
+import type { AuthResponse, KeyJustIssued } from "../types/api";
 import { apiFetch, setCsrfToken } from "./client";
 import { meKey, rawKeyKey, currentKeyKey } from "./queries";
 
@@ -10,50 +10,6 @@ function adoptAuthResponse(qc: ReturnType<typeof useQueryClient>, r: AuthRespons
     qc.setQueryData(rawKeyKey, r.keyJustIssued);
   }
   qc.invalidateQueries({ queryKey: currentKeyKey });
-}
-
-export function useSignup() {
-  return useMutation({
-    mutationFn: (vars: { email: string; password: string; displayName?: string }) =>
-      apiFetch<SignupResponse>("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify(vars),
-      }),
-  });
-}
-
-export function useLogin() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: { email: string; password: string }) =>
-      apiFetch<AuthResponse>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(vars),
-      }),
-    onSuccess: (r) => adoptAuthResponse(qc, r),
-  });
-}
-
-export function useVerify() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (token: string) =>
-      apiFetch<AuthResponse>("/api/auth/verify", {
-        method: "POST",
-        body: JSON.stringify({ token }),
-      }),
-    onSuccess: (r) => adoptAuthResponse(qc, r),
-  });
-}
-
-export function useResendVerify() {
-  return useMutation({
-    mutationFn: (email: string) =>
-      apiFetch<{ ok: true }>("/api/auth/verify/resend", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      }),
-  });
 }
 
 export function useLogout() {
@@ -80,3 +36,6 @@ export function useRotateKey() {
     },
   });
 }
+
+// Keep adoptAuthResponse available for pages that consume the flash key on load
+export { adoptAuthResponse };

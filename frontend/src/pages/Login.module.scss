@@ -187,3 +187,18 @@
   border-radius: var(--r-pill);
   padding: 3px 10px;
 }
+
+/* ── Legal line ── */
+.legal {
+  font-size: .75rem;
+  color: rgba(255,255,255,0.25);
+  line-height: 1.6;
+  font-weight: 300;
+
+  a {
+    color: rgba(255,255,255,0.4);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    &:hover { color: rgba(255,255,255,0.7); }
+  }
+}

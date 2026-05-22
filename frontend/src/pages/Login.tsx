@@ -1,8 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AuthForm } from "../components/AuthForm";
-import { GoogleButton } from "../components/GoogleButton";
-import { useLogin, useSignup } from "../api/mutations";
+import { Link } from "react-router-dom";
+import { DiscordButton } from "../components/DiscordButton";
 import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
 
@@ -21,11 +18,6 @@ const msg = await ado.chat.completions.create({
 console.log(msg.choices[0].message.content);`;
 
 export function Login() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const navigate = useNavigate();
-  const login = useLogin();
-  const signup = useSignup();
-
   return (
     <div className={styles.page}>
       <div className={styles.formCol}>
@@ -33,41 +25,15 @@ export function Login() {
           <span className={styles.eyebrowDash} />
           ADO // v1
         </span>
-        <h1 className={styles.headline}>
-          {mode === "login" ? "welcome\nback." : "get your\nkey."}
-        </h1>
+        <h1 className={styles.headline}>welcome.</h1>
 
-        <div className={styles.tabs}>
-          <button
-            className={mode === "login" ? styles.tabActive : styles.tab}
-            onClick={() => setMode("login")}
-          >
-            sign in
-          </button>
-          <button
-            className={mode === "signup" ? styles.tabActive : styles.tab}
-            onClick={() => setMode("signup")}
-          >
-            sign up
-          </button>
-        </div>
+        <DiscordButton />
 
-        <AuthForm
-          mode={mode}
-          isPending={login.isPending || signup.isPending}
-          onSubmit={async (vars) => {
-            if (mode === "login") {
-              await login.mutateAsync(vars);
-              navigate("/dashboard");
-            } else {
-              await signup.mutateAsync(vars);
-              navigate("/verify-pending", { state: { email: vars.email } });
-            }
-          }}
-        />
-
-        <div className={styles.divider}>or</div>
-        <GoogleButton />
+        <p className={styles.legal}>
+          By continuing, you agree to our{" "}
+          <Link to="/terms">Terms</Link> and{" "}
+          <Link to="/privacy">Privacy Policy</Link>.
+        </p>
       </div>
 
       <div className={styles.visualCol}>

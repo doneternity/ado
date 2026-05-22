@@ -1,0 +1,33 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 22px;
+  background: #5865F2;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  font-size: .95rem;
+  letter-spacing: .01em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--t-fast), opacity var(--t-fast);
+
+  &:hover {
+    background: #4752c4;
+    text-decoration: none;
+  }
+
+  &:active {
+    opacity: 0.9;
+  }
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}

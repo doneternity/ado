@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { AlertCircle } from "lucide-react";
 import styles from "./StatusPage.module.scss";
 
-const DISCORD_INVITE = import.meta.env.VITE_DISCORD_INVITE_URL ?? "https://discord.gg";
+const DISCORD_INVITE = import.meta.env.VITE_DISCORD_INVITE_URL || "https://discord.gg";
 
 export function JoinRequired() {
   return (

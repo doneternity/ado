@@ -118,7 +118,8 @@ func main() {
 			}
 			reg = proxy.NewRegistry(active.BaseUrl, plainKey)
 		} else {
-			reg = proxy.NewRegistry(cfg.GeminiBaseURL, cfg.GeminiAPIKey)
+			slog.Warn("no active provider in database; proxy requests will fail until one is configured")
+			reg = proxy.NewRegistry("", "")
 		}
 	}
 	{

@@ -24,6 +24,9 @@ func New(baseURL, apiKey string) *Forwarder {
 
 // Forward proxies the incoming request to upstream path (e.g. "/chat/completions").
 func (f *Forwarder) Forward(w http.ResponseWriter, r *http.Request, path string) error {
+	if f.BaseURL == "" {
+		return fmt.Errorf("no provider configured")
+	}
 	upstreamURL := f.BaseURL + path
 	if r.URL.RawQuery != "" {
 		upstreamURL += "?" + r.URL.RawQuery

@@ -64,6 +64,7 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := p.d.Registry.Get().Forward(w, r, "/chat/completions"); err != nil {
 		slog.Warn("proxy forward failed", "path", "/chat/completions", "err", err)
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", err.Error()))
 	}
 }
 
@@ -78,5 +79,6 @@ func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := p.d.Registry.Get().Forward(w, r, "/models"); err != nil {
 		slog.Warn("proxy forward failed", "path", "/models", "err", err)
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", err.Error()))
 	}
 }

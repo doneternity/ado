@@ -26,9 +26,6 @@ type Config struct {
 
 	FrontendOrigin string `env:"FRONTEND_ORIGIN" envDefault:""`
 
-	GeminiAPIKey  string `env:"GEMINI_API_KEY"`
-	GeminiBaseURL string `env:"GEMINI_BASE_URL" envDefault:"https://generativelanguage.googleapis.com/v1beta/openai"`
-
 	Mailer       string `env:"MAILER" envDefault:"console"`
 	ResendAPIKey string `env:"RESEND_API_KEY"`
 	MailFrom     string `env:"MAIL_FROM"`

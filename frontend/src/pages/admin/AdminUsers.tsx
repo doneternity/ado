@@ -11,8 +11,10 @@ export function AdminUsers() {
   const setBanned = useSetUserBanned();
   const [search, setSearch] = useState("");
 
+  const q = search.toLowerCase();
   const filtered = users.filter((u) =>
-    u.email.toLowerCase().includes(search.toLowerCase())
+    u.email.toLowerCase().includes(q) ||
+    (u.displayName ?? "").toLowerCase().includes(q)
   );
 
   return (
@@ -24,7 +26,7 @@ export function AdminUsers() {
 
       <input
         className={`${styles.input} ${styles.searchInput}`}
-        placeholder="Search by email…"
+        placeholder="Search by email or username…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
@@ -34,6 +36,7 @@ export function AdminUsers() {
           <thead>
             <tr>
               <th>Email</th>
+              <th>Username</th>
               <th>Role</th>
               <th>Status</th>
               <th>Requests today</th>
@@ -45,6 +48,7 @@ export function AdminUsers() {
             {filtered.map((u) => (
               <tr key={u.id} className={u.banned ? styles.rowBanned : undefined}>
                 <td className={styles.cellMono}>{u.email}</td>
+                <td className={styles.cellSubtle}>{u.displayName ?? "—"}</td>
                 <td>
                   {u.role === "admin"
                     ? <span className={`${styles.badge} ${styles.badgeAdmin}`}>admin</span>

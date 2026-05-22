@@ -58,6 +58,7 @@ export type AdminProvider = {
 export type AdminUser = {
   id: string;
   email: string;
+  displayName: string | null;
   role: "user" | "admin";
   banned: boolean;
   createdAt: string;

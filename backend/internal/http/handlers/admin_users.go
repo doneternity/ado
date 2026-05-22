@@ -20,6 +20,7 @@ func NewAdminUsers(q *db.Queries) *AdminUsers { return &AdminUsers{q: q} }
 type adminUserDTO struct {
 	ID                 uuid.UUID `json:"id"`
 	Email              string    `json:"email"`
+	DisplayName        *string   `json:"displayName"`
 	Role               string    `json:"role"`
 	Banned             bool      `json:"banned"`
 	CreatedAt          time.Time `json:"createdAt"`
@@ -38,6 +39,7 @@ func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
 		out[i] = adminUserDTO{
 			ID:                 u.ID,
 			Email:              u.Email,
+			DisplayName:        u.DisplayName,
 			Role:               u.Role,
 			Banned:             u.Banned,
 			CreatedAt:          u.CreatedAt.Time,

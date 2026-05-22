@@ -9,6 +9,7 @@ ALTER TABLE users ADD CONSTRAINT users_has_credential
 
 -- +goose Down
 -- +goose StatementBegin
+DELETE FROM users WHERE password_hash IS NULL AND google_sub IS NULL;
 ALTER TABLE users DROP CONSTRAINT users_has_credential;
 ALTER TABLE users ADD CONSTRAINT users_has_credential
   CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL);

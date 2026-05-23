@@ -25,6 +25,10 @@ type BearerKeyContext struct {
 func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
 			h := r.Header.Get("Authorization")
 			if !strings.HasPrefix(h, "Bearer ") {
 				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing bearer key"))

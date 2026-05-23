@@ -4,6 +4,7 @@
   background: var(--bg);
   min-height: calc(100vh - 80px);
   padding: 40px 5vw 80px;
+  @media (max-width: 640px) { padding: 20px 16px 32px; }
 }
 
 .inner {
@@ -23,7 +24,11 @@
 }
 
 .headerLeft { display: flex; flex-direction: column; gap: 8px; }
-.headerRight { display: flex; align-items: center; }
+.headerRight {
+  display: flex;
+  align-items: center;
+  @media (max-width: 640px) { display: none; }
+}
 
 .devConsoleBadge {
   display: inline-flex;
@@ -116,7 +121,8 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 
-  @media (max-width: 640px) { grid-template-columns: 1fr; }
+  @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 380px)  { grid-template-columns: 1fr; }
 }
 
 .statCell {
@@ -127,6 +133,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  @media (max-width: 640px) { padding: 14px 16px; }
 }
 
 .statCellLabel {
@@ -151,6 +158,7 @@
   letter-spacing: -.025em;
   color: var(--black);
   line-height: 1;
+  @media (max-width: 640px) { font-size: 1.5rem; }
 }
 
 .statNumWarn { @extend .statNum; color: rgba(255,138,61,0.9); }
@@ -169,6 +177,7 @@
   color: var(--black);
   letter-spacing: .02em;
   line-height: 1;
+  @media (max-width: 640px) { font-size: 1.1rem; }
 }
 
 .statBar {
@@ -307,6 +316,7 @@
   transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
 
   &:hover { color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.07); }
+  @media (max-width: 640px) { width: 40px; height: 40px; border-radius: var(--r-md); }
 }
 
 .keyDisplayWrap {
@@ -475,6 +485,7 @@
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.05) transparent;
+  @media (max-width: 640px) { font-size: .68rem; line-height: 1.6; padding: 14px 16px; }
 }
 
 /* ─────────────────── Sidebar cards ─────────────────── */
@@ -540,6 +551,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 160px;
+  @media (max-width: 900px) { max-width: 220px; }
 }
 
 .modelCap {
@@ -648,19 +660,11 @@
 .betaBanner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 10px 16px;
   background: rgba(236, 168, 214, 0.04);
   border: 1px solid rgba(236, 168, 214, 0.1);
   border-radius: var(--r-md);
-}
-
-.betaBannerLeft {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
 }
 
 .betaDot {
@@ -673,35 +677,21 @@
 }
 
 .betaText {
+  flex: 1;
   font-size: .8rem;
   color: rgba(255, 255, 255, 0.38);
   font-weight: 300;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  @media (max-width: 540px) { white-space: normal; }
-}
-
-.betaLink {
-  color: var(--accent);
-  opacity: 0.75;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-color: rgba(236, 168, 214, 0.3);
-  transition: opacity var(--t-fast);
-  &:hover { opacity: 1; }
+  line-height: 1.5;
 }
 
 .betaDismiss {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  padding: 4px;
+  font-size: .75rem;
+  padding: 4px 6px;
   border-radius: var(--r-sm);
   transition: color var(--t-fast);
   &:hover { color: rgba(255, 255, 255, 0.55); }

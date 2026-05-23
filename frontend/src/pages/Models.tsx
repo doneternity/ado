@@ -40,9 +40,10 @@ const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
 };
 
 function inferProvider(id: string): ModelProvider {
-  if (/\[GG\]|gemini|google|bard/i.test(id)) return "gemini";
-  if (/claude|anthropic/i.test(id)) return "claude";
-  if (/\[beagle\]|deepseek/i.test(id)) return "deepseek";
+  const key = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
+  if (/gemini|google|bard/i.test(key)) return "gemini";
+  if (/claude|anthropic/i.test(key)) return "claude";
+  if (/deepseek/i.test(key)) return "deepseek";
   return "other";
 }
 
@@ -70,18 +71,19 @@ function enrich(live: LiveModel): EnrichedModel {
     : inferProvider(live.id);
 
   const rawName = (live.display_name || live.id)
-    .replace(/^\[[^\]]+\]/, "")
+    .replace(/^\[[^\]]+\]/, "")   // strip [TAG] prefix
+    .replace(/^[^/]*\//, "")       // strip PROVIDER/ prefix
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, c => c.toUpperCase())
     .trim();
 
   return {
     id: live.id,
-    name: rawName,
+    name: rawName || live.id,
     provider,
     context: live.context_length ? fmtCtx(live.context_length) : "",
     speed: 2 as const,
-    capabilities: ["Streaming"] as Capability[],
+    capabilities: [] as Capability[],
     description: "",
     adoStatus,
   };

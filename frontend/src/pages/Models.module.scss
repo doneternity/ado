@@ -207,8 +207,9 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
+  gap: 8px;
   padding: 0 6vw 64px;
+  align-items: start;
 
   @media (max-width: 1023px) { grid-template-columns: repeat(2, 1fr); }
   @media (max-width: 640px)  { grid-template-columns: 1fr; }

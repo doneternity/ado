@@ -186,7 +186,7 @@ func isFailoverStatus(code int) bool {
 func streamResponse(w http.ResponseWriter, resp *http.Response) error {
 	defer resp.Body.Close()
 	for k, vs := range resp.Header {
-		if isHopByHop(k) {
+		if isHopByHop(k) || isUpstreamOnly(k) {
 			continue
 		}
 		for _, v := range vs {
@@ -241,7 +241,25 @@ var hopByHop = map[string]struct{}{
 	"Transfer-Encoding": {}, "Upgrade": {},
 }
 
+// upstreamOnly lists headers that describe the upstream's own CORS/security
+// policy. They must not be forwarded to clients — our middleware sets the
+// correct values and forwarding upstream copies creates duplicate headers that
+// browsers/iOS reject.
+var upstreamOnly = map[string]struct{}{
+	"Access-Control-Allow-Origin":      {},
+	"Access-Control-Allow-Methods":     {},
+	"Access-Control-Allow-Headers":     {},
+	"Access-Control-Allow-Credentials": {},
+	"Access-Control-Expose-Headers":    {},
+	"Access-Control-Max-Age":           {},
+}
+
 func isHopByHop(k string) bool {
 	_, ok := hopByHop[http.CanonicalHeaderKey(k)]
+	return ok
+}
+
+func isUpstreamOnly(k string) bool {
+	_, ok := upstreamOnly[http.CanonicalHeaderKey(k)]
 	return ok
 }

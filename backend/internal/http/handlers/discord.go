@@ -71,7 +71,7 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	h.setStateCookie(w, "", -1)
 
-	ident, guilds, err := h.d.Discord.Exchange(r.Context(), code, state)
+	ident, member, err := h.d.Discord.Exchange(r.Context(), code, state)
 	if errors.Is(err, oauth.ErrInvalidState) {
 		apperr.Write(w, apperr.BadRequest("INVALID_STATE", "invalid or expired state"))
 		return
@@ -81,13 +81,17 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Guild membership gate.
-	if !inGuild(guilds, h.d.Cfg.DiscordGuildID) {
-		base := h.d.Cfg.AppBaseURL
-		if h.d.Cfg.FrontendOrigin != "" {
-			base = h.d.Cfg.FrontendOrigin
-		}
-		http.Redirect(w, r, base+"/join-required", http.StatusFound)
+	// Guild membership + role gate.
+	joinBase := h.d.Cfg.AppBaseURL
+	if h.d.Cfg.FrontendOrigin != "" {
+		joinBase = h.d.Cfg.FrontendOrigin
+	}
+	if !member.InGuild {
+		http.Redirect(w, r, joinBase+"/join-required", http.StatusFound)
+		return
+	}
+	if h.d.Cfg.DiscordMemberRoleID != "" && !hasRole(member.Roles, h.d.Cfg.DiscordMemberRoleID) {
+		http.Redirect(w, r, joinBase+"/join-required", http.StatusFound)
 		return
 	}
 
@@ -206,9 +210,9 @@ func (h *DiscordHandler) resolveUser(r *http.Request, ident oauth.DiscordIdentit
 	return created, nil
 }
 
-func inGuild(guilds []oauth.DiscordGuild, guildID string) bool {
-	for _, g := range guilds {
-		if g.ID == guildID {
+func hasRole(roles []string, roleID string) bool {
+	for _, r := range roles {
+		if r == roleID {
 			return true
 		}
 	}

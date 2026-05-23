@@ -25,6 +25,7 @@ type Discord struct {
 	clientID     string
 	clientSecret string
 	redirectURL  string
+	guildID      string
 	rdb          *redis.Client
 }
 
@@ -32,6 +33,7 @@ type DiscordConfig struct {
 	ClientID     string
 	ClientSecret string
 	RedirectURL  string
+	GuildID      string
 }
 
 func NewDiscord(c DiscordConfig, rdb *redis.Client) *Discord {
@@ -39,6 +41,7 @@ func NewDiscord(c DiscordConfig, rdb *redis.Client) *Discord {
 		clientID:     c.ClientID,
 		clientSecret: c.ClientSecret,
 		redirectURL:  c.RedirectURL,
+		guildID:      c.GuildID,
 		rdb:          rdb,
 	}
 }
@@ -57,7 +60,7 @@ func (d *Discord) AuthURL(ctx context.Context) (authURL, state string, err error
 		"client_id":     {d.clientID},
 		"redirect_uri":  {d.redirectURL},
 		"response_type": {"code"},
-		"scope":         {"identify email guilds"},
+		"scope":         {"identify email guilds.members.read"},
 		"state":         {state},
 	}
 	return discordAuthURL + "?" + params.Encode(), state, nil
@@ -80,38 +83,40 @@ func (i DiscordIdentity) AvatarURL() string {
 	return fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.png", i.ID, i.Avatar)
 }
 
-// DiscordGuild is a partial guild object from GET /users/@me/guilds.
-type DiscordGuild struct {
-	ID string `json:"id"`
+// DiscordMember holds the partial guild member object from GET /users/@me/guilds/{guild}/member.
+// InGuild is false when the endpoint returns 404 (user is not in the guild).
+type DiscordMember struct {
+	InGuild bool
+	Roles   []string
 }
 
 // Exchange validates the state (one-shot via GETDEL), exchanges the code for
-// an access token, and fetches the user identity + guild list.
-func (d *Discord) Exchange(ctx context.Context, code, state string) (DiscordIdentity, []DiscordGuild, error) {
+// an access token, and fetches the user identity + guild member info.
+func (d *Discord) Exchange(ctx context.Context, code, state string) (DiscordIdentity, DiscordMember, error) {
 	val, err := d.rdb.GetDel(ctx, "oauth_state:discord:"+state).Result()
 	if err == redis.Nil || val == "" {
-		return DiscordIdentity{}, nil, ErrInvalidState
+		return DiscordIdentity{}, DiscordMember{}, ErrInvalidState
 	}
 	if err != nil {
-		return DiscordIdentity{}, nil, err
+		return DiscordIdentity{}, DiscordMember{}, err
 	}
 
 	accessToken, err := d.exchangeCode(ctx, code)
 	if err != nil {
-		return DiscordIdentity{}, nil, fmt.Errorf("discord token exchange: %w", err)
+		return DiscordIdentity{}, DiscordMember{}, fmt.Errorf("discord token exchange: %w", err)
 	}
 
 	ident, err := d.fetchIdentity(ctx, accessToken)
 	if err != nil {
-		return DiscordIdentity{}, nil, fmt.Errorf("discord identity: %w", err)
+		return DiscordIdentity{}, DiscordMember{}, fmt.Errorf("discord identity: %w", err)
 	}
 
-	guilds, err := d.fetchGuilds(ctx, accessToken)
+	member, err := d.fetchMember(ctx, accessToken)
 	if err != nil {
-		return DiscordIdentity{}, nil, fmt.Errorf("discord guilds: %w", err)
+		return DiscordIdentity{}, DiscordMember{}, fmt.Errorf("discord member: %w", err)
 	}
 
-	return ident, guilds, nil
+	return ident, member, nil
 }
 
 func (d *Discord) exchangeCode(ctx context.Context, code string) (string, error) {
@@ -187,26 +192,34 @@ func (d *Discord) fetchIdentity(ctx context.Context, accessToken string) (Discor
 	return DiscordIdentity{ID: u.ID, Email: u.Email, Username: u.Name, Avatar: u.Avatar, Verified: u.Verified}, nil
 }
 
-func (d *Discord) fetchGuilds(ctx context.Context, accessToken string) ([]DiscordGuild, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, discordAPIBase+"/users/@me/guilds", nil)
+// fetchMember calls GET /users/@me/guilds/{guildID}/member.
+// Returns InGuild=false when the user is not in the guild (404).
+func (d *Discord) fetchMember(ctx context.Context, accessToken string) (DiscordMember, error) {
+	endpoint := discordAPIBase + "/users/@me/guilds/" + d.guildID + "/member"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, err
+		return DiscordMember{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return DiscordMember{}, err
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return DiscordMember{InGuild: false}, nil
+	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("discord /users/@me/guilds returned %d", resp.StatusCode)
+		return DiscordMember{}, fmt.Errorf("discord guild member returned %d", resp.StatusCode)
 	}
 
-	var guilds []DiscordGuild
-	if err := json.NewDecoder(resp.Body).Decode(&guilds); err != nil {
-		return nil, err
+	var m struct {
+		Roles []string `json:"roles"`
 	}
-	return guilds, nil
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return DiscordMember{}, err
+	}
+	return DiscordMember{InGuild: true, Roles: m.Roles}, nil
 }

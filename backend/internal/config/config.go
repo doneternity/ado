@@ -23,6 +23,7 @@ type Config struct {
 	DiscordClientSecret string `env:"DISCORD_CLIENT_SECRET"`
 	DiscordRedirectURL  string `env:"DISCORD_REDIRECT_URL"`
 	DiscordGuildID      string `env:"DISCORD_GUILD_ID"      envDefault:"1506040288182014043"`
+	DiscordMemberRoleID string `env:"DISCORD_MEMBER_ROLE_ID"`
 
 	FrontendOrigin string `env:"FRONTEND_ORIGIN" envDefault:""`
 

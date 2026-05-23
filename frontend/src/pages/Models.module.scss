@@ -254,10 +254,12 @@
   border-radius: var(--r-pill);
   border: 1px solid transparent;
 }
-.providerGemini   { background: rgba(0,180,255,.08);   color: rgba(0,180,255,.85);   border-color: rgba(0,180,255,.15); }
-.providerClaude   { background: rgba(110,90,253,.08);  color: rgba(160,145,255,.9);  border-color: rgba(110,90,253,.18); }
-.providerDeepseek { background: rgba(5,196,139,.07);   color: rgba(5,196,139,.85);   border-color: rgba(5,196,139,.15); }
-.providerOther    { background: rgba(255,255,255,.05);  color: rgba(255,255,255,.45); border-color: rgba(255,255,255,.09); }
+.providerGemini   { background: rgba(0,180,255,.08);    color: rgba(0,180,255,.85);    border-color: rgba(0,180,255,.15); }
+.providerClaude   { background: rgba(110,90,253,.08);   color: rgba(160,145,255,.9);   border-color: rgba(110,90,253,.18); }
+.providerDeepseek { background: rgba(5,196,139,.07);    color: rgba(5,196,139,.85);    border-color: rgba(5,196,139,.15); }
+.providerOpenai   { background: rgba(16,163,127,.07);   color: rgba(16,163,127,.9);    border-color: rgba(16,163,127,.15); }
+.providerXai      { background: rgba(29,155,240,.07);   color: rgba(29,155,240,.85);   border-color: rgba(29,155,240,.14); }
+.providerOther    { background: rgba(255,255,255,.05);   color: rgba(255,255,255,.45);  border-color: rgba(255,255,255,.09); }
 
 .tagBadge {
   font-family: var(--font-body);
@@ -291,14 +293,6 @@
   letter-spacing: -.02em;
   line-height: 1.2;
   margin: 0;
-}
-
-.modelDesc {
-  font-size: .85rem;
-  color: rgba(255,255,255,.38);
-  line-height: 1.55;
-  flex: 1;
-  font-weight: 300;
 }
 
 /* ── meta ── */

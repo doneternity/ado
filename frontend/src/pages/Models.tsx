@@ -29,6 +29,8 @@ const PROVIDER_CLASS: Record<ModelDef["provider"], string> = {
   gemini:   styles.providerGemini   ?? "",
   claude:   styles.providerClaude   ?? "",
   deepseek: styles.providerDeepseek ?? "",
+  openai:   styles.providerOpenai   ?? "",
+  xai:      styles.providerXai      ?? "",
   other:    styles.providerOther    ?? "",
 };
 
@@ -36,6 +38,8 @@ const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
   gemini:   "Google",
   claude:   "Anthropic",
   deepseek: "DeepSeek",
+  openai:   "OpenAI",
+  xai:      "xAI",
   other:    "Other",
 };
 
@@ -44,6 +48,8 @@ function inferProvider(id: string): ModelProvider {
   if (/gemini|google|bard/i.test(key)) return "gemini";
   if (/claude|anthropic/i.test(key)) return "claude";
   if (/deepseek/i.test(key)) return "deepseek";
+  if (/gpt|openai|^o\d/i.test(key)) return "openai";
+  if (/grok|xai/i.test(key)) return "xai";
   return "other";
 }
 
@@ -52,6 +58,8 @@ function providerFromLabel(label: string): ModelProvider {
   if (l.includes("google") || l.includes("gemini")) return "gemini";
   if (l.includes("anthropic") || l.includes("claude")) return "claude";
   if (l.includes("deepseek")) return "deepseek";
+  if (l.includes("openai")) return "openai";
+  if (l.includes("xai") || l.includes("grok")) return "xai";
   return "other";
 }
 
@@ -297,7 +305,6 @@ export function Models() {
               </div>
 
               <h3 className={styles.modelName}>{model.name}</h3>
-              {model.description && <p className={styles.modelDesc}>{model.description}</p>}
 
               <div className={styles.meta}>
                 {model.context && <span className={styles.context}>{model.context}</span>}

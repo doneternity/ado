@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Check, Zap, Clock, Cpu, Globe } from "lucide-react";
+import { Check, Zap, Clock, Cpu } from "lucide-react";
 import styles from "./Pricing.module.scss";
 
 const fade = {
@@ -20,7 +20,6 @@ const FREE_FEATURES = [
 
 const STATS = [
   { icon: Cpu,   value: "20+",       label: "models available" },
-  { icon: Globe, value: "2",         label: "providers" },
   { icon: Clock, value: "UTC 00:00", label: "daily reset" },
   { icon: Zap,   value: "<30s",      label: "to first request" },
 ];

@@ -16,15 +16,20 @@ const PROVIDER_LABEL: Record<ModelProvider, string> = {
   claude:   "Anthropic",
   gemini:   "Google",
   deepseek: "DeepSeek",
+  openai:   "OpenAI",
+  xai:      "xAI",
   other:    "Other",
 };
 
 const PROXY_BASE = PROXY_REQUEST_BASE;
 
 function inferProvider(id: string): ModelProvider {
-  if (/gemini|google|\[GG\]/i.test(id)) return "gemini";
-  if (/claude|anthropic/i.test(id)) return "claude";
-  if (/deepseek|\[beagle\]/i.test(id)) return "deepseek";
+  const key = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
+  if (/gemini|google|bard/i.test(key)) return "gemini";
+  if (/claude|anthropic/i.test(key)) return "claude";
+  if (/deepseek/i.test(key)) return "deepseek";
+  if (/gpt|openai|^o\d/i.test(key)) return "openai";
+  if (/grok|xai/i.test(key)) return "xai";
   return "other";
 }
 
@@ -34,7 +39,12 @@ function toPickerModels(ids: string[]): PickerModel[] {
     if (static_) return { id, name: static_.name, provider: static_.provider, tag: static_.tag };
     return {
       id,
-      name: id.replace(/^\[[^\]]+\]/, "").replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()).trim(),
+      name: id
+        .replace(/^\[[^\]]+\]/, "")
+        .replace(/^[^/]*\//, "")
+        .replace(/[-_]/g, " ")
+        .replace(/\b\w/g, c => c.toUpperCase())
+        .trim() || id,
       provider: inferProvider(id),
     };
   });

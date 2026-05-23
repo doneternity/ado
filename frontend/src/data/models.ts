@@ -2,7 +2,7 @@
 // (Models page, Playground picker, Dashboard featured list). Every id below is
 // a real identifier returned by one of ADO's active upstream providers.
 
-export type ModelProvider = "claude" | "gemini" | "deepseek" | "other";
+export type ModelProvider = "claude" | "gemini" | "deepseek" | "openai" | "xai" | "other";
 export type Capability = "Vision" | "Tools" | "Streaming" | "Reasoning" | "Long context";
 
 export interface ModelDef {

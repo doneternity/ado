@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+
 const (
 	dialTimeout           = 5 * time.Second
 	responseHeaderTimeout = 120 * time.Second
@@ -102,6 +103,15 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 		return errors.New("no provider configured")
 	}
 
+	r.mcMu.Lock()
+	if r.mc != nil && time.Since(r.mc.fetchedAt) < modelsCacheTTL {
+		cached := r.mc.data
+		r.mcMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": cached})
+	}
+	r.mcMu.Unlock()
+
 	type modelItem = map[string]any
 	results := make([][]modelItem, len(chain))
 	var wg sync.WaitGroup
@@ -157,6 +167,10 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 			all = append(all, m)
 		}
 	}
+
+	r.mcMu.Lock()
+	r.mc = &cachedModels{data: all, fetchedAt: time.Now()}
+	r.mcMu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": all})

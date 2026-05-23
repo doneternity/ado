@@ -63,7 +63,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/flash", d.Keys.Flash)
 	})
 
-	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:models:ip", 60, time.Minute, false)).
+	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:models:ip", 10, time.Minute, false)).
 		Get("/api/models", d.Proxy.PublicModels)
 
 	r.Route("/api/v1", func(r chi.Router) {

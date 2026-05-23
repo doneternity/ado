@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/validate"
@@ -32,7 +33,7 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
-		global = "100"
+		global = strconv.Itoa(int(keys.DefaultDailyLimit))
 	}
 	rpm, err := h.q.GetSetting(r.Context(), settingGlobalRPM)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -150,7 +151,7 @@ func (h *AdminQuotas) RemoveUserOverride(w http.ResponseWriter, r *http.Request)
 		apperr.Write(w, apperr.Internal("INTERNAL", "get global quota"))
 		return
 	}
-	globalLimit := int32(100)
+	globalLimit := int32(keys.DefaultDailyLimit)
 	if global != "" {
 		if n, err := strconv.Atoi(global); err == nil {
 			globalLimit = int32(n)

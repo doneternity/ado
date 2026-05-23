@@ -14,7 +14,7 @@ import (
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
-const DefaultDailyLimit = 50
+const DefaultDailyLimit = 100
 
 type Service struct {
 	q   *db.Queries

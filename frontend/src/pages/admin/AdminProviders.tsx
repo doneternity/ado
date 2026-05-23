@@ -63,7 +63,7 @@ export function AdminProviders() {
             <h1 className={styles.title}><Plug size={18} className={styles.titleIcon} /> Providers</h1>
             <p className={styles.subtitle}>
               {activeCount === 0
-                ? "No active providers — add one to start routing requests"
+                ? "No active providers. Add one to start routing requests."
                 : `${activeCount} of ${providers.length} active`}
             </p>
           </div>
@@ -80,7 +80,7 @@ export function AdminProviders() {
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
         <span>
           Requests try each active provider by priority (lower number first) until one succeeds.
-          Priority 0 is tried first — set it on your preferred provider.
+          Priority 0 is tried first. Set it on your preferred provider.
         </span>
       </div>
 
@@ -153,7 +153,7 @@ export function AdminProviders() {
               </div>
               <div className={styles.field} style={{ flex: 1 }}>
                 <label className={styles.label}>
-                  API Key{editing ? " — leave blank to keep existing" : ""}
+                  API Key{editing ? " (leave blank to keep existing)" : ""}
                 </label>
                 <input
                   className={styles.input}

@@ -35,7 +35,7 @@ export function BetaModal() {
           or features that aren&apos;t fully baked yet.
         </p>
         <p className={styles.body}>
-          We&apos;re active in the community and quick to fix things — don&apos;t hesitate to report anything that feels off.
+          We&apos;re active in the community and quick to fix things. Don&apos;t hesitate to report anything that feels off.
         </p>
         <button className={styles.ackBtn} onClick={acknowledge}>
           I understand, let me in

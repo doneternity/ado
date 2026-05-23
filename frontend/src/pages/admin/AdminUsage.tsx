@@ -14,7 +14,7 @@ export function AdminUsage() {
     <motion.div {...fade}>
       <div className={styles.pageHeader}>
         <h1 className={styles.title}><BarChart2 size={18} className={styles.titleIcon} /> Usage</h1>
-        <p className={styles.subtitle}>Aggregate request counts — last 30 days</p>
+        <p className={styles.subtitle}>Aggregate request counts, last 30 days</p>
       </div>
 
       <div className={styles.chartWrap}>

@@ -11,13 +11,13 @@ const STEPS = [
     number: "01",
     title: "Sign up",
     subtitle: "for free",
-    description: "Join with your Discord account. No credit card, no waitlist — your ADO key is issued instantly.",
+    description: "Join with your Discord account. No credit card, no waitlist. Your ADO key is issued instantly.",
   },
   {
     number: "02",
     title: "Route",
     subtitle: "your requests",
-    description: "Set your OpenAI base URL to the ADO endpoint. Every model — Claude, Gemini, DeepSeek — through one key.",
+    description: "Set your OpenAI base URL to the ADO endpoint. Every model: Claude, Gemini, DeepSeek, through one key.",
   },
   {
     number: "03",
@@ -189,7 +189,7 @@ export function Landing() {
               <h3 className={styles.featCardTitle}>Unified Routing</h3>
               <p className={styles.featCardDesc}>
                 One key. Every model. ADO routes your requests to Claude, Gemini,
-                DeepSeek, and more — transparently. No client-side changes needed.
+                DeepSeek, and more. Transparently. No client-side changes needed.
               </p>
               <div>
                 <span className={styles.bigStat}>20+</span>
@@ -289,7 +289,7 @@ const res = await client.chat.completions.create({
                 <span className={styles.dim}>everywhere.</span>
               </motion.h2>
               <motion.p className={styles.infraDesc} variants={fadeUp}>
-                ADO runs a redundant routing layer across multiple providers — engineered
+                ADO runs a redundant routing layer across multiple providers, engineered
                 so one provider going down never takes your app with it.
               </motion.p>
             </motion.div>
@@ -420,7 +420,7 @@ const res = await client.chat.completions.create({
               viewport={VP}
             >
               Two config lines. Every existing OpenAI call routes through ADO
-              to any model you choose — with streaming, tool use, and vision.
+              to any model you choose, with streaming, tool use, and vision.
             </motion.p>
             <motion.div
               className={styles.devFeatures}
@@ -430,7 +430,7 @@ const res = await client.chat.completions.create({
               viewport={VP}
             >
               {[
-                { title: "OpenAI-compatible", desc: "Drop-in replacement — no SDK changes needed." },
+                { title: "OpenAI-compatible", desc: "Drop-in replacement. No SDK changes needed." },
                 { title: "Streaming",          desc: "Real-time token streaming out of the box." },
                 { title: "All major models",   desc: "Claude, Gemini, DeepSeek, and more." },
                 { title: "Works everywhere",   desc: "JanitorAI, SillyTavern, your own app." },
@@ -473,7 +473,7 @@ const res = await client.chat.completions.create({
                 id: "01",
                 name: "Anthropic Claude",
                 tagline: "State-of-the-art reasoning and vision",
-                desc: "claude-opus-4-6 and claude-opus-4-5 — frontier reasoning, vision, and long-context analysis, available through one ADO key.",
+                desc: "claude-opus-4-6 and claude-opus-4-5: frontier reasoning, vision, and long-context analysis, available through one ADO key.",
                 tags: ["Reasoning", "Vision", "Tool use", "Streaming"],
                 href: "/models",
               },
@@ -481,7 +481,7 @@ const res = await client.chat.completions.create({
                 id: "02",
                 name: "Google Gemini",
                 tagline: "Long context and multimodal AI",
-                desc: "gemini-2.5-pro and gemini-3.1-pro-preview — Google's most capable models, with a 1M-token context window.",
+                desc: "gemini-2.5-pro and gemini-3.1-pro-preview: Google's most capable models, with a 1M-token context window.",
                 tags: ["Multimodal", "Long context", "Fast"],
                 href: "/models",
               },
@@ -489,7 +489,7 @@ const res = await client.chat.completions.create({
                 id: "03",
                 name: "DeepSeek",
                 tagline: "High-performance open reasoning",
-                desc: "deepseek-v4-pro and DeepSeek V3.2 — open-weight models with exceptional reasoning and code generation.",
+                desc: "deepseek-v4-pro and DeepSeek V3.2: open-weight models with exceptional reasoning and code generation.",
                 tags: ["Reasoning", "Code", "Open weights"],
                 href: "/models",
               },

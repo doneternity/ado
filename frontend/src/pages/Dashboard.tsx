@@ -23,7 +23,7 @@ function BetaBanner() {
     <div className={styles.betaBanner}>
       <span className={styles.betaDot} />
       <span className={styles.betaText}>
-        ADO is in early access — you may run into rough edges. Report anything off in the Discord.
+        ADO is in early access. You may run into rough edges. Report anything off in the Discord.
       </span>
       <button
         className={styles.betaDismiss}
@@ -129,14 +129,16 @@ function KeyCard() {
   const display = revealed && raw ? raw.key : current.keyPrefix + "…";
 
   function copy() {
-    void navigator.clipboard.writeText(raw?.key ?? current?.keyPrefix + "…");
+    if (!raw) { showToast("Rotate your key to reveal it first."); return; }
+    void navigator.clipboard.writeText(raw.key);
     setCopied(true);
     showToast("Key copied");
     setTimeout(() => setCopied(false), 1800);
   }
 
   function copyCurl() {
-    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw?.key ?? current?.keyPrefix + "…"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"claude-opus-4-6","messages":[{"role":"user","content":"Hello!"}]}'`;
+    if (!raw) { showToast("Rotate your key to reveal it first."); return; }
+    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw.key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"claude-opus-4-6","messages":[{"role":"user","content":"Hello!"}]}'`;
     void navigator.clipboard.writeText(snippet);
     setCopiedCurl(true);
     setTimeout(() => setCopiedCurl(false), 1800);
@@ -147,7 +149,7 @@ function KeyCard() {
       onSuccess: () => {
         setConfirming(false);
         setRevealed(true);
-        showToast("New key ready — copy it now.");
+        showToast("New key ready. Copy it now.");
       },
     });
   }
@@ -189,12 +191,12 @@ function KeyCard() {
         {revealed && raw && (
           <p className={styles.keyNewBanner}>
             <Check size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            New key — copy it now. It won&apos;t be shown again.
+            New key. Copy it now, it won&apos;t be shown again.
           </p>
         )}
 
         {!raw && !confirming && (
-          <p className={styles.keyNote}>Full key hidden — rotate to reveal a new one.</p>
+          <p className={styles.keyNote}>Full key hidden. Rotate to reveal a new one.</p>
         )}
 
         {confirming ? (

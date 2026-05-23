@@ -71,7 +71,7 @@ export function KeyCard() {
           onClick={() => {
             if (!confirm("Rotate key? The current key stops working immediately.")) return;
             rotate.mutate(undefined, {
-              onSuccess: () => { setRevealed(true); showToast("New key ready — copy it now."); },
+              onSuccess: () => { setRevealed(true); showToast("New key ready. Copy it now."); },
             });
           }}
         >
@@ -80,7 +80,7 @@ export function KeyCard() {
         </button>
         {!raw && (
           <span className={styles.note}>
-            Raw key not visible — rotate to reveal a new one.
+            Raw key not visible. Rotate to reveal a new one.
           </span>
         )}
       </div>

@@ -18,7 +18,7 @@ export function AdminErrors() {
         <div className={styles.pageRow}>
           <div>
             <h1 className={styles.title}><AlertTriangle size={18} className={styles.titleIcon} /> Errors</h1>
-            <p className={styles.subtitle}>Proxy error log — {data?.total ?? 0} entries</p>
+            <p className={styles.subtitle}>Proxy error log: {data?.total ?? 0} entries</p>
           </div>
           <button className={styles.btnDanger} onClick={() => bulk.mutate(7)} style={{ padding: "8px 16px" }}>
             Clear older than 7 days

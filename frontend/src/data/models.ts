@@ -34,7 +34,7 @@ export const MODELS: ModelDef[] = [
     context: "200K tokens",
     speed: 2,
     capabilities: ["Vision", "Tools", "Streaming", "Reasoning"],
-    description: "Previous Opus release — strong coding and instruction-following.",
+    description: "Previous Opus release. Strong coding and instruction-following.",
   },
   {
     id: "[GG]gemini-3.1-pro-preview",
@@ -109,7 +109,7 @@ export const MODELS: ModelDef[] = [
     context: "128K tokens",
     speed: 2,
     capabilities: ["Tools", "Streaming", "Reasoning"],
-    description: "MiniMax's flagship model — capable general-purpose reasoning.",
+    description: "MiniMax's flagship model, capable general-purpose reasoning.",
   },
   {
     id: "[Aie]Mimo-V2.5-Pro",

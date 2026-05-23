@@ -143,7 +143,7 @@ export function Docs() {
           <h1 className={styles.pageTitle}>Quick start</h1>
           <p className={styles.lead}>
             ADO exposes an OpenAI-compatible API that routes to Claude, Gemini, DeepSeek, and more.
-            Any client that works with the OpenAI API works with ADO — swap the base URL and key, nothing else.
+            Any client that works with the OpenAI API works with ADO. Swap the base URL and key, nothing else.
           </p>
           <div className={styles.steps}>
             {[
@@ -376,7 +376,7 @@ curl ${PROXY_BASE}/chat/completions \\
         <section id="example-js" className={styles.section}>
           <h2 className={styles.sectionTitle}>JavaScript</h2>
           <p>
-            Uses the official <code className={styles.inlineCode}>openai</code> npm package —
+            Uses the official <code className={styles.inlineCode}>openai</code> npm package,
             no custom client needed.
           </p>
           <Code lang="javascript">{`import OpenAI from "openai";

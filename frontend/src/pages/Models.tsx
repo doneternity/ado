@@ -182,7 +182,7 @@ export function Models() {
         <h1 className={styles.headline}>all models.<br />one key.</h1>
         <p className={styles.lede}>
           Every model below is reachable with your ADO key via the OpenAI-compatible API.
-          Swap the model ID — nothing else changes.
+          Swap the model ID. Nothing else changes.
         </p>
 
         <div className={styles.keyBar}>
@@ -264,7 +264,7 @@ export function Models() {
 
         {!liveModels && !loading && (
           <p className={styles.staticNote}>
-            Showing a curated selection — live roster unavailable.
+            Showing a curated selection. Live roster unavailable.
           </p>
         )}
       </div>

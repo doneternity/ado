@@ -45,21 +45,6 @@
   flex-wrap: wrap;
 }
 
-.keyInput {
-  flex: 1;
-  min-width: 200px;
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: var(--r-md);
-  padding: 10px 14px;
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: .78rem;
-  outline: none;
-  transition: border-color var(--t-fast);
-  &:focus { border-color: rgba(255,255,255,.25); }
-  &::placeholder { color: rgba(255,255,255,.2); }
-}
 
 .loadBtn {
   display: inline-flex;

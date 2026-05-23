@@ -87,3 +87,17 @@ func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
+	if p.d.Maintenance.Enabled() {
+		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+		return
+	}
+	started, err := p.d.Registry.Forward(w, r, "/models", nil)
+	if err != nil {
+		slog.Warn("proxy forward failed", "path", "/models", "err", err)
+		if !started {
+			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		}
+	}
+}

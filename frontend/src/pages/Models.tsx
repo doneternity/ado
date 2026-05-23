@@ -3,13 +3,9 @@ import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Copy, Check, Zap, Brain, Eye, Wrench, Layers, Search, RefreshCw } from "lucide-react";
-import { useRawKey } from "../api/queries";
 import { MODELS } from "../data/models";
 import type { ModelDef, ModelProvider, Capability } from "../data/models";
-import { PROXY_REQUEST_BASE } from "../config";
 import styles from "./Models.module.scss";
-
-const LS_KEY = "ado_model_key";
 
 type LiveModel = {
   id: string;
@@ -115,41 +111,22 @@ const cardVariants = {
 };
 
 export function Models() {
-  const raw = useRawKey();
-  const [keyInput, setKeyInput] = useState(() => localStorage.getItem(LS_KEY) ?? "");
   const [liveModels, setLiveModels] = useState<LiveModel[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  // Auto-fill from freshly-generated key
-  useEffect(() => {
-    if (raw?.key && !keyInput) setKeyInput(raw.key);
-  }, [raw?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { doLoad(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-load on mount if cached key exists
-  useEffect(() => {
-    const saved = localStorage.getItem(LS_KEY);
-    if (saved) doLoad(saved);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function doLoad(key?: string) {
-    // Strip stray characters — pasted keys sometimes carry invisible chars
-    // that the Authorization header rejects.
-    const k = (key ?? keyInput).trim().replace(/[^A-Za-z0-9-]/g, "");
-    if (!k) return;
+  async function doLoad() {
     setLoading(true);
     setLoadErr(null);
     try {
-      const base = import.meta.env.VITE_PROXY_BASE_URL || PROXY_REQUEST_BASE;
-      const r = await fetch(`${base}/models`, {
-        headers: { Authorization: `Bearer ${k}` },
-      });
+      const r = await fetch("/api/models");
       const d = await r.json() as { data?: LiveModel[]; error?: { message?: string } };
       if (!r.ok) throw new Error(d.error?.message ?? `HTTP ${r.status}`);
       setLiveModels(d.data ?? []);
-      localStorage.setItem(LS_KEY, k);
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : "Failed to load models");
     } finally {
@@ -198,27 +175,14 @@ export function Models() {
           Swap the model ID — nothing else changes.
         </p>
 
-        {/* Key input bar */}
         <div className={styles.keyBar}>
-          <input
-            className={styles.keyInput}
-            type="text"
-            placeholder="Paste your ADO key to load live models…"
-            value={keyInput}
-            onChange={e => setKeyInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && doLoad()}
-            spellCheck={false}
-            autoComplete="off"
-          />
           <button
             className={styles.loadBtn}
             onClick={() => doLoad()}
-            disabled={loading || !keyInput.trim()}
+            disabled={loading}
           >
-            {loading
-              ? <span className={styles.btnSpinner} />
-              : <RefreshCw size={13} />}
-            {loading ? "Loading…" : liveModels ? "Refresh" : "Load live"}
+            {loading ? <span className={styles.btnSpinner} /> : <RefreshCw size={13} />}
+            {loading ? "Loading…" : "Refresh"}
           </button>
         </div>
 
@@ -288,9 +252,9 @@ export function Models() {
           )}
         </div>
 
-        {!liveModels && (
+        {!liveModels && !loading && (
           <p className={styles.staticNote}>
-            Showing a curated selection — enter your key above to load the full live roster from all active providers.
+            Showing a curated selection — live roster unavailable.
           </p>
         )}
       </div>

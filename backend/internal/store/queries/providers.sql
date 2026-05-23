@@ -4,9 +4,6 @@ SELECT * FROM providers ORDER BY created_at ASC;
 -- name: GetProvider :one
 SELECT * FROM providers WHERE id = $1;
 
--- name: GetActiveProvider :one
-SELECT * FROM providers WHERE is_active = TRUE ORDER BY updated_at DESC LIMIT 1;
-
 -- name: ListActiveProviders :many
 SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority FROM providers WHERE is_active = TRUE ORDER BY priority ASC, created_at ASC;
 

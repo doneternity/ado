@@ -185,7 +185,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 	} else {
 		adminMW = func(next http.Handler) http.Handler { return next }
 	}
-	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: q, Registry: reg})
+	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: q, Registry: reg, ProviderKeySecret: "test-secret-32-bytes-xxxxxxxxxxx!"})
 	adminUsersH := handlers.NewAdminUsers(q)
 	adminStatsH := handlers.NewAdminStats(q)
 	adminQuotasH := handlers.NewAdminQuotas(q)

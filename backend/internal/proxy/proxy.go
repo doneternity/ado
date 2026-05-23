@@ -83,6 +83,7 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 		}
 		if isFailoverStatus(resp.StatusCode) {
 			lastErr = fmt.Errorf("provider returned %d", resp.StatusCode)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 			continue
 		}
@@ -143,7 +144,10 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 }
 
 func isFailoverStatus(code int) bool {
-	return code >= 500 || code == http.StatusTooManyRequests
+	// 401/403 mean the provider's own key is invalid — try the next provider.
+	// 429 and 5xx mean overloaded/down — same.
+	return code >= 500 || code == http.StatusTooManyRequests ||
+		code == http.StatusUnauthorized || code == http.StatusForbidden
 }
 
 func streamResponse(w http.ResponseWriter, resp *http.Response) error {

@@ -144,10 +144,20 @@ export function Models() {
     }
   }
 
-  // Build display list
-  const enriched: EnrichedModel[] = liveModels
-    ? liveModels.map(enrich)
-    : MODELS.map(m => ({ ...m, adoStatus: "available" as const }));
+  // Build display list — static catalog is the baseline; live data adds status
+  // and extra models but never removes curated entries.
+  const enriched: EnrichedModel[] = (() => {
+    if (!liveModels) return MODELS.map(m => ({ ...m, adoStatus: "available" as const }));
+    const liveMap = new Map(liveModels.map(m => [m.id, m]));
+    const result: EnrichedModel[] = MODELS.map(m => {
+      const live = liveMap.get(m.id);
+      return { ...m, adoStatus: live?.ado_status ?? "available" };
+    });
+    for (const lm of liveModels) {
+      if (!MODELS.find(m => m.id === lm.id)) result.push(enrich(lm));
+    }
+    return result;
+  })();
 
   // Dynamic provider list for filter pills
   const providers = [...new Set(enriched.map(m => m.provider))];

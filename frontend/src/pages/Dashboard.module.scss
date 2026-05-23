@@ -643,3 +643,66 @@
   flex-shrink: 0;
   margin-top: 1px;
 }
+
+/* ─────────────────── Beta banner ─────────────────── */
+.betaBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(236, 168, 214, 0.04);
+  border: 1px solid rgba(236, 168, 214, 0.1);
+  border-radius: var(--r-md);
+}
+
+.betaBannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.betaDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.betaText {
+  font-size: .8rem;
+  color: rgba(255, 255, 255, 0.38);
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  @media (max-width: 540px) { white-space: normal; }
+}
+
+.betaLink {
+  color: var(--accent);
+  opacity: 0.75;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(236, 168, 214, 0.3);
+  transition: opacity var(--t-fast);
+  &:hover { opacity: 1; }
+}
+
+.betaDismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--r-sm);
+  transition: color var(--t-fast);
+  &:hover { color: rgba(255, 255, 255, 0.55); }
+}

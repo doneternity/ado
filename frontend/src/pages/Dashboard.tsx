@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, AlertTriangle,
   Activity, Shield, BookOpen, Zap, Terminal,
-  Lock, ChevronRight, Code,
+  Lock, ChevronRight, Code, X,
 } from "lucide-react";
 import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe } from "../api/queries";
 import { useRotateKey } from "../api/mutations";
@@ -14,6 +14,37 @@ import { API_BASE_URL } from "../config";
 import styles from "./Dashboard.module.scss";
 
 const PROXY_BASE = API_BASE_URL;
+const DISCORD_URL = import.meta.env.VITE_DISCORD_INVITE_URL as string | undefined;
+const BANNER_KEY = "beta_strip_dismissed";
+
+function BetaBanner() {
+  const [visible, setVisible] = useState(() => !localStorage.getItem(BANNER_KEY));
+  if (!visible) return null;
+  function dismiss() {
+    localStorage.setItem(BANNER_KEY, "1");
+    setVisible(false);
+  }
+  return (
+    <div className={styles.betaBanner}>
+      <div className={styles.betaBannerLeft}>
+        <span className={styles.betaDot} />
+        <span className={styles.betaText}>
+          ADO is in early access — you may run into rough edges.
+          {DISCORD_URL && (
+            <> Report bugs in our{" "}
+              <a href={DISCORD_URL} target="_blank" rel="noreferrer" className={styles.betaLink}>
+                Discord community
+              </a>.
+            </>
+          )}
+        </span>
+      </div>
+      <button className={styles.betaDismiss} onClick={dismiss} aria-label="Dismiss">
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
 
 const FEATURED_MODELS = [
   { id: "claude-opus-4-6",     name: "Claude Opus 4.6", cap: "Reasoning"   },
@@ -249,6 +280,8 @@ export function Dashboard() {
   return (
     <div className={styles.page}>
       <motion.div className={styles.inner} variants={stagger} initial="hidden" animate="show">
+
+        <BetaBanner />
 
         {/* ── Header ── */}
         <motion.div className={styles.header} variants={fade}>

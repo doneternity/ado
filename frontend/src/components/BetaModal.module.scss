@@ -1,0 +1,92 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: _fadeIn .2s ease both;
+}
+
+@keyframes _fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes _slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: none } }
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 24px 80px rgba(0,0,0,.85);
+  width: 100%;
+  max-width: 400px;
+  padding: 36px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: _slideUp .24s ease both;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--accent);
+  background: rgba(236, 168, 214, 0.08);
+  border: 1px solid rgba(236, 168, 214, 0.18);
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 6vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -.025em;
+  line-height: .95;
+  color: #fff;
+}
+
+.body {
+  font-size: .88rem;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, .5);
+  font-weight: 300;
+}
+
+.discordBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  background: #5865F2;
+  color: #fff;
+  border-radius: var(--r-pill);
+  font-size: .85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity var(--t-fast);
+  margin-top: 4px;
+  &:hover { opacity: .88; }
+}
+
+.ackBtn {
+  width: 100%;
+  padding: 11px 20px;
+  background: #ffffff;
+  color: #050508;
+  border: none;
+  border-radius: var(--r-pill);
+  font-size: .85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+  &:hover { opacity: .85; }
+}

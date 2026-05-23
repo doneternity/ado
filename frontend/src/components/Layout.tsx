@@ -5,6 +5,7 @@ import { useMe } from "../api/queries";
 import { useLogout } from "../api/mutations";
 import { Toast } from "./Toast";
 import { Footer } from "./Footer";
+import { BetaModal } from "./BetaModal";
 import styles from "./Layout.module.scss";
 
 const DARK_PAGES = new Set(["/dashboard", "/playground", "/admin"]);
@@ -74,6 +75,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </nav>
 
       {!isDark && <Footer />}
+      <BetaModal />
       <Toast />
     </div>
   );

@@ -2,12 +2,14 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -87,6 +89,57 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 		return true, streamResponse(w, resp)
 	}
 	return false, lastErr
+}
+
+// AggregateModels queries all providers concurrently and merges their model
+// lists into a single deduplicated response. Providers that fail are silently
+// skipped so a partial list is returned rather than an error.
+func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) error {
+	chain := r.Get()
+	if len(chain) == 0 {
+		return errors.New("no provider configured")
+	}
+
+	type modelItem = map[string]any
+	results := make([][]modelItem, len(chain))
+	var wg sync.WaitGroup
+	for i, f := range chain {
+		wg.Add(1)
+		go func(idx int, fwd *Forwarder) {
+			defer wg.Done()
+			resp, err := fwd.do(req, "/models", nil)
+			if err != nil {
+				return
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return
+			}
+			var body struct {
+				Data []modelItem `json:"data"`
+			}
+			if json.NewDecoder(resp.Body).Decode(&body) == nil {
+				results[idx] = body.Data
+			}
+		}(i, f)
+	}
+	wg.Wait()
+
+	seen := make(map[string]bool)
+	all := make([]modelItem, 0)
+	for _, list := range results {
+		for _, m := range list {
+			id, _ := m["id"].(string)
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			all = append(all, m)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": all})
 }
 
 func isFailoverStatus(code int) bool {

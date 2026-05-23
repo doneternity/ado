@@ -79,12 +79,9 @@ func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
 		return
 	}
-	started, err := p.d.Registry.Forward(w, r, "/models", nil)
-	if err != nil {
-		slog.Warn("proxy forward failed", "path", "/models", "err", err)
-		if !started {
-			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
-		}
+	if err := p.d.Registry.AggregateModels(w, r); err != nil {
+		slog.Warn("aggregate models failed", "err", err)
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
 	}
 }
 
@@ -93,11 +90,8 @@ func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
 		return
 	}
-	started, err := p.d.Registry.Forward(w, r, "/models", nil)
-	if err != nil {
-		slog.Warn("proxy forward failed", "path", "/models", "err", err)
-		if !started {
-			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
-		}
+	if err := p.d.Registry.AggregateModels(w, r); err != nil {
+		slog.Warn("aggregate models failed", "err", err)
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
 	}
 }

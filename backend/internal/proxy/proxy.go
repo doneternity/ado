@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -110,18 +111,34 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 			defer wg.Done()
 			resp, err := fwd.do(req, "/models", nil)
 			if err != nil {
+				slog.Warn("aggregate models: provider request failed", "base", fwd.BaseURL, "err", err)
 				return
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
+				slog.Warn("aggregate models: provider returned non-200", "base", fwd.BaseURL, "status", resp.StatusCode)
 				return
 			}
-			var body struct {
+			raw, err := io.ReadAll(resp.Body)
+			if err != nil {
+				slog.Warn("aggregate models: read body failed", "base", fwd.BaseURL, "err", err)
+				return
+			}
+			// standard envelope: {"data": [...]}
+			var envelope struct {
 				Data []modelItem `json:"data"`
 			}
-			if json.NewDecoder(resp.Body).Decode(&body) == nil {
-				results[idx] = body.Data
+			if json.Unmarshal(raw, &envelope) == nil && len(envelope.Data) > 0 {
+				results[idx] = envelope.Data
+				return
 			}
+			// some providers return a bare array
+			var arr []modelItem
+			if json.Unmarshal(raw, &arr) == nil && len(arr) > 0 {
+				results[idx] = arr
+				return
+			}
+			slog.Warn("aggregate models: no models parsed from response", "base", fwd.BaseURL, "body_prefix", string(raw[:min(len(raw), 200)]))
 		}(i, f)
 	}
 	wg.Wait()

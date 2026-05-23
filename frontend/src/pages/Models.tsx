@@ -144,10 +144,8 @@ export function Models() {
     }
   }
 
-  // Build display list — static catalog is the baseline; live data adds status
-  // and extra models but never removes curated entries.
   const enriched: EnrichedModel[] = (() => {
-    if (!liveModels) return MODELS.map(m => ({ ...m, adoStatus: "available" as const }));
+    if (!liveModels) return [];
     const liveMap = new Map(liveModels.map(m => [m.id, m]));
     const result: EnrichedModel[] = MODELS.map(m => {
       const live = liveMap.get(m.id);
@@ -272,13 +270,13 @@ export function Models() {
           )}
         </div>
 
-        {!liveModels && !loading && (
-          <p className={styles.staticNote}>
-            Showing a curated selection. Live roster unavailable.
-          </p>
-        )}
       </div>
 
+      {!liveModels && loading && (
+        <p className={styles.staticNote}>Loading…</p>
+      )}
+
+      {liveModels && (
       <motion.div className={styles.grid} initial="hidden" animate="show">
         {visible.map((model, i) => {
           const featured = model.tag === "Newest" || model.tag === "Most capable" || model.tag === "Strongest";
@@ -334,6 +332,7 @@ export function Models() {
           );
         })}
       </motion.div>
+      )}
 
       <section className={styles.ctaStrip}>
         <span className={styles.ctaEyebrow}><span className={styles.eyebrowDash} />FREE ACCESS</span>

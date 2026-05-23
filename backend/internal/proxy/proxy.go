@@ -203,7 +203,11 @@ func streamResponse(w http.ResponseWriter, resp *http.Response) error {
 }
 
 func skipRequestHeaders(h http.Header) map[string]bool {
-	skip := map[string]bool{"Cookie": true}
+	// Accept-Encoding is stripped so Go's transport negotiates compression
+	// itself (adds gzip, auto-decompresses). Forwarding the client's value
+	// (which includes "br") causes providers to send brotli, which Go doesn't
+	// transparently decompress.
+	skip := map[string]bool{"Cookie": true, "Accept-Encoding": true}
 	for name := range hopByHop {
 		skip[name] = true
 	}

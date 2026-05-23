@@ -111,34 +111,36 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 			defer wg.Done()
 			resp, err := fwd.do(req, "/models", nil)
 			if err != nil {
-				slog.Warn("aggregate models: provider request failed", "base", fwd.BaseURL, "err", err)
+				slog.Warn("aggregate models: request failed", "url", fwd.BaseURL+"/models", "err", err)
 				return
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
-				slog.Warn("aggregate models: provider returned non-200", "base", fwd.BaseURL, "status", resp.StatusCode)
+				slog.Warn("aggregate models: non-200 response", "url", fwd.BaseURL+"/models", "status", resp.StatusCode)
 				return
 			}
 			raw, err := io.ReadAll(resp.Body)
 			if err != nil {
-				slog.Warn("aggregate models: read body failed", "base", fwd.BaseURL, "err", err)
+				slog.Warn("aggregate models: read body failed", "url", fwd.BaseURL+"/models", "err", err)
 				return
 			}
-			// standard envelope: {"data": [...]}
+			// standard OpenAI envelope: {"data": [...]}
 			var envelope struct {
 				Data []modelItem `json:"data"`
 			}
 			if json.Unmarshal(raw, &envelope) == nil && len(envelope.Data) > 0 {
+				slog.Info("aggregate models: ok", "url", fwd.BaseURL+"/models", "count", len(envelope.Data))
 				results[idx] = envelope.Data
 				return
 			}
 			// some providers return a bare array
 			var arr []modelItem
 			if json.Unmarshal(raw, &arr) == nil && len(arr) > 0 {
+				slog.Info("aggregate models: ok (bare array)", "url", fwd.BaseURL+"/models", "count", len(arr))
 				results[idx] = arr
 				return
 			}
-			slog.Warn("aggregate models: no models parsed from response", "base", fwd.BaseURL, "body_prefix", string(raw[:min(len(raw), 200)]))
+			slog.Warn("aggregate models: unparseable response", "url", fwd.BaseURL+"/models", "body", string(raw[:min(len(raw), 300)]))
 		}(i, f)
 	}
 	wg.Wait()

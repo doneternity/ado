@@ -47,7 +47,7 @@ func (s *Service) EnsureForUser(ctx context.Context, userID uuid.UUID) (Issued, 
 		UserID:     userID,
 		KeyPrefix:  prefix,
 		KeyHash:    hash,
-		DailyLimit: DefaultDailyLimit,
+		DailyLimit: s.defaultLimit(ctx),
 	})
 	if err != nil {
 		return Issued{}, err
@@ -77,7 +77,7 @@ func (s *Service) Rotate(ctx context.Context, userID uuid.UUID) (Issued, error) 
 		UserID:     userID,
 		KeyPrefix:  prefix,
 		KeyHash:    hash,
-		DailyLimit: DefaultDailyLimit,
+		DailyLimit: s.defaultLimit(ctx),
 	})
 	if err != nil {
 		return Issued{}, err
@@ -93,6 +93,18 @@ func (s *Service) Rotate(ctx context.Context, userID uuid.UUID) (Issued, error) 
 	}
 
 	return Issued{Raw: raw, Prefix: row.KeyPrefix, DailyLimit: row.DailyLimit}, nil
+}
+
+func (s *Service) defaultLimit(ctx context.Context) int32 {
+	v, err := s.q.GetSetting(ctx, "global_daily_quota")
+	if err != nil {
+		return DefaultDailyLimit
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return DefaultDailyLimit
+	}
+	return int32(n)
 }
 
 // StashFlash stores a newly-issued raw key in Redis for one-shot retrieval after OAuth redirect.

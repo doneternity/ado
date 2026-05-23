@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { SlidersHorizontal } from "lucide-react";
-import { useAdminQuotas, useSetGlobalQuota, useSetUserQuota, useRemoveUserQuota } from "../../api/admin";
+import { useAdminQuotas, useSetGlobalQuota, useSetGlobalRpm, useSetUserQuota, useRemoveUserQuota } from "../../api/admin";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -9,9 +9,11 @@ const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, tr
 export function AdminQuotas() {
   const { data: quotas } = useAdminQuotas();
   const setGlobal = useSetGlobalQuota();
+  const setRpm = useSetGlobalRpm();
   const setUser = useSetUserQuota();
   const removeUser = useRemoveUserQuota();
   const [globalInput, setGlobalInput] = useState("");
+  const [rpmInput, setRpmInput] = useState("");
   const [overrideEmail, setOverrideEmail] = useState("");
   const [overrideLimit, setOverrideLimit] = useState("");
 
@@ -22,25 +24,49 @@ export function AdminQuotas() {
         <p className={styles.subtitle}>Global daily request limit and per-user overrides</p>
       </div>
 
-      <div className={styles.statCard} style={{ maxWidth: 360, marginBottom: 24 }}>
-        <div className={styles.statLabel}>Global Daily Limit</div>
-        <div className={styles.statValue} style={{ fontSize: "2rem" }}>{quotas?.globalLimit ?? "—"}</div>
-        <div className={styles.inputRow}>
-          <input
-            className={`${styles.input} ${styles.inputSm}`}
-            type="number"
-            min={1}
-            placeholder="New limit"
-            value={globalInput}
-            onChange={(e) => setGlobalInput(e.target.value)}
-          />
-          <button
-            className={styles.btnPrimary}
-            onClick={() => { setGlobal.mutate(Number(globalInput)); setGlobalInput(""); }}
-            disabled={!globalInput}
-          >
-            Save
-          </button>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
+        <div className={styles.statCard} style={{ maxWidth: 360 }}>
+          <div className={styles.statLabel}>Global Daily Limit (RPD)</div>
+          <div className={styles.statValue} style={{ fontSize: "2rem" }}>{quotas?.globalLimit ?? "—"}</div>
+          <div className={styles.inputRow}>
+            <input
+              className={`${styles.input} ${styles.inputSm}`}
+              type="number"
+              min={1}
+              placeholder="New limit"
+              value={globalInput}
+              onChange={(e) => setGlobalInput(e.target.value)}
+            />
+            <button
+              className={styles.btnPrimary}
+              onClick={() => { setGlobal.mutate(Number(globalInput)); setGlobalInput(""); }}
+              disabled={!globalInput}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.statCard} style={{ maxWidth: 360 }}>
+          <div className={styles.statLabel}>Global Rate Limit (RPM)</div>
+          <div className={styles.statValue} style={{ fontSize: "2rem" }}>{quotas?.globalRpmLimit ?? "—"}</div>
+          <div className={styles.inputRow}>
+            <input
+              className={`${styles.input} ${styles.inputSm}`}
+              type="number"
+              min={1}
+              placeholder="New limit"
+              value={rpmInput}
+              onChange={(e) => setRpmInput(e.target.value)}
+            />
+            <button
+              className={styles.btnPrimary}
+              onClick={() => { setRpm.mutate(Number(rpmInput)); setRpmInput(""); }}
+              disabled={!rpmInput}
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
 

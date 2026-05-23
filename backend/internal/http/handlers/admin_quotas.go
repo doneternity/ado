@@ -11,13 +11,19 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/validate"
 )
 
-type AdminQuotas struct{ q *db.Queries }
+type AdminQuotas struct {
+	q      *db.Queries
+	rpmCfg *proxy.RpmConfig
+}
 
-func NewAdminQuotas(q *db.Queries) *AdminQuotas { return &AdminQuotas{q: q} }
+func NewAdminQuotas(q *db.Queries, rpmCfg *proxy.RpmConfig) *AdminQuotas {
+	return &AdminQuotas{q: q, rpmCfg: rpmCfg}
+}
 
 func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	global, err := h.q.GetSetting(r.Context(), settingGlobalDailyQuota)
@@ -27,6 +33,14 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		global = "100"
+	}
+	rpm, err := h.q.GetSetting(r.Context(), settingGlobalRPM)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		apperr.Write(w, apperr.Internal("INTERNAL", "get rpm"))
+		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		rpm = "20"
 	}
 	users, err := h.q.ListUsersAdmin(r.Context())
 	if err != nil {
@@ -45,7 +59,11 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"globalLimit": global, "overrides": overrides})
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"globalLimit":    global,
+		"globalRpmLimit": rpm,
+		"overrides":      overrides,
+	})
 }
 
 func (h *AdminQuotas) SetGlobal(w http.ResponseWriter, r *http.Request) {
@@ -144,5 +162,27 @@ func (h *AdminQuotas) RemoveUserOverride(w http.ResponseWriter, r *http.Request)
 		apperr.Write(w, apperr.Internal("INTERNAL", "reset key limit"))
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AdminQuotas) SetGlobalRPM(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Limit int32 `json:"limit"`
+	}
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	if req.Limit < 1 {
+		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
+		return
+	}
+	if err := h.q.SetSetting(r.Context(), db.SetSettingParams{
+		Key: settingGlobalRPM, Value: strconv.Itoa(int(req.Limit)),
+	}); err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "set rpm"))
+		return
+	}
+	h.rpmCfg.Set(req.Limit)
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -36,6 +36,8 @@ export type CurrentKeyResponse = {
   resetsAt: string;
   createdAt: string;
   lastUsedAt?: string;
+  rpmLimit?: number;
+  rpmUsed?: number;
 };
 
 export type FlashKeyResponse =
@@ -76,6 +78,7 @@ export type AdminStats = {
 
 export type AdminQuotas = {
   globalLimit: string;
+  globalRpmLimit: string;
   overrides: { userId: string; email: string; limit: number }[];
 };
 

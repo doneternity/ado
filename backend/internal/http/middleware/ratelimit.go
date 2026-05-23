@@ -78,6 +78,25 @@ func (l *Limiter) PerKey(prefix string, limit int, window time.Duration, failClo
 	}
 }
 
+// PerKeyDynamic is like PerKey but reads the limit dynamically on each request.
+func (l *Limiter) PerKeyDynamic(prefix string, getLimit func() int, window time.Duration, failClosed bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			redisKey := prefix + ":ip:" + ClientIP(r)
+			if bk, ok := BearerFromContext(r.Context()); ok {
+				redisKey = prefix + ":" + bk.KeyID.String()
+			}
+			l.enforce(w, r, next, prefix, redisKey, getLimit(), window, failClosed)
+		})
+	}
+}
+
+// RPMUsed returns the current per-minute request count for a key ID.
+func (l *Limiter) RPMUsed(ctx context.Context, keyID string) int64 {
+	v, _ := l.rdb.Get(ctx, "rl:v1:chat:key:"+keyID).Int64()
+	return v
+}
+
 func ClientIP(r *http.Request) string {
 	// koyeb appends the real client ip as the rightmost x-forwarded-for entry;
 	// earlier entries are client-supplied and spoofable

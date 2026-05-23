@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -104,8 +105,6 @@ func main() {
 		})
 	}
 
-	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc})
-
 	reg := proxy.NewRegistry()
 	handlers.RebuildChain(ctx, queries, cfg.ProviderKeySecret, reg)
 	maint := &proxy.MaintenanceFlag{}
@@ -115,6 +114,19 @@ func main() {
 			maint.Set(v == "true")
 		}
 	}
+
+	rpmCfg := &proxy.RpmConfig{}
+	rpmCfg.Set(20) // default
+	{
+		v, err := queries.GetSetting(ctx, "global_rpm_limit")
+		if err == nil {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				rpmCfg.Set(int32(n))
+			}
+		}
+	}
+
+	keysH := handlers.NewKeys(handlers.KeysDeps{Q: queries, Keys: keysSvc, Limiter: limiter, RpmCfg: rpmCfg})
 
 	quotaSvc := quota.NewService(queries)
 	proxyH := handlers.NewProxy(handlers.ProxyDeps{
@@ -127,7 +139,7 @@ func main() {
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: queries, Registry: reg, ProviderKeySecret: cfg.ProviderKeySecret})
 	adminUsersH := handlers.NewAdminUsers(queries)
 	adminStatsH := handlers.NewAdminStats(queries)
-	adminQuotasH := handlers.NewAdminQuotas(queries)
+	adminQuotasH := handlers.NewAdminQuotas(queries, rpmCfg)
 	adminErrorsH := handlers.NewAdminErrors(queries)
 	adminMaintH := handlers.NewAdminMaintenance(queries, maint)
 
@@ -155,6 +167,7 @@ func main() {
 		Keys:             keysH,
 		Proxy:            proxyH,
 		Queries:          queries,
+		RpmCfg:           rpmCfg,
 		AdminProviders:   adminProvH,
 		AdminUsers:       adminUsersH,
 		AdminStats:       adminStatsH,

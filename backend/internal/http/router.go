@@ -10,6 +10,7 @@ import (
 	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/http/handlers"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
@@ -22,6 +23,7 @@ type Deps struct {
 	Keys             *handlers.Keys
 	Proxy            *handlers.Proxy
 	Queries          *db.Queries
+	RpmCfg           *proxy.RpmConfig
 	AdminProviders   *handlers.AdminProviders
 	AdminUsers       *handlers.AdminUsers
 	AdminStats       *handlers.AdminStats
@@ -71,7 +73,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Use(mw.Bearer(d.Queries))
 		r.With(d.Limiter.PerKey("rl:v1:models:key", 30, time.Minute, false)).
 			Get("/models", d.Proxy.Models)
-		r.With(d.Limiter.PerKey("rl:v1:chat:key", 60, time.Minute, false)).
+		r.With(d.Limiter.PerKeyDynamic("rl:v1:chat:key", d.RpmCfg.Get, time.Minute, false)).
 			Post("/chat/completions", d.Proxy.ChatCompletions)
 	})
 
@@ -95,6 +97,7 @@ func NewRouter(d Deps) http.Handler {
 
 		r.Get("/quotas", d.AdminQuotas.Get)
 		r.Put("/quotas/global", d.AdminQuotas.SetGlobal)
+		r.Put("/quotas/rpm", d.AdminQuotas.SetGlobalRPM)
 		r.Put("/quotas/users/by-email", d.AdminQuotas.SetUserOverride)
 		r.Delete("/quotas/users/{id}", d.AdminQuotas.RemoveUserOverride)
 

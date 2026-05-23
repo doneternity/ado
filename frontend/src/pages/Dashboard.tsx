@@ -101,6 +101,18 @@ function StatCards() {
         <span className={styles.statSub}>resets at UTC midnight</span>
       </div>
 
+      {/* RPM */}
+      {data.rpmLimit != null && (
+        <div className={styles.statCell}>
+          <span className={styles.statCellLabel}>Rate limit</span>
+          <div className={styles.statCellMain}>
+            <span className={styles.statNum}>{data.rpmUsed ?? 0}</span>
+            <span className={styles.statDenom}> / {data.rpmLimit} rpm</span>
+          </div>
+          <span className={styles.statSub}>requests this minute</span>
+        </div>
+      )}
+
       {/* API status */}
       <div className={styles.statCell}>
         <span className={styles.statCellLabel}>API status</span>

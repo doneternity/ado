@@ -12,12 +12,15 @@ import (
 	"github.com/ado/ado/backend/internal/apperr"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keys"
+	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
 type KeysDeps struct {
-	Q    *db.Queries
-	Keys *keys.Service
+	Q       *db.Queries
+	Keys    *keys.Service
+	Limiter *mw.Limiter
+	RpmCfg  *proxy.RpmConfig
 }
 
 type Keys struct{ d KeysDeps }
@@ -48,12 +51,23 @@ func (k *Keys) Current(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	resetsAt := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC)
 
+	rpmLimit := 20
+	if k.d.RpmCfg != nil {
+		rpmLimit = k.d.RpmCfg.Get()
+	}
+	rpmUsed := int64(0)
+	if k.d.Limiter != nil {
+		rpmUsed = k.d.Limiter.RPMUsed(r.Context(), row.ID.String())
+	}
+
 	out := map[string]any{
 		"keyPrefix":  row.KeyPrefix,
 		"dailyLimit": row.DailyLimit,
 		"used":       used,
 		"resetsAt":   resetsAt.Format(time.RFC3339),
 		"createdAt":  row.CreatedAt.Time.Format(time.RFC3339),
+		"rpmLimit":   rpmLimit,
+		"rpmUsed":    rpmUsed,
 	}
 	if row.LastUsedAt.Valid {
 		out["lastUsedAt"] = row.LastUsedAt.Time.Format(time.RFC3339)

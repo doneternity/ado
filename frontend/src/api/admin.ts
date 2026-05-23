@@ -133,6 +133,17 @@ export function useRemoveUserQuota() {
   });
 }
 
+export function useSetGlobalRpm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (limit: number) =>
+      apiFetch<void>("/api/admin/quotas/rpm", {
+        method: "PUT", body: JSON.stringify({ limit }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "quotas"] }),
+  });
+}
+
 // ── Errors ─────────────────────────────────────────────────
 export function useAdminErrors(page = 1) {
   return useQuery({

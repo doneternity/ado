@@ -170,13 +170,12 @@ export function Models() {
     );
   }
 
-  // Stats (live only)
   const stats = liveModels ? {
-    total:     liveModels.length,
-    available: liveModels.filter(m => !m.ado_status || m.ado_status === "available").length,
-    degraded:  liveModels.filter(m => m.ado_status === "degraded").length,
-    down:      liveModels.filter(m => m.ado_status === "down").length,
-    providers: new Set(liveModels.map(m => m.provider ?? "Main")).size,
+    total:     enriched.length,
+    available: enriched.filter(m => m.adoStatus === "available").length,
+    degraded:  enriched.filter(m => m.adoStatus === "degraded").length,
+    down:      enriched.filter(m => m.adoStatus === "down").length,
+    providers: new Set(enriched.map(m => m.provider)).size,
   } : null;
 
   return (

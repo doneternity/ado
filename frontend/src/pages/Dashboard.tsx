@@ -37,9 +37,9 @@ function BetaBanner() {
 }
 
 const FEATURED_MODELS = [
-  { id: "claude-opus-4-6",     name: "Claude Opus 4.6", cap: "Reasoning"   },
-  { id: "[GG]gemini-2.5-pro",  name: "Gemini 2.5 Pro",  cap: "Multimodal"  },
-  { id: "deepseek-v4-pro",     name: "DeepSeek V4 Pro", cap: "Coding"      },
+  { id: "gemini-3.1-pro-preview",    name: "Gemini 3.1 Pro",    cap: "Reasoning" },
+  { id: "deepseek/deepseek-v4-pro",  name: "DeepSeek V4 Pro",   cap: "Coding"    },
+  { id: "gpt-5",                     name: "GPT-5",             cap: "General"   },
 ];
 
 const stagger = {
@@ -150,7 +150,7 @@ function KeyCard() {
 
   function copyCurl() {
     if (!raw) { showToast("Rotate your key to reveal it first."); return; }
-    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw.key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"claude-opus-4-6","messages":[{"role":"user","content":"Hello!"}]}'`;
+    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw.key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"gemini-3.1-pro-preview","messages":[{"role":"user","content":"Hello!"}]}'`;
     void navigator.clipboard.writeText(snippet);
     setCopiedCurl(true);
     setTimeout(() => setCopiedCurl(false), 1800);
@@ -248,7 +248,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model:    "claude-opus-4-6",
+  model:    "gemini-3.1-pro-preview",
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(res.choices[0].message.content);`;

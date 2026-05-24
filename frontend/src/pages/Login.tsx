@@ -11,7 +11,7 @@ const ado = new OpenAI({
 });
 
 const msg = await ado.chat.completions.create({
-  model:    "claude-opus-4-6",
+  model:    "gemini-3.1-pro-preview",
   messages: [{ role: "user", content: "Hello!" }],
 });
 

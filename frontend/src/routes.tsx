@@ -70,7 +70,7 @@ export const router = createBrowserRouter([
       { path: "/",              element: <Landing /> },
       { path: "/models",        element: <RequireAuth><Models /></RequireAuth> },
       { path: "/docs",          element: <RequireAuth><Docs /></RequireAuth> },
-      { path: "/pricing",       element: <RequireAuth><Pricing /></RequireAuth> },
+      { path: "/pricing",       element: <Pricing /> },
       { path: "/playground",    element: <RequireAuth><Playground /></RequireAuth> },
       { path: "/privacy",       element: <Privacy /> },
       { path: "/terms",         element: <Terms /> },

@@ -28,10 +28,10 @@ const STEPS = [
 ];
 
 const REGIONS = [
-  { name: "Anthropic", nodes: 4, status: "operational" },
-  { name: "Google",    nodes: 2, status: "operational" },
-  { name: "DeepSeek",  nodes: 3, status: "operational" },
-  { name: "OpenAI",    nodes: 0, status: "coming soon" },
+  { name: "Google",     nodes: 2, status: "operational" },
+  { name: "DeepSeek",   nodes: 4, status: "operational" },
+  { name: "OpenAI",     nodes: 1, status: "operational" },
+  { name: "Anthropic",  nodes: 0, status: "coming soon" },
 ];
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -205,7 +205,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model: "claude-opus-4-6",
+  model: "gemini-3.1-pro-preview",
   messages: [{ role: "user", content: "Hello!" }],
 });`}</pre>
             </div>
@@ -471,26 +471,26 @@ const res = await client.chat.completions.create({
             {[
               {
                 id: "01",
-                name: "Anthropic Claude",
-                tagline: "State-of-the-art reasoning and vision",
-                desc: "claude-opus-4-6 and claude-opus-4-5: frontier reasoning, vision, and long-context analysis, available through one ADO key.",
-                tags: ["Reasoning", "Vision", "Tool use", "Streaming"],
-                href: "/models",
-              },
-              {
-                id: "02",
                 name: "Google Gemini",
                 tagline: "Long context and multimodal AI",
-                desc: "gemini-2.5-pro and gemini-3.1-pro-preview: Google's most capable models, with a 1M-token context window.",
+                desc: "gemini-3.1-pro-preview and gemini-3-flash-preview: Google's most capable models with a 1M-token context window and vision.",
                 tags: ["Multimodal", "Long context", "Fast"],
                 href: "/models",
               },
               {
-                id: "03",
+                id: "02",
                 name: "DeepSeek",
                 tagline: "High-performance open reasoning",
                 desc: "deepseek-v4-pro and DeepSeek V3.2: open-weight models with exceptional reasoning and code generation.",
                 tags: ["Reasoning", "Code", "Open weights"],
+                href: "/models",
+              },
+              {
+                id: "03",
+                name: "OpenAI",
+                tagline: "Flagship general-purpose AI",
+                desc: "GPT-5: OpenAI's most capable model with vision, tool use, and strong instruction following.",
+                tags: ["Reasoning", "Vision", "Tool use"],
                 href: "/models",
               },
             ].map((p) => (

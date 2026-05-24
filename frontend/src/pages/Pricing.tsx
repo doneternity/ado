@@ -10,7 +10,7 @@ const fade = {
 };
 
 const FREE_FEATURES = [
-  "Claude, Gemini, DeepSeek, and more",
+  "Gemini, DeepSeek, OpenAI, and more",
   "OpenAI-compatible API",
   "Streaming via SSE",
   "Instant key generation",
@@ -27,7 +27,7 @@ const STATS = [
 const FAQ = [
   {
     q: "What models can I access?",
-    a: "Claude Opus 4.7 and 4.6, Gemini 3 Flash, Gemini 2.5 Pro, DeepSeek V4 Pro, Kimi K2, and more. See the models page for the full current list. We add new models as providers expand.",
+    a: "Gemini 3.1 Pro, Gemini 3 Flash, DeepSeek V4 Pro, GPT-5, Kimi K2, and more. See the models page for the full current list. We add new models as providers expand.",
   },
   {
     q: "How does the rate limiting work?",

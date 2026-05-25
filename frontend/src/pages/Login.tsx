@@ -24,10 +24,6 @@ export function Login() {
   return (
     <div className={styles.page}>
       <div className={styles.formCol}>
-        <span className={styles.eyebrow}>
-          <span className={styles.eyebrowDash} />
-          ADO // v1
-        </span>
         <h1 className={styles.headline}>welcome back.</h1>
 
         {planFull ? (

@@ -34,10 +34,6 @@ export function SignUp() {
   return (
     <div className={styles.page}>
       <div className={styles.formCol}>
-        <span className={styles.eyebrow}>
-          <span className={styles.eyebrowDash} />
-          ADO // v1
-        </span>
         <h1 className={styles.headline}>get started.</h1>
 
         {slotsFull === null ? null : slotsFull ? (

@@ -139,26 +139,28 @@ export function Status() {
     }
   }
 
+  const overallText = {
+    operational: "All systems operational",
+    degraded:    "Degraded performance",
+    outage:      "Service outage",
+    unknown:     "Checking status…",
+  }[overall];
+
   return (
     <motion.div className={styles.page} {...fade}>
 
       <div className={styles.hero}>
-        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />System status</span>
-        <h1 className={styles.headline}>service<br />health.</h1>
+        <h1 className={styles.headline}>status.</h1>
+        <p className={styles.sub}>Live health of ADO's AI provider network.</p>
       </div>
 
       <div className={styles.overallCard} data-status={overall}>
         <div className={styles.overallLeft}>
-          <OverallIcon status={overall} />
+          <span className={`${styles.pulseDot} ${styles[`dot_${overall}`]}`} />
           <div>
-            <p className={styles.overallLabel}>
-              {overall === "operational" && "All systems operational"}
-              {overall === "degraded"    && "Degraded performance"}
-              {overall === "outage"      && "Service outage"}
-              {overall === "unknown"     && "Status unknown"}
-            </p>
+            <p className={styles.overallLabel}>{overallText}</p>
             {updatedAt && (
-              <p className={styles.updatedAt}>last updated {fmtTime(updatedAt)}</p>
+              <p className={styles.updatedAt}>updated {fmtTime(updatedAt)}</p>
             )}
           </div>
         </div>
@@ -168,7 +170,7 @@ export function Status() {
           disabled={loading}
           aria-label="Refresh status"
         >
-          <RefreshCw size={14} className={loading ? styles.spinning : undefined} />
+          <RefreshCw size={13} className={loading ? styles.spinning : undefined} />
           {loading ? "Checking…" : "Refresh"}
         </button>
       </div>
@@ -177,7 +179,7 @@ export function Status() {
         <p className={styles.sectionLabel}>Providers</p>
 
         {rows === null ? (
-          <div className={styles.skeletonList}>
+          <div className={styles.providerList}>
             {[...Array(5)].map((_, i) => (
               <div key={i} className={styles.skeletonRow} />
             ))}
@@ -193,6 +195,7 @@ export function Status() {
                 transition={{ duration: 0.22, ease: "easeOut", delay: i * 0.04 }}
               >
                 <div className={styles.providerInfo}>
+                  <span className={`${styles.rowDot} ${styles[`rowDot_${row.status}`]}`} />
                   <span className={styles.providerName}>{row.label}</span>
                   {row.count > 0 && (
                     <span className={styles.modelCount}>{row.count} model{row.count !== 1 ? "s" : ""}</span>

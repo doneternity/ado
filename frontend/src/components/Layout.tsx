@@ -7,6 +7,7 @@ import { Toast } from "./Toast";
 import { Footer } from "./Footer";
 import { BetaModal } from "./BetaModal";
 import styles from "./Layout.module.scss";
+import betaStyles from "./BetaModal.module.scss";
 
 const DARK_PAGES = new Set(["/dashboard", "/playground", "/admin"]);
 const HERO_PAGES = new Set(["/"]);
@@ -19,6 +20,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const isHero = HERO_PAGES.has(pathname);
 
   const [scrolled, setScrolled] = useState(false);
+  const [slotsFull, setSlotsFull] = useState(false);
+  const [showSlotsModal, setShowSlotsModal] = useState(false);
 
   useEffect(() => {
     if (!isHero) { setScrolled(true); return; }
@@ -27,6 +30,14 @@ export function Layout({ children }: { children: ReactNode }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [isHero]);
+
+  useEffect(() => {
+    if (me) return;
+    fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/slots")
+      .then((r) => r.json())
+      .then((d: { full: boolean }) => setSlotsFull(d.full))
+      .catch(() => {});
+  }, [me]);
 
   return (
     <div className={styles.frame}>
@@ -56,7 +67,13 @@ export function Layout({ children }: { children: ReactNode }) {
                 </button>
               </>
             ) : (
-              <Link to="/login" className={styles.getStarted}>Get started</Link>
+              <Link
+                to="/login"
+                className={styles.getStarted}
+                onClick={slotsFull ? (e) => { e.preventDefault(); setShowSlotsModal(true); } : undefined}
+              >
+                Get started
+              </Link>
             )}
           </div>
         </nav>
@@ -77,6 +94,28 @@ export function Layout({ children }: { children: ReactNode }) {
       {!isDark && <Footer />}
       <BetaModal />
       <Toast />
+      {showSlotsModal && (
+        <div className={betaStyles.backdrop} onClick={() => setShowSlotsModal(false)}>
+          <div className={betaStyles.modal} onClick={(e) => e.stopPropagation()}>
+            <span className={betaStyles.eyebrow}>Access Limited</span>
+            <h2 className={betaStyles.headline}>plan is full.</h2>
+            <p className={betaStyles.body}>
+              All free-tier slots are taken. Join our Discord server to get notified when a spot opens up.
+            </p>
+            <a
+              href="https://discord.gg/adoai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={betaStyles.discordBtn}
+            >
+              Join Discord
+            </a>
+            <button className={betaStyles.ackBtn} onClick={() => setShowSlotsModal(false)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

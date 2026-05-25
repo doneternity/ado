@@ -29,7 +29,7 @@ export function Login() {
   const [slotsFull, setSlotsFull] = useState(searchParams.get("plan_full") === "1");
 
   useEffect(() => {
-    fetch(API_BASE_URL + "/api/slots")
+    fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/slots")
       .then((r) => r.json())
       .then((data: SlotsResponse) => setSlotsFull((prev) => prev || data.full))
       .catch(() => {});

@@ -188,6 +188,41 @@
   padding: 3px 10px;
 }
 
+/* ── Slot-full notice ── */
+.slotFullNotice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 22px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 12px;
+}
+
+.slotFullTitle {
+  margin: 0;
+  font-size: .9rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.85);
+}
+
+.slotFullBody {
+  margin: 0;
+  font-size: .8rem;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.6;
+  font-weight: 300;
+}
+
+.slotFullLink {
+  display: inline-block;
+  font-size: .8rem;
+  font-weight: 500;
+  color: rgba(236,168,214,0.85);
+  text-decoration: none;
+  &:hover { color: rgba(236,168,214,1); }
+}
+
 /* ── Legal line ── */
 .legal {
   font-size: .75rem;

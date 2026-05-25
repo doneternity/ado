@@ -79,6 +79,8 @@ export type AdminStats = {
 export type AdminQuotas = {
   globalLimit: string;
   globalRpmLimit: string;
+  slotsLimit: number;
+  slotsUsed: number;
   overrides: { userId: string; email: string; limit: number }[];
 };
 

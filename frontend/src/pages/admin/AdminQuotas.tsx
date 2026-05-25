@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { SlidersHorizontal } from "lucide-react";
-import { useAdminQuotas, useSetGlobalQuota, useSetGlobalRpm, useSetUserQuota, useRemoveUserQuota } from "../../api/admin";
+import { useAdminQuotas, useSetGlobalQuota, useSetGlobalRpm, useSetFreeTierSlots, useSetUserQuota, useRemoveUserQuota } from "../../api/admin";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -10,10 +10,12 @@ export function AdminQuotas() {
   const { data: quotas } = useAdminQuotas();
   const setGlobal = useSetGlobalQuota();
   const setRpm = useSetGlobalRpm();
+  const setSlots = useSetFreeTierSlots();
   const setUser = useSetUserQuota();
   const removeUser = useRemoveUserQuota();
   const [globalInput, setGlobalInput] = useState("");
   const [rpmInput, setRpmInput] = useState("");
+  const [slotsInput, setSlotsInput] = useState("");
   const [overrideEmail, setOverrideEmail] = useState("");
   const [overrideLimit, setOverrideLimit] = useState("");
 
@@ -63,6 +65,30 @@ export function AdminQuotas() {
               className={styles.btnPrimary}
               onClick={() => { setRpm.mutate(Number(rpmInput)); setRpmInput(""); }}
               disabled={!rpmInput}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.statCard} style={{ maxWidth: 360 }}>
+          <div className={styles.statLabel}>Free-tier Slots</div>
+          <div className={styles.statValue} style={{ fontSize: "2rem" }}>
+            {quotas != null ? `${quotas.slotsUsed} / ${quotas.slotsLimit} used` : "—"}
+          </div>
+          <div className={styles.inputRow}>
+            <input
+              className={`${styles.input} ${styles.inputSm}`}
+              type="number"
+              min={1}
+              placeholder="New limit"
+              value={slotsInput}
+              onChange={(e) => setSlotsInput(e.target.value)}
+            />
+            <button
+              className={styles.btnPrimary}
+              onClick={() => { setSlots.mutate(Number(slotsInput)); setSlotsInput(""); }}
+              disabled={!slotsInput}
             >
               Save
             </button>

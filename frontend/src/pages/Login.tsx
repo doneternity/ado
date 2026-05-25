@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { DiscordButton } from "../components/DiscordButton";
 import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
@@ -17,7 +18,23 @@ const msg = await ado.chat.completions.create({
 
 console.log(msg.choices[0].message.content);`;
 
+interface SlotsResponse {
+  full: boolean;
+  used: number;
+  limit: number;
+}
+
 export function Login() {
+  const [searchParams] = useSearchParams();
+  const [slotsFull, setSlotsFull] = useState(searchParams.get("plan_full") === "1");
+
+  useEffect(() => {
+    fetch(API_BASE_URL + "/api/slots")
+      .then((r) => r.json())
+      .then((data: SlotsResponse) => setSlotsFull((prev) => prev || data.full))
+      .catch(() => {});
+  }, []);
+
   return (
     <div className={styles.page}>
       <div className={styles.formCol}>
@@ -27,7 +44,24 @@ export function Login() {
         </span>
         <h1 className={styles.headline}>welcome.</h1>
 
-        <DiscordButton />
+        {slotsFull ? (
+          <div className={styles.slotFullNotice}>
+            <p className={styles.slotFullTitle}>Plan is currently full</p>
+            <p className={styles.slotFullBody}>
+              All free-tier slots are taken. Join our Discord to get notified when a spot opens up.
+            </p>
+            <a
+              href="https://discord.gg/adoai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.slotFullLink}
+            >
+              Join Discord →
+            </a>
+          </div>
+        ) : (
+          <DiscordButton />
+        )}
 
         <p className={styles.legal}>
           By continuing, you agree to our{" "}

@@ -144,6 +144,17 @@ export function useSetGlobalRpm() {
   });
 }
 
+export function useSetFreeTierSlots() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (limit: number) =>
+      apiFetch<void>("/api/admin/slots", {
+        method: "PUT", body: JSON.stringify({ limit }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "quotas"] }),
+  });
+}
+
 // ── Errors ─────────────────────────────────────────────────
 export function useAdminErrors(page = 1) {
   return useQuery({

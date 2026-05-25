@@ -1,4 +1,5 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { DiscordButton } from "../components/DiscordButton";
 import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
@@ -17,9 +18,15 @@ const msg = await ado.chat.completions.create({
 
 console.log(msg.choices[0].message.content);`;
 
-export function Login() {
-  const [searchParams] = useSearchParams();
-  const planFull = searchParams.get("plan_full") === "1";
+export function SignUp() {
+  const [slotsFull, setSlotsFull] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/slots")
+      .then((r) => r.json())
+      .then((d: { full: boolean }) => setSlotsFull(d.full))
+      .catch(() => setSlotsFull(false));
+  }, []);
 
   return (
     <div className={styles.page}>
@@ -28,9 +35,9 @@ export function Login() {
           <span className={styles.eyebrowDash} />
           ADO // v1
         </span>
-        <h1 className={styles.headline}>welcome back.</h1>
+        <h1 className={styles.headline}>get started.</h1>
 
-        {planFull ? (
+        {slotsFull === null ? null : slotsFull ? (
           <div className={styles.slotFullNotice}>
             <p className={styles.slotFullTitle}>Plan is currently full</p>
             <p className={styles.slotFullBody}>
@@ -55,7 +62,7 @@ export function Login() {
           <Link to="/privacy">Privacy Policy</Link>.
         </p>
         <p className={styles.legal}>
-          Don&apos;t have an account? <Link to="/sign-up">Sign up</Link>
+          Already have an account? <Link to="/login">Sign in</Link>
         </p>
       </div>
 

@@ -67,13 +67,16 @@ export function Layout({ children }: { children: ReactNode }) {
                 </button>
               </>
             ) : (
-              <Link
-                to="/login"
-                className={styles.getStarted}
-                onClick={slotsFull ? (e) => { e.preventDefault(); setShowSlotsModal(true); } : undefined}
-              >
-                Get started
-              </Link>
+              <>
+                <Link to="/login" className={styles.navLink}>Sign in</Link>
+                <Link
+                  to="/sign-up"
+                  className={styles.getStarted}
+                  onClick={slotsFull ? (e) => { e.preventDefault(); setShowSlotsModal(true); } : undefined}
+                >
+                  Get started
+                </Link>
+              </>
             )}
           </div>
         </nav>
@@ -86,8 +89,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <Link to="/docs"       className={`${styles.mobileNavItem}${pathname === "/docs"       ? ` ${styles.mobileNavActive}` : ""}`}>Docs</Link>
         <Link to="/pricing"    className={`${styles.mobileNavItem}${pathname === "/pricing"    ? ` ${styles.mobileNavActive}` : ""}`}>Pricing</Link>
         <Link to="/playground" className={`${styles.mobileNavItem}${pathname === "/playground" ? ` ${styles.mobileNavActive}` : ""}`}>Play</Link>
-        <Link to={me ? "/dashboard" : "/login"} className={`${styles.mobileNavItem} ${styles.mobileNavCta}`}>
-          {me ? "Dash" : "Sign in"}
+        <Link to={me ? "/dashboard" : "/sign-up"} className={`${styles.mobileNavItem} ${styles.mobileNavCta}`}>
+          {me ? "Dash" : "Sign up"}
         </Link>
       </nav>
 

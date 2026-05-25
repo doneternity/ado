@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, Outlet, ScrollRestoration } from "react-
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/AdminLayout";
 import { Login } from "./pages/Login";
+import { SignUp } from "./pages/SignUp";
 import { JoinRequired } from "./pages/JoinRequired";
 import { Dashboard } from "./pages/Dashboard";
 import { NotFound } from "./pages/NotFound";
@@ -75,6 +76,7 @@ export const router = createBrowserRouter([
       { path: "/privacy",       element: <Privacy /> },
       { path: "/terms",         element: <Terms /> },
       { path: "/login",         element: <RedirectIfAuthed><Login /></RedirectIfAuthed> },
+      { path: "/sign-up",       element: <RedirectIfAuthed><SignUp /></RedirectIfAuthed> },
       { path: "/join-required", element: <JoinRequired /> },
       { path: "/dashboard",     element: <RequireAuth><Dashboard /></RequireAuth> },
       { path: "*",              element: <NotFound /> },

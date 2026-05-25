@@ -106,7 +106,7 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var ae *apperr.Error
 		if errors.As(err, &ae) && ae.Code == "PLAN_FULL" {
-			http.Redirect(w, r, joinBase+"/login?plan_full=1", http.StatusFound)
+			http.Redirect(w, r, joinBase+"/sign-up?plan_full=1", http.StatusFound)
 			return
 		}
 		apperr.Write(w, err)

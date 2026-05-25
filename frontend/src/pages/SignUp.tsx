@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { DiscordButton } from "../components/DiscordButton";
 import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
@@ -19,13 +19,16 @@ const msg = await ado.chat.completions.create({
 console.log(msg.choices[0].message.content);`;
 
 export function SignUp() {
-  const [slotsFull, setSlotsFull] = useState<boolean | null>(null);
+  const [searchParams] = useSearchParams();
+  const [slotsFull, setSlotsFull] = useState<boolean | null>(
+    searchParams.get("plan_full") === "1" ? true : null
+  );
 
   useEffect(() => {
     fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/slots")
       .then((r) => r.json())
-      .then((d: { full: boolean }) => setSlotsFull(d.full))
-      .catch(() => setSlotsFull(false));
+      .then((d: { full: boolean }) => setSlotsFull((prev) => prev || d.full))
+      .catch(() => setSlotsFull((prev) => prev ?? false));
   }, []);
 
   return (

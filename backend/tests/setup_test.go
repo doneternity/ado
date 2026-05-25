@@ -185,16 +185,19 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 	} else {
 		adminMW = func(next http.Handler) http.Handler { return next }
 	}
+	rpmCfg := &proxy.RpmConfig{}
+	slotsH := handlers.NewSlots(q)
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: q, Registry: reg, ProviderKeySecret: "test-secret-32-bytes-xxxxxxxxxxx!"})
 	adminUsersH := handlers.NewAdminUsers(q)
 	adminStatsH := handlers.NewAdminStats(q)
-	adminQuotasH := handlers.NewAdminQuotas(q)
+	adminQuotasH := handlers.NewAdminQuotas(q, rpmCfg)
 	adminErrorsH := handlers.NewAdminErrors(q)
 	adminMaintH := handlers.NewAdminMaintenance(q, maint)
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions, Auth: authH, Limiter: limiter, Rdb: rdb, Keys: keysH,
-		Proxy: proxyH, Queries: q, AdminProviders: adminProvH, AdminUsers: adminUsersH,
+		Proxy: proxyH, Queries: q, RpmCfg: rpmCfg, Slots: slotsH,
+		AdminProviders: adminProvH, AdminUsers: adminUsersH,
 		AdminStats: adminStatsH, AdminQuotas: adminQuotasH, AdminErrors: adminErrorsH,
 		AdminMaintenance: adminMaintH, AdminMiddleware: adminMW,
 	})

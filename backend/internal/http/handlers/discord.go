@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -103,6 +104,11 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.resolveUser(r, ident)
 	if err != nil {
+		var ae *apperr.Error
+		if errors.As(err, &ae) && ae.Code == "PLAN_FULL" {
+			http.Redirect(w, r, joinBase+"/login?plan_full=1", http.StatusFound)
+			return
+		}
 		apperr.Write(w, err)
 		return
 	}
@@ -194,6 +200,23 @@ func (h *DiscordHandler) resolveUser(r *http.Request, ident oauth.DiscordIdentit
 			role = "admin"
 		}
 	}
+
+	if role == "user" {
+		limit := int32(25)
+		if v, err := h.d.Q.GetSetting(ctx, settingFreeTierLimit); err == nil {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				limit = int32(n)
+			}
+		}
+		used, err := h.d.Q.CountFreeTierUsers(ctx)
+		if err != nil {
+			return db.User{}, apperr.Internal("INTERNAL", "slot check")
+		}
+		if used >= limit {
+			return db.User{}, apperr.Conflict("PLAN_FULL", "the free plan is currently full")
+		}
+	}
+
 	created, cerr := h.d.Q.CreateUser(ctx, db.CreateUserParams{
 		Email:         strings.ToLower(ident.Email),
 		EmailVerified: true,

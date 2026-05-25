@@ -47,3 +47,20 @@ LEFT JOIN daily_usage du ON du.key_id = k.id
 GROUP BY u.id, u.email
 ORDER BY total DESC
 LIMIT 10;
+
+-- name: CountFreeTierUsers :one
+SELECT COUNT(DISTINCT k.user_id)::int4 AS count
+FROM ado_keys k
+JOIN users u ON u.id = k.user_id
+WHERE k.revoked_at IS NULL
+  AND u.role = 'user';
+
+-- name: RevokeInactiveKeys :exec
+UPDATE ado_keys
+SET revoked_at = NOW()
+WHERE revoked_at IS NULL
+  AND user_id IN (SELECT id FROM users WHERE role = 'user')
+  AND (
+    last_used_at < $1
+    OR (last_used_at IS NULL AND created_at < $1)
+  );

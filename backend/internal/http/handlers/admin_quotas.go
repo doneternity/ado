@@ -43,6 +43,19 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		rpm = "20"
 	}
+	slotsLimit, err := h.q.GetSetting(r.Context(), settingFreeTierLimit)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		apperr.Write(w, apperr.Internal("INTERNAL", "get slots limit"))
+		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		slotsLimit = "25"
+	}
+	slotsUsed, err := h.q.CountFreeTierUsers(r.Context())
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "count slots"))
+		return
+	}
 	users, err := h.q.ListUsersAdmin(r.Context())
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "list users"))
@@ -64,6 +77,8 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 		"globalLimit":    global,
 		"globalRpmLimit": rpm,
 		"overrides":      overrides,
+		"slotsLimit":     slotsLimit,
+		"slotsUsed":      slotsUsed,
 	})
 }
 
@@ -185,5 +200,26 @@ func (h *AdminQuotas) SetGlobalRPM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.rpmCfg.Set(req.Limit)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AdminQuotas) SetFreeTierLimit(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Limit int32 `json:"limit"`
+	}
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	if req.Limit < 1 {
+		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
+		return
+	}
+	if err := h.q.SetSetting(r.Context(), db.SetSettingParams{
+		Key: settingFreeTierLimit, Value: strconv.Itoa(int(req.Limit)),
+	}); err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "set slots limit"))
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }

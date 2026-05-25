@@ -218,3 +218,34 @@ func (q *Queries) SetUserKeyDailyLimit(ctx context.Context, arg SetUserKeyDailyL
 	_, err := q.db.Exec(ctx, setUserKeyDailyLimit, arg.UserID, arg.DailyLimit)
 	return err
 }
+
+const countFreeTierUsers = `-- name: CountFreeTierUsers :one
+SELECT COUNT(DISTINCT k.user_id)::int4 AS count
+FROM ado_keys k
+JOIN users u ON u.id = k.user_id
+WHERE k.revoked_at IS NULL
+  AND u.role = 'user'
+`
+
+func (q *Queries) CountFreeTierUsers(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countFreeTierUsers)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
+const revokeInactiveKeys = `-- name: RevokeInactiveKeys :exec
+UPDATE ado_keys
+SET revoked_at = NOW()
+WHERE revoked_at IS NULL
+  AND user_id IN (SELECT id FROM users WHERE role = 'user')
+  AND (
+    last_used_at < $1
+    OR (last_used_at IS NULL AND created_at < $1)
+  )
+`
+
+func (q *Queries) RevokeInactiveKeys(ctx context.Context, before pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, revokeInactiveKeys, before)
+	return err
+}

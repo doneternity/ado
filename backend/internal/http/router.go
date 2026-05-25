@@ -24,6 +24,7 @@ type Deps struct {
 	Proxy            *handlers.Proxy
 	Queries          *db.Queries
 	RpmCfg           *proxy.RpmConfig
+	Slots            *handlers.SlotsHandler
 	AdminProviders   *handlers.AdminProviders
 	AdminUsers       *handlers.AdminUsers
 	AdminStats       *handlers.AdminStats
@@ -68,6 +69,9 @@ func NewRouter(d Deps) http.Handler {
 	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:models:ip", 10, time.Minute, false)).
 		Get("/api/models", d.Proxy.PublicModels)
 
+	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:slots:ip", 30, time.Minute, false)).
+		Get("/api/slots", d.Slots.Get)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)
 		r.Use(mw.Bearer(d.Queries))
@@ -100,6 +104,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Put("/quotas/rpm", d.AdminQuotas.SetGlobalRPM)
 		r.Put("/quotas/users/by-email", d.AdminQuotas.SetUserOverride)
 		r.Delete("/quotas/users/{id}", d.AdminQuotas.RemoveUserOverride)
+		r.Put("/slots", d.AdminQuotas.SetFreeTierLimit)
 
 		r.Get("/errors", d.AdminErrors.List)
 		r.Delete("/errors/{id}", d.AdminErrors.Delete)

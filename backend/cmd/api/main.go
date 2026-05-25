@@ -12,6 +12,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pressly/goose/v3"
 
 	"github.com/ado/ado/backend/internal/auth"
@@ -135,6 +136,8 @@ func main() {
 		Quota:       quotaSvc,
 	})
 
+	slotsH := handlers.NewSlots(queries)
+
 	adminMW := mw.RequireAdmin(queries)
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: queries, Registry: reg, ProviderKeySecret: cfg.ProviderKeySecret})
 	adminUsersH := handlers.NewAdminUsers(queries)
@@ -158,21 +161,38 @@ func main() {
 		}
 	}()
 
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				cutoff := pgtype.Timestamptz{Time: time.Now().Add(-14 * 24 * time.Hour), Valid: true}
+				if err := queries.RevokeInactiveKeys(ctx, cutoff); err != nil {
+					slog.Warn("revoke inactive keys", "err", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	router := httpapi.NewRouter(httpapi.Deps{
-		Sessions:        sessions,
-		Auth:            authH,
-		Limiter:         limiter,
-		Rdb:             rdb,
-		Discord:         discordH,
-		Keys:            keysH,
-		Proxy:           proxyH,
-		Queries:         queries,
-		RpmCfg:          rpmCfg,
-		AdminProviders:  adminProvH,
-		AdminUsers:      adminUsersH,
-		AdminStats:      adminStatsH,
-		AdminQuotas:     adminQuotasH,
-		AdminErrors:     adminErrorsH,
+		Sessions:         sessions,
+		Auth:             authH,
+		Limiter:          limiter,
+		Rdb:              rdb,
+		Discord:          discordH,
+		Keys:             keysH,
+		Proxy:            proxyH,
+		Queries:          queries,
+		RpmCfg:           rpmCfg,
+		Slots:            slotsH,
+		AdminProviders:   adminProvH,
+		AdminUsers:       adminUsersH,
+		AdminStats:       adminStatsH,
+		AdminQuotas:      adminQuotasH,
+		AdminErrors:      adminErrorsH,
 		AdminMaintenance: adminMaintH,
 		AdminMiddleware:  adminMW,
 		FrontendOrigin:   cfg.FrontendOrigin,

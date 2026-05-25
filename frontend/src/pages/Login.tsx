@@ -33,7 +33,7 @@ export function Login() {
               All free-tier slots are taken. Join our Discord to get notified when a spot opens up.
             </p>
             <a
-              href="https://discord.gg/adoai"
+              href={import.meta.env.VITE_DISCORD_INVITE_URL || "https://discord.com/invite/adoai"}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.slotFullLink}

@@ -34,7 +34,7 @@ func (k *Keys) Current(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
 		return
 	}
-	row, err := k.d.Q.GetActiveKeyByUser(r.Context(), sess.UserID)
+	row, err := k.d.Q.GetActiveKeyWithQuotaByUser(r.Context(), sess.UserID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		apperr.Write(w, apperr.NotFound("NOT_FOUND", "no active key"))
 		return

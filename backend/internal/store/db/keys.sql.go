@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAdoKey = `-- name: CreateAdoKey :one
@@ -89,6 +90,34 @@ func (q *Queries) GetActiveKeyByUser(ctx context.Context, userID uuid.UUID) (Ado
 		&i.RevokedAt,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+	)
+	return i, err
+}
+
+const getActiveKeyWithQuotaByUser = `-- name: GetActiveKeyWithQuotaByUser :one
+SELECT k.id, k.key_prefix, k.created_at, k.last_used_at,
+       COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit
+FROM ado_keys k
+JOIN users u ON u.id = k.user_id
+WHERE k.user_id = $1 AND k.revoked_at IS NULL`
+
+type GetActiveKeyWithQuotaByUserRow struct {
+	ID         uuid.UUID
+	KeyPrefix  string
+	CreatedAt  pgtype.Timestamptz
+	LastUsedAt pgtype.Timestamptz
+	DailyLimit int32
+}
+
+func (q *Queries) GetActiveKeyWithQuotaByUser(ctx context.Context, userID uuid.UUID) (GetActiveKeyWithQuotaByUserRow, error) {
+	row := q.db.QueryRow(ctx, getActiveKeyWithQuotaByUser, userID)
+	var i GetActiveKeyWithQuotaByUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.KeyPrefix,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+		&i.DailyLimit,
 	)
 	return i, err
 }

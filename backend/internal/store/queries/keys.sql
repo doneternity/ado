@@ -6,6 +6,13 @@ RETURNING *;
 -- name: GetActiveKeyByUser :one
 SELECT * FROM ado_keys WHERE user_id = $1 AND revoked_at IS NULL;
 
+-- name: GetActiveKeyWithQuotaByUser :one
+SELECT k.id, k.key_prefix, k.created_at, k.last_used_at,
+       COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit
+FROM ado_keys k
+JOIN users u ON u.id = k.user_id
+WHERE k.user_id = $1 AND k.revoked_at IS NULL;
+
 -- name: GetActiveKeyByHash :one
 SELECT k.id, k.user_id,
        COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit,

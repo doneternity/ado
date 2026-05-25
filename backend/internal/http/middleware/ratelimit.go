@@ -37,6 +37,10 @@ func (l *Limiter) Check(ctx context.Context, key string, limit int, window time.
 }
 
 func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Handler, prefix, redisKey string, limit int, window time.Duration, failClosed bool) {
+	if limit <= 0 {
+		next.ServeHTTP(w, r)
+		return
+	}
 	allowed, retry, err := l.Check(r.Context(), redisKey, limit, window)
 	if err != nil {
 		slog.Warn("rate limiter check failed", "prefix", prefix, "failClosed", failClosed, "err", err)

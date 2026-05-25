@@ -109,6 +109,7 @@ type fixture struct {
 	fakeGemini *httptest.Server
 	sessions   *auth.Sessions
 	keys       *keys.Service
+	rpmCfg     *proxy.RpmConfig
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -186,6 +187,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		adminMW = func(next http.Handler) http.Handler { return next }
 	}
 	rpmCfg := &proxy.RpmConfig{}
+	rpmCfg.Set(60)
 	slotsH := handlers.NewSlots(q)
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: q, Registry: reg, ProviderKeySecret: "test-secret-32-bytes-xxxxxxxxxxx!"})
 	adminUsersH := handlers.NewAdminUsers(q)
@@ -212,6 +214,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		fakeGemini: fakeGemini,
 		sessions:   sessions,
 		keys:       keysSvc,
+		rpmCfg:     rpmCfg,
 	}
 }
 

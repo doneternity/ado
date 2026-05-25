@@ -135,6 +135,36 @@ func (q *Queries) GetUsageForToday(ctx context.Context, keyID uuid.UUID) (int32,
 	return used, err
 }
 
+const getKeyUsageHistory = `-- name: GetKeyUsageHistory :many
+SELECT day, COALESCE(used, 0)::int4 AS used
+FROM daily_usage
+WHERE key_id = $1
+  AND day >= CURRENT_DATE - INTERVAL '29 days'
+ORDER BY day ASC
+`
+
+type GetKeyUsageHistoryRow struct {
+	Day  pgtype.Date
+	Used int32
+}
+
+func (q *Queries) GetKeyUsageHistory(ctx context.Context, keyID uuid.UUID) ([]GetKeyUsageHistoryRow, error) {
+	rows, err := q.db.Query(ctx, getKeyUsageHistory, keyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetKeyUsageHistoryRow
+	for rows.Next() {
+		var i GetKeyUsageHistoryRow
+		if err := rows.Scan(&i.Day, &i.Used); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	return items, rows.Err()
+}
+
 const revokeActiveKeyForUser = `-- name: RevokeActiveKeyForUser :exec
 UPDATE ado_keys SET revoked_at = now()
 WHERE user_id = $1 AND revoked_at IS NULL

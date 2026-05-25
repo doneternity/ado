@@ -95,6 +95,42 @@ func (k *Keys) Rotate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (k *Keys) Usage(w http.ResponseWriter, r *http.Request) {
+	sess, ok := mw.SessionFromContext(r.Context())
+	if !ok {
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		return
+	}
+	key, err := k.d.Q.GetActiveKeyByUser(r.Context(), sess.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]any{})
+		return
+	}
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "load key"))
+		return
+	}
+	rows, err := k.d.Q.GetKeyUsageHistory(r.Context(), key.ID)
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "load usage"))
+		return
+	}
+	type dayUsage struct {
+		Day  string `json:"day"`
+		Used int32  `json:"used"`
+	}
+	out := make([]dayUsage, len(rows))
+	for i, row := range rows {
+		out[i] = dayUsage{
+			Day:  row.Day.Time.Format("2006-01-02"),
+			Used: row.Used,
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(out)
+}
+
 func (k *Keys) Flash(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {

@@ -51,6 +51,13 @@ export function useRawKey(): KeyJustIssued | null {
   return data ?? null;
 }
 
+export function useKeyUsageHistory() {
+  return useQuery({
+    queryKey: ["keys", "usage"],
+    queryFn: () => apiFetch<{ day: string; used: number }[]>("/api/keys/usage"),
+  });
+}
+
 // Reads /api/keys/flash exactly once on dashboard mount; merges into raw cache if present.
 export function fetchFlashKeyOnce(qc: ReturnType<typeof useQueryClient>) {
   return apiFetch<FlashKeyResponse>("/api/keys/flash").then((res) => {

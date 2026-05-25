@@ -11,6 +11,7 @@ import { Landing } from "./pages/Landing";
 import { Models } from "./pages/Models";
 import { Docs } from "./pages/Docs";
 import { Pricing } from "./pages/Pricing";
+import { Status } from "./pages/Status";
 import { Playground } from "./pages/Playground";
 import { Privacy } from "./pages/Privacy";
 import { Terms } from "./pages/Terms";
@@ -69,9 +70,10 @@ export const router = createBrowserRouter([
     element: <Root />,
     children: [
       { path: "/",              element: <Landing /> },
-      { path: "/models",        element: <RequireAuth><Models /></RequireAuth> },
+      { path: "/models",        element: <Models /> },
       { path: "/docs",          element: <RequireAuth><Docs /></RequireAuth> },
       { path: "/pricing",       element: <Pricing /> },
+      { path: "/status",        element: <Status /> },
       { path: "/playground",    element: <RequireAuth><Playground /></RequireAuth> },
       { path: "/privacy",       element: <Privacy /> },
       { path: "/terms",         element: <Terms /> },

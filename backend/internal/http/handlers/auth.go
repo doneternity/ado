@@ -38,6 +38,20 @@ func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *Auth) DeleteMe(w http.ResponseWriter, r *http.Request) {
+	sess, ok := mw.SessionFromContext(r.Context())
+	if !ok {
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		return
+	}
+	if err := a.d.Q.DeleteUser(r.Context(), sess.UserID); err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "delete user"))
+		return
+	}
+	a.d.Sessions.ClearCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(auth.CookieName); err == nil {
 		if id, derr := base64URLDecode(c.Value); derr == nil {

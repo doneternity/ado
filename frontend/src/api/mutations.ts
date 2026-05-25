@@ -37,5 +37,11 @@ export function useRotateKey() {
   });
 }
 
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: () => apiFetch<void>("/api/auth/me", { method: "DELETE" }),
+  });
+}
+
 // Keep adoptAuthResponse available for pages that consume the flash key on load
 export { adoptAuthResponse };

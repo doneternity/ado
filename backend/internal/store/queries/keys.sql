@@ -33,3 +33,10 @@ WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '30 s
 SELECT COALESCE(used, 0)::int4 AS used
 FROM daily_usage
 WHERE key_id = $1 AND day = CURRENT_DATE;
+
+-- name: GetKeyUsageHistory :many
+SELECT day, COALESCE(used, 0)::int4 AS used
+FROM daily_usage
+WHERE key_id = $1
+  AND day >= CURRENT_DATE - INTERVAL '29 days'
+ORDER BY day ASC;

@@ -51,6 +51,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.With(mw.CSRF).Post("/logout", d.Auth.Logout)
+		r.With(mw.CSRF).Delete("/me", d.Auth.DeleteMe)
 		r.Get("/me", d.Auth.Me)
 		if d.Discord != nil {
 			r.With(d.Limiter.PerIP("rl:auth:discord:ip", 20, time.Hour, false)).
@@ -64,6 +65,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/current", d.Keys.Current)
 		r.With(mw.CSRF, d.Limiter.PerIP("rl:keys:rotate:ip", 5, time.Hour, true)).Post("/rotate", d.Keys.Rotate)
 		r.Get("/flash", d.Keys.Flash)
+		r.Get("/usage", d.Keys.Usage)
 	})
 
 	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:models:ip", 10, time.Minute, false)).

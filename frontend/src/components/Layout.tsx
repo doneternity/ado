@@ -48,6 +48,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <Link to="/models"     className={styles.navLink}>Models</Link>
             <Link to="/docs"       className={styles.navLink}>Docs</Link>
             <Link to="/pricing"    className={styles.navLink}>Pricing</Link>
+            <Link to="/status"     className={styles.navLink}>Status</Link>
             <Link to="/playground" className={styles.navLink}>Playground</Link>
           </div>
           <div className={styles.actions}>

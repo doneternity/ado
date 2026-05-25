@@ -656,6 +656,131 @@
   margin-top: 1px;
 }
 
+/* ─────────────────── Usage chart ─────────────────── */
+.usageCard {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--r-lg);
+  padding: 18px 20px 14px;
+}
+
+.usageCardHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.usageCardIcon { color: rgba(255,255,255,0.2); }
+
+.usageCardTitle {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: rgba(255,255,255,0.25);
+}
+
+.usageChartBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 80px;
+}
+
+.usageBar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  min-width: 4px;
+  transition: opacity var(--t-fast);
+
+  &:hover { opacity: 0.8; }
+}
+
+.usageChartDate {
+  font-family: var(--font-mono);
+  font-size: .58rem;
+  color: rgba(255,255,255,0.15);
+  text-align: right;
+  margin-top: 6px;
+  letter-spacing: .03em;
+}
+
+.usageEmpty {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: rgba(255,255,255,0.18);
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: .03em;
+}
+
+/* ─────────────────── Delete account ─────────────────── */
+.deleteRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.deleteBtn {
+  background: transparent;
+  border: 1px solid rgba(225,29,72,0.12);
+  border-radius: var(--r-pill);
+  padding: 5px 12px;
+  color: rgba(225,29,72,0.35);
+  font-size: .72rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+
+  &:hover { color: rgba(225,29,72,0.65); border-color: rgba(225,29,72,0.28); }
+}
+
+.deleteConfirmText {
+  font-size: .75rem;
+  color: rgba(255,255,255,0.3);
+  font-weight: 300;
+}
+
+.deleteConfirmBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deleteConfirmBtn {
+  background: rgba(225,29,72,0.1);
+  border: 1px solid rgba(225,29,72,0.3);
+  border-radius: var(--r-pill);
+  padding: 5px 12px;
+  color: rgba(225,29,72,0.8);
+  font-size: .72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--t-fast);
+
+  &:hover { background: rgba(225,29,72,0.18); }
+  &:disabled { opacity: .45; cursor: not-allowed; }
+}
+
+.deleteCancelBtn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-pill);
+  padding: 5px 12px;
+  color: rgba(255,255,255,0.3);
+  font-size: .72rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+
+  &:hover { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.16); }
+}
+
 /* ─────────────────── Beta banner ─────────────────── */
 .betaBanner {
   display: flex;

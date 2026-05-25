@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, AlertTriangle,
   Activity, Shield, BookOpen, Zap, Terminal,
   Lock, ChevronRight, Code,
 } from "lucide-react";
-import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe } from "../api/queries";
-import { useRotateKey } from "../api/mutations";
+import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory } from "../api/queries";
+import { useRotateKey, useDeleteAccount } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import { API_BASE_URL } from "../config";
 import styles from "./Dashboard.module.scss";
@@ -276,6 +276,89 @@ console.log(res.choices[0].message.content);`;
   );
 }
 
+function UsageChart() {
+  const { data, isSuccess } = useKeyUsageHistory();
+  if (!isSuccess) return null;
+
+  const allZero = !data || data.every((d) => d.used === 0);
+  if (allZero) {
+    return (
+      <motion.div className={styles.usageCard} variants={fade}>
+        <div className={styles.usageCardHead}>
+          <Activity size={12} className={styles.usageCardIcon} />
+          <span className={styles.usageCardTitle}>Usage — Last 30 Days</span>
+        </div>
+        <div className={styles.usageEmpty}>No usage yet</div>
+      </motion.div>
+    );
+  }
+
+  const maxVal = Math.max(...data.map((d) => d.used), 1);
+
+  return (
+    <motion.div className={styles.usageCard} variants={fade}>
+      <div className={styles.usageCardHead}>
+        <Activity size={12} className={styles.usageCardIcon} />
+        <span className={styles.usageCardTitle}>Usage — Last 30 Days</span>
+      </div>
+      <div className={styles.usageChartBars}>
+        {data.map((d) => (
+          <div
+            key={d.day}
+            title={`${d.day}: ${d.used}`}
+            className={styles.usageBar}
+            style={{
+              background: `rgba(236,168,214,${0.15 + 0.7 * (d.used / maxVal)})`,
+              height: `${Math.max(4, (d.used / maxVal) * 100)}%`,
+            }}
+          />
+        ))}
+      </div>
+      <div className={styles.usageChartDate}>{data.at(-1)?.day ?? ""}</div>
+    </motion.div>
+  );
+}
+
+function DeleteAccount() {
+  const [confirming, setConfirming] = useState(false);
+  const deleteAccount = useDeleteAccount();
+  const navigate = useNavigate();
+
+  function handleConfirm() {
+    deleteAccount.mutate(undefined, {
+      onSuccess: () => navigate("/login"),
+    });
+  }
+
+  if (confirming) {
+    return (
+      <div className={styles.deleteRow}>
+        <span className={styles.deleteConfirmText}>Delete your account permanently?</span>
+        <div className={styles.deleteConfirmBtns}>
+          <button
+            className={styles.deleteConfirmBtn}
+            onClick={handleConfirm}
+            disabled={deleteAccount.isPending}
+          >
+            {deleteAccount.isPending ? "Deleting…" : "Delete"}
+          </button>
+          <button className={styles.deleteCancelBtn} onClick={() => setConfirming(false)}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.deleteRow}>
+      <button className={styles.deleteBtn} onClick={() => setConfirming(true)}>
+        Delete account
+      </button>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const qc = useQueryClient();
   const { data: me } = useMe();
@@ -314,6 +397,9 @@ export function Dashboard() {
 
         {/* ── Stats row ── */}
         <StatCards />
+
+        {/* ── Usage chart ── */}
+        <UsageChart />
 
         {/* ── Main grid ── */}
         <div className={styles.mainGrid}>
@@ -388,6 +474,9 @@ export function Dashboard() {
 
           </div>
         </div>
+        {/* ── Delete account ── */}
+        <DeleteAccount />
+
       </motion.div>
     </div>
   );

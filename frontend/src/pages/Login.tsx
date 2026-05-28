@@ -17,14 +17,25 @@ const msg = await ado.chat.completions.create({
 
 console.log(msg.choices[0].message.content);`;
 
+const ERROR_MESSAGES: Record<string, string> = {
+  banned: "This account has been suspended.",
+  email_unverified: "Your Discord email address must be verified before you can sign in.",
+  email_linked: "This email is already linked to a different Discord account.",
+  auth_failed: "Sign-in failed or was cancelled. Please try again.",
+  internal: "Something went wrong on our end. Please try again.",
+};
+
 export function Login() {
   const [searchParams] = useSearchParams();
   const planFull = searchParams.get("plan_full") === "1";
+  const errorMsg = ERROR_MESSAGES[searchParams.get("error") ?? ""];
 
   return (
     <div className={styles.page}>
       <div className={styles.formCol}>
         <h1 className={styles.headline}>welcome back.</h1>
+
+        {errorMsg && <p className={styles.authError}>{errorMsg}</p>}
 
         {planFull ? (
           <div className={styles.slotFullNotice}>

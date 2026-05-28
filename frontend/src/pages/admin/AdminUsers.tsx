@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAdminUsers, useSetUserRole, useSetUserBanned } from "../../api/admin";
+import { useUiStore } from "../../stores/ui-store";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -9,7 +10,11 @@ export function AdminUsers() {
   const { data: users = [] } = useAdminUsers();
   const setRole = useSetUserRole();
   const setBanned = useSetUserBanned();
+  const showToast = useUiStore((s) => s.showToast);
   const [search, setSearch] = useState("");
+
+  const onErr = (fallback: string) => (err: unknown) =>
+    showToast(err instanceof Error ? err.message : fallback);
 
   const q = search.toLowerCase();
   const filtered = users.filter((u) =>
@@ -69,20 +74,25 @@ export function AdminUsers() {
                   <div className={styles.btnRow}>
                     {u.role === "admin"
                       ? <button className={`${styles.btnSecondary} ${styles.btnXs}`}
-                          onClick={() => setRole.mutate({ id: u.id, role: "user" })}>Demote</button>
+                          onClick={() => setRole.mutate({ id: u.id, role: "user" }, { onError: onErr("Could not change role") })}>Demote</button>
                       : <button className={`${styles.btnSecondary} ${styles.btnXs}`}
-                          onClick={() => setRole.mutate({ id: u.id, role: "admin" })}>Promote</button>
+                          onClick={() => setRole.mutate({ id: u.id, role: "admin" }, { onError: onErr("Could not change role") })}>Promote</button>
                     }
                     {u.banned
                       ? <button className={`${styles.btnSecondary} ${styles.btnXs}`}
-                          onClick={() => setBanned.mutate({ id: u.id, banned: false })}>Unban</button>
+                          onClick={() => setBanned.mutate({ id: u.id, banned: false }, { onError: onErr("Could not unban user") })}>Unban</button>
                       : <button className={`${styles.btnDanger} ${styles.btnXs}`}
-                          onClick={() => setBanned.mutate({ id: u.id, banned: true })}>Ban</button>
+                          onClick={() => setBanned.mutate({ id: u.id, banned: true }, { onError: onErr("Could not ban user") })}>Ban</button>
                     }
                   </div>
                 </td>
               </tr>
             ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} style={{ color: "var(--silver)", textAlign: "center", padding: 24 }}>
+                {users.length === 0 ? "No users yet" : "No users match your search"}
+              </td></tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Wrench, AlertTriangle } from "lucide-react";
 import { useMaintenanceStatus, useToggleMaintenance } from "../../api/admin";
+import { useUiStore } from "../../stores/ui-store";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -8,6 +9,7 @@ const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, tr
 export function AdminMaintenance() {
   const { data: status } = useMaintenanceStatus();
   const toggle = useToggleMaintenance();
+  const showToast = useUiStore((s) => s.showToast);
   const on = status?.enabled ?? false;
 
   return (
@@ -30,7 +32,7 @@ export function AdminMaintenance() {
             : "All systems operational. Enabling this will block all API traffic for all users."}
         </p>
         <label className={styles.toggle}>
-          <input type="checkbox" checked={on} onChange={() => toggle.mutate()} disabled={toggle.isPending} />
+          <input type="checkbox" checked={on} onChange={() => toggle.mutate(undefined, { onError: (err) => showToast(err instanceof Error ? err.message : "Could not toggle maintenance") })} disabled={toggle.isPending} />
           <span />
         </label>
         {!on && (

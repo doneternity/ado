@@ -33,7 +33,12 @@ func TestDiscord_Start_Redirects(t *testing.T) {
 
 func TestDiscord_Callback_InvalidState(t *testing.T) {
 	fx := newFixture(t)
-	r, err := http.Get(fx.server.URL + "/api/auth/discord/callback?code=x&state=bogus")
+	c := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	r, err := c.Get(fx.server.URL + "/api/auth/discord/callback?code=x&state=bogus")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +46,12 @@ func TestDiscord_Callback_InvalidState(t *testing.T) {
 	if r.StatusCode == http.StatusNotFound {
 		t.Skip("discord oauth not configured in fixture")
 	}
-	if r.StatusCode != 400 {
-		t.Fatalf("status=%d, want 400", r.StatusCode)
+	// Invalid state redirects the browser to a friendly login error rather than
+	// dumping a raw JSON 400.
+	if r.StatusCode != http.StatusFound {
+		t.Fatalf("status=%d, want 302", r.StatusCode)
+	}
+	if loc := r.Header.Get("Location"); !strings.Contains(loc, "/login?error=auth_failed") {
+		t.Fatalf("Location=%q, want /login?error=auth_failed", loc)
 	}
 }

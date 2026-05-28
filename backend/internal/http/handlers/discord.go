@@ -57,70 +57,74 @@ func (h *DiscordHandler) Start(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
+	base := h.frontendBase()
+
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 	if code == "" || state == "" {
-		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "missing code/state"))
+		http.Redirect(w, r, base+"/login?error=auth_failed", http.StatusFound)
 		return
 	}
 
 	// state must match the cookie set when the flow began
 	stateCookie, cerr := r.Cookie(oauthStateCookie)
 	if cerr != nil || subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(state)) != 1 {
-		apperr.Write(w, apperr.BadRequest("INVALID_STATE", "invalid or expired state"))
+		http.Redirect(w, r, base+"/login?error=auth_failed", http.StatusFound)
 		return
 	}
 	h.setStateCookie(w, "", -1)
 
 	ident, member, err := h.d.Discord.Exchange(r.Context(), code, state)
 	if errors.Is(err, oauth.ErrInvalidState) {
-		apperr.Write(w, apperr.BadRequest("INVALID_STATE", "invalid or expired state"))
+		http.Redirect(w, r, base+"/login?error=auth_failed", http.StatusFound)
 		return
 	}
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "discord exchange"))
+		http.Redirect(w, r, base+"/login?error=internal", http.StatusFound)
 		return
 	}
 
 	// Guild membership + role gate.
-	joinBase := h.d.Cfg.AppBaseURL
-	if h.d.Cfg.FrontendOrigin != "" {
-		joinBase = h.d.Cfg.FrontendOrigin
-	}
 	if !member.InGuild {
-		http.Redirect(w, r, joinBase+"/join-required", http.StatusFound)
+		http.Redirect(w, r, base+"/join-required", http.StatusFound)
 		return
 	}
 	if h.d.Cfg.DiscordMemberRoleID != "" && !hasRole(member.Roles, h.d.Cfg.DiscordMemberRoleID) {
-		http.Redirect(w, r, joinBase+"/join-required", http.StatusFound)
+		http.Redirect(w, r, base+"/join-required", http.StatusFound)
 		return
 	}
 
 	// an unverified email could match a victim's account (takeover)
 	if !ident.Verified {
-		apperr.Write(w, apperr.Forbidden("EMAIL_UNVERIFIED", "your Discord email address must be verified"))
+		http.Redirect(w, r, base+"/login?error=email_unverified", http.StatusFound)
 		return
 	}
 
 	user, err := h.resolveUser(r, ident)
 	if err != nil {
 		var ae *apperr.Error
-		if errors.As(err, &ae) && ae.Code == "PLAN_FULL" {
-			http.Redirect(w, r, joinBase+"/sign-up?plan_full=1", http.StatusFound)
-			return
+		if errors.As(err, &ae) {
+			switch ae.Code {
+			case "PLAN_FULL":
+				http.Redirect(w, r, base+"/sign-up?plan_full=1", http.StatusFound)
+				return
+			case "EMAIL_LINKED_ELSEWHERE":
+				http.Redirect(w, r, base+"/login?error=email_linked", http.StatusFound)
+				return
+			}
 		}
-		apperr.Write(w, err)
+		http.Redirect(w, r, base+"/login?error=internal", http.StatusFound)
 		return
 	}
 
 	if user.Banned {
-		apperr.Write(w, apperr.Forbidden("BANNED", "account suspended"))
+		http.Redirect(w, r, base+"/login?error=banned", http.StatusFound)
 		return
 	}
 
 	sess, cookie, err := h.d.Sessions.Create(r.Context(), user.ID, r.UserAgent(), mw.ClientIP(r))
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "session"))
+		http.Redirect(w, r, base+"/login?error=internal", http.StatusFound)
 		return
 	}
 	h.d.Sessions.SetCookie(w, cookie)
@@ -128,11 +132,16 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		_ = h.d.Keys.StashFlash(r.Context(), hex.EncodeToString(sess.ID), issued.Raw, issued.Prefix, issued.DailyLimit)
 	}
 
-	base := h.d.Cfg.AppBaseURL
-	if h.d.Cfg.FrontendOrigin != "" {
-		base = h.d.Cfg.FrontendOrigin
-	}
 	http.Redirect(w, r, base+"/dashboard", http.StatusFound)
+}
+
+// frontendBase is where browser-facing redirects should land — the SPA origin
+// if configured, otherwise the app's own base URL.
+func (h *DiscordHandler) frontendBase() string {
+	if h.d.Cfg.FrontendOrigin != "" {
+		return h.d.Cfg.FrontendOrigin
+	}
+	return h.d.Cfg.AppBaseURL
 }
 
 // resolveUser finds or creates the user account for the Discord identity.

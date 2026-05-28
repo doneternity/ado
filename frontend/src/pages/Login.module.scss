@@ -223,6 +223,18 @@
   &:hover { color: rgba(236,168,214,1); }
 }
 
+.authError {
+  margin: 0 0 4px;
+  padding: 12px 16px;
+  background: rgba(225, 29, 72, 0.1);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  border-radius: 12px;
+  font-size: .8rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(255, 138, 138, 0.95);
+}
+
 /* ── Legal line ── */
 .legal {
   font-size: .75rem;

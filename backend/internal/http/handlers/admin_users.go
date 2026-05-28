@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/validate"
 )
@@ -70,6 +71,10 @@ func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
+	if sess, ok := mw.SessionFromContext(r.Context()); ok && sess.UserID == id && req.Role != "admin" {
+		apperr.Write(w, apperr.BadRequest("SELF_DEMOTE", "you cannot remove your own admin role"))
+		return
+	}
 	if err := h.q.SetUserRole(r.Context(), db.SetUserRoleParams{ID: id, Role: req.Role}); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set role"))
 		return
@@ -88,6 +93,10 @@ func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := validate.Bind(r, &req); err != nil {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	if sess, ok := mw.SessionFromContext(r.Context()); ok && sess.UserID == id && req.Banned {
+		apperr.Write(w, apperr.BadRequest("SELF_BAN", "you cannot ban yourself"))
 		return
 	}
 	if err := h.q.SetUserBanned(r.Context(), db.SetUserBannedParams{ID: id, Banned: req.Banned}); err != nil {

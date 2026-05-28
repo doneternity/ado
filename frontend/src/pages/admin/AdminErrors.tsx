@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { useAdminErrors, useDeleteError, useBulkDeleteErrors } from "../../api/admin";
+import { useUiStore } from "../../stores/ui-store";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -11,6 +12,9 @@ export function AdminErrors() {
   const { data } = useAdminErrors(page);
   const del = useDeleteError();
   const bulk = useBulkDeleteErrors();
+  const showToast = useUiStore((s) => s.showToast);
+  const onErr = (fallback: string) => (err: unknown) =>
+    showToast(err instanceof Error ? err.message : fallback);
 
   return (
     <motion.div {...fade}>
@@ -20,7 +24,7 @@ export function AdminErrors() {
             <h1 className={styles.title}><AlertTriangle size={18} className={styles.titleIcon} /> Errors</h1>
             <p className={styles.subtitle}>Proxy error log: {data?.total ?? 0} entries</p>
           </div>
-          <button className={styles.btnDanger} onClick={() => bulk.mutate(7)} style={{ padding: "8px 16px" }}>
+          <button className={styles.btnDanger} onClick={() => bulk.mutate(7, { onError: onErr("Could not clear old errors") })} style={{ padding: "8px 16px" }}>
             Clear older than 7 days
           </button>
         </div>
@@ -42,7 +46,7 @@ export function AdminErrors() {
                 </td>
                 <td className={styles.cellMessage}>{e.message}</td>
                 <td>
-                  <button className={styles.btnDanger} onClick={() => del.mutate(e.id)}>Delete</button>
+                  <button className={styles.btnDanger} onClick={() => del.mutate(e.id, { onError: onErr("Could not delete entry") })}>Delete</button>
                 </td>
               </tr>
             ))}

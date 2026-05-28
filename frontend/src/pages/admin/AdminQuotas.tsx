@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { SlidersHorizontal } from "lucide-react";
 import { useAdminQuotas, useSetGlobalQuota, useSetGlobalRpm, useSetFreeTierSlots, useSetUserQuota, useRemoveUserQuota } from "../../api/admin";
+import { useUiStore } from "../../stores/ui-store";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -13,11 +14,15 @@ export function AdminQuotas() {
   const setSlots = useSetFreeTierSlots();
   const setUser = useSetUserQuota();
   const removeUser = useRemoveUserQuota();
+  const showToast = useUiStore((s) => s.showToast);
   const [globalInput, setGlobalInput] = useState("");
   const [rpmInput, setRpmInput] = useState("");
   const [slotsInput, setSlotsInput] = useState("");
   const [overrideEmail, setOverrideEmail] = useState("");
   const [overrideLimit, setOverrideLimit] = useState("");
+
+  const onErr = (fallback: string) => (err: unknown) =>
+    showToast(err instanceof Error ? err.message : fallback);
 
   return (
     <motion.div {...fade}>
@@ -41,7 +46,7 @@ export function AdminQuotas() {
             />
             <button
               className={styles.btnPrimary}
-              onClick={() => { setGlobal.mutate(Number(globalInput)); setGlobalInput(""); }}
+              onClick={() => { setGlobal.mutate(Number(globalInput), { onError: onErr("Could not update global limit") }); setGlobalInput(""); }}
               disabled={!globalInput}
             >
               Save
@@ -63,7 +68,7 @@ export function AdminQuotas() {
             />
             <button
               className={styles.btnPrimary}
-              onClick={() => { setRpm.mutate(Number(rpmInput)); setRpmInput(""); }}
+              onClick={() => { setRpm.mutate(Number(rpmInput), { onError: onErr("Could not update rate limit") }); setRpmInput(""); }}
               disabled={!rpmInput}
             >
               Save
@@ -87,7 +92,7 @@ export function AdminQuotas() {
             />
             <button
               className={styles.btnPrimary}
-              onClick={() => { setSlots.mutate(Number(slotsInput)); setSlotsInput(""); }}
+              onClick={() => { setSlots.mutate(Number(slotsInput), { onError: onErr("Could not update slot limit") }); setSlotsInput(""); }}
               disabled={!slotsInput}
             >
               Save
@@ -105,7 +110,7 @@ export function AdminQuotas() {
               <tr key={o.userId}>
                 <td className={styles.cellMono}>{o.email}</td>
                 <td style={{ fontWeight: 700 }}>{o.limit}</td>
-                <td><button className={styles.btnDanger} onClick={() => removeUser.mutate(o.userId)}>Remove</button></td>
+                <td><button className={styles.btnDanger} onClick={() => removeUser.mutate(o.userId, { onError: onErr("Could not remove override") })}>Remove</button></td>
               </tr>
             ))}
             {(quotas?.overrides ?? []).length === 0 && (
@@ -131,7 +136,7 @@ export function AdminQuotas() {
         </div>
         <button
           className={styles.btnPrimary}
-          onClick={() => { setUser.mutate({ email: overrideEmail, limit: Number(overrideLimit) }); setOverrideEmail(""); setOverrideLimit(""); }}
+          onClick={() => { setUser.mutate({ email: overrideEmail, limit: Number(overrideLimit) }, { onError: onErr("Could not save override") }); setOverrideEmail(""); setOverrideLimit(""); }}
           disabled={!overrideEmail || !overrideLimit}
         >
           Save override

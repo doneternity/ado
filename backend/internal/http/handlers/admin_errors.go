@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -14,6 +15,14 @@ import (
 type AdminErrors struct{ q *db.Queries }
 
 func NewAdminErrors(q *db.Queries) *AdminErrors { return &AdminErrors{q: q} }
+
+type errorLogDTO struct {
+	ID        int64           `json:"id"`
+	Level     string          `json:"level"`
+	Message   string          `json:"message"`
+	Context   json.RawMessage `json:"context"`
+	CreatedAt time.Time       `json:"createdAt"`
+}
 
 func (h *AdminErrors) List(w http.ResponseWriter, r *http.Request) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
@@ -29,9 +38,23 @@ func (h *AdminErrors) List(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "list errors"))
 		return
 	}
+	out := make([]errorLogDTO, len(rows))
+	for i, e := range rows {
+		ctx := json.RawMessage("null")
+		if json.Valid(e.Context) {
+			ctx = json.RawMessage(e.Context)
+		}
+		out[i] = errorLogDTO{
+			ID:        e.ID,
+			Level:     e.Level,
+			Message:   e.Message,
+			Context:   ctx,
+			CreatedAt: e.CreatedAt.Time,
+		}
+	}
 	total, _ := h.q.CountErrorLogs(r.Context())
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"logs": rows, "total": total, "page": page})
+	_ = json.NewEncoder(w).Encode(map[string]any{"logs": out, "total": total, "page": page})
 }
 
 func (h *AdminErrors) Delete(w http.ResponseWriter, r *http.Request) {

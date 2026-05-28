@@ -43,9 +43,18 @@ export function useRotateKey() {
 }
 
 export function useDeleteAccount() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => apiFetch<void>("/api/auth/me", { method: "DELETE" }),
-    onSuccess: () => clearRawKey(),
+    onSuccess: () => {
+      // Mirror logout: the account (and its session) no longer exist, so wipe
+      // all auth state — otherwise RedirectIfAuthed bounces back to /dashboard.
+      setCsrfToken(null);
+      qc.setQueryData(meKey, null);
+      qc.setQueryData(rawKeyKey, null);
+      qc.removeQueries({ queryKey: currentKeyKey });
+      clearRawKey();
+    },
   });
 }
 

@@ -18,6 +18,11 @@ const MODULES = [
 export function AdminOverview() {
   const { data: stats } = useAdminStats();
 
+  // daily only contains days that had traffic, so the last entry isn't
+  // necessarily today. Match today's UTC date (quota convention is UTC midnight).
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const requestsToday = stats?.daily?.find((d) => d.day === todayUtc)?.total ?? 0;
+
   return (
     <motion.div {...fade}>
       <div className={styles.pageHeader}>
@@ -43,7 +48,7 @@ export function AdminOverview() {
         <div className={styles.statCard}>
           <div className={styles.statLabel}>Requests Today</div>
           <div className={styles.statValue}>
-            {stats?.daily?.at(-1)?.total ?? 0}
+            {requestsToday}
           </div>
         </div>
       </div>

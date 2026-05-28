@@ -5,9 +5,14 @@ import {
   useAdminProviders, useCreateProvider, useUpdateProvider,
   useSetProviderActive, useDeleteProvider,
 } from "../../api/admin";
+import { useUiStore } from "../../stores/ui-store";
 import type { AdminProvider } from "../../types/api";
 import { PROXY_REQUEST_BASE } from "../../config";
 import styles from "./Admin.module.scss";
+
+function errMsg(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
@@ -28,23 +33,33 @@ export function AdminProviders() {
   const update = useUpdateProvider();
   const setActive = useSetProviderActive();
   const del = useDeleteProvider();
+  const showToast = useUiStore((s) => s.showToast);
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<AdminProvider | null>(null);
   const [form, setForm] = useState<FormState>(empty);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const activeCount = providers.filter((p) => p.isActive).length;
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
+  const closeForm = () => {
+    setShowForm(false); setEditing(null); setForm(empty); setFormError(null);
+    create.reset(); update.reset();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (editing) {
       update.mutate({ id: editing.id, ...form }, {
         onSuccess: () => { setEditing(null); setForm(empty); setShowForm(false); },
+        onError: (err) => setFormError(errMsg(err, "Could not save provider")),
       });
     } else {
       create.mutate(form, {
         onSuccess: () => { setForm(empty); setShowForm(false); },
+        onError: (err) => setFormError(errMsg(err, "Could not create provider")),
       });
     }
   };
@@ -52,6 +67,8 @@ export function AdminProviders() {
   const startEdit = (p: AdminProvider) => {
     setEditing(p);
     setForm({ name: p.name, baseUrl: p.baseUrl, apiKey: "", priority: p.priority });
+    setFormError(null);
+    create.reset(); update.reset();
     setShowForm(true);
   };
 
@@ -69,7 +86,11 @@ export function AdminProviders() {
           </div>
           <button
             className={styles.btnPrimary}
-            onClick={() => { setEditing(null); setForm(empty); setShowForm(true); }}
+            onClick={() => {
+              setEditing(null); setForm(empty); setFormError(null);
+              create.reset(); update.reset();
+              setShowForm(true);
+            }}
           >
             + Add provider
           </button>
@@ -98,6 +119,7 @@ export function AdminProviders() {
             onToggleActive={() => {
               setPendingIds(prev => new Set([...prev, p.id]));
               setActive.mutate({ id: p.id, active: !p.isActive }, {
+                onError: (err) => showToast(errMsg(err, `Could not ${p.isActive ? "deactivate" : "activate"} ${p.name}`)),
                 onSettled: () => setPendingIds(prev => {
                   const next = new Set(prev);
                   next.delete(p.id);
@@ -106,7 +128,12 @@ export function AdminProviders() {
               });
             }}
             onEdit={() => startEdit(p)}
-            onDelete={() => { if (confirm(`Remove "${p.name}"?`)) del.mutate(p.id); }}
+            onDelete={() => {
+              if (!confirm(`Remove "${p.name}"?`)) return;
+              del.mutate(p.id, {
+                onError: (err) => showToast(errMsg(err, `Could not remove ${p.name}`)),
+              });
+            }}
             isPending={pendingIds.has(p.id)}
           />
         ))
@@ -165,6 +192,7 @@ export function AdminProviders() {
                 />
               </div>
             </div>
+            {formError && <p className={styles.formError}>{formError}</p>}
             <div className={styles.btnRow}>
               <button
                 className={styles.btnPrimary}
@@ -176,7 +204,7 @@ export function AdminProviders() {
               <button
                 className={styles.btnSecondary}
                 type="button"
-                onClick={() => { setShowForm(false); setEditing(null); setForm(empty); }}
+                onClick={closeForm}
               >
                 Cancel
               </button>

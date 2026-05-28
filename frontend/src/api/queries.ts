@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CurrentKeyResponse, FlashKeyResponse, KeyJustIssued, MeResponse } from "../types/api";
 import { apiFetch, ApiError, setCsrfToken } from "./client";
+import { clearRawKey, loadRawKey, saveRawKey } from "./raw-key-storage";
 
 export const meKey = ["me"] as const;
 export const currentKeyKey = ["keys", "current"] as const;
@@ -14,11 +15,18 @@ export function useMe(opts?: { refetchInterval?: number }) {
       try {
         const me = await apiFetch<MeResponse>("/api/auth/me");
         setCsrfToken(me.csrfToken);
+        // Restore the raw key from localStorage on first /me success so the
+        // Playground stays pre-filled after a page reload.
+        if (!qc.getQueryData(rawKeyKey)) {
+          const stored = loadRawKey(me.user.id);
+          if (stored) qc.setQueryData(rawKeyKey, stored);
+        }
         return me;
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           setCsrfToken(null);
           qc.setQueryData(rawKeyKey, null);
+          clearRawKey();
           return null;
         }
         throw err;
@@ -62,11 +70,10 @@ export function useKeyUsageHistory() {
 export function fetchFlashKeyOnce(qc: ReturnType<typeof useQueryClient>) {
   return apiFetch<FlashKeyResponse>("/api/keys/flash").then((res) => {
     if (res.key) {
-      qc.setQueryData(rawKeyKey, {
-        key: res.key,
-        keyPrefix: res.keyPrefix,
-        dailyLimit: res.dailyLimit,
-      });
+      const issued = { key: res.key, keyPrefix: res.keyPrefix, dailyLimit: res.dailyLimit };
+      qc.setQueryData(rawKeyKey, issued);
+      const me = qc.getQueryData<MeResponse | null>(meKey);
+      if (me) saveRawKey(me.user.id, issued);
     }
   });
 }

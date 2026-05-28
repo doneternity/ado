@@ -7,6 +7,8 @@ import { MODELS } from "../data/models";
 import type { ModelDef, ModelProvider, Capability } from "../data/models";
 import styles from "./Models.module.scss";
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "") as string;
+
 type LiveModel = {
   id: string;
   ado_status?: "available" | "degraded" | "down";
@@ -133,7 +135,7 @@ export function Models() {
     setLoading(true);
     setLoadErr(null);
     try {
-      const r = await fetch("/api/models");
+      const r = await fetch(`${API_BASE}/api/models`);
       const d = await r.json() as { data?: LiveModel[]; error?: { message?: string } };
       if (!r.ok) throw new Error(d.error?.message ?? `HTTP ${r.status}`);
       setLiveModels(d.data ?? []);

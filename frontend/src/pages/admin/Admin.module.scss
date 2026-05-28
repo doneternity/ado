@@ -385,6 +385,13 @@
 
 .btnRow { display: flex; gap: 8px; align-items: center; }
 
+.formError {
+  color: var(--error);
+  font-size: .75rem;
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
 /* Inline form panel */
 .inlineForm {
   background: var(--bg-card);

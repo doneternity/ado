@@ -56,7 +56,7 @@ async function streamCompletion(
   messages: Pick<Msg, "role" | "content">[],
   onToken: (t: string) => void,
   onDone: () => void,
-  onError: (msg: string) => void,
+  onError: (msg: string, status?: number) => void,
 ) {
   try {
     if (!/^[\x20-\x7E]+$/.test(apiKey)) {
@@ -78,7 +78,7 @@ async function streamCompletion(
         const j = (await resp.json()) as { error?: { message?: string } };
         msg = j.error?.message ?? msg;
       } catch (_) { /* ignore */ }
-      onError(msg);
+      onError(msg, resp.status);
       return;
     }
 
@@ -204,23 +204,28 @@ export function Playground() {
   const keyValid = (k: string) => k.startsWith("ado-") && k.length > 6 && /^[\x20-\x7E]+$/.test(k);
 
   // Fetch live model list from the proxy whenever we have a valid key.
+  // Debounced so each keystroke while pasting/typing doesn't fire a request.
   useEffect(() => {
     if (!keyValid(apiKey)) {
       setPickerModels(STATIC_MODELS);
+      // Snap back to a static model if the current selection is live-only.
+      if (!STATIC_MODELS.find(m => m.id === model)) setModel(STATIC_MODELS[0]!.id);
       return;
     }
     let cancelled = false;
-    fetch(`${PROXY_BASE}/models`, { headers: { Authorization: `Bearer ${apiKey}` } })
-      .then(r => r.json())
-      .then((d: { data?: { id: string }[] }) => {
-        if (cancelled || !d.data?.length) return;
-        const live = toPickerModels(d.data.map(m => m.id));
-        setPickerModels(live);
-        // If the current model isn't in the live list, switch to the first live model.
-        if (!live.find(m => m.id === model)) setModel(live[0]!.id);
-      })
-      .catch(() => { /* keep static list */ });
-    return () => { cancelled = true; };
+    const t = setTimeout(() => {
+      fetch(`${PROXY_BASE}/models`, { headers: { Authorization: `Bearer ${apiKey}` } })
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((d: { data?: { id: string }[] }) => {
+          if (cancelled || !d.data?.length) return;
+          const live = toPickerModels(d.data.map(m => m.id));
+          setPickerModels(live);
+          // If the current model isn't in the live list, switch to the first live model.
+          if (!live.find(m => m.id === model)) setModel(live[0]!.id);
+        })
+        .catch(() => { /* keep static list */ });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
@@ -261,10 +266,12 @@ export function Playground() {
         );
       },
       () => setStreaming(false),
-      (msg) => {
+      (msg, status) => {
         setError(msg);
         setMessages((prev) => prev.filter((m) => m.id !== assistantMsg.id));
         setStreaming(false);
+        // Server rejected the key — reveal the input so the user can replace it.
+        if (status === 401 || status === 403) setApiKey("");
       },
     );
   }, [input, streaming, apiKey, model, messages, systemPrompt]);

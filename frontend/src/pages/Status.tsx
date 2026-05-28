@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { RefreshCw, CheckCircle, AlertTriangle, XCircle, Circle } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import styles from "./Status.module.scss";
 
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "") as string;
@@ -151,7 +151,7 @@ export function Status() {
 
       <div className={styles.hero}>
         <h1 className={styles.headline}>status.</h1>
-        <p className={styles.sub}>Live health of ADO's AI provider network.</p>
+        <p className={styles.sub}>Live health of ADO&apos;s AI provider network.</p>
       </div>
 
       <div className={styles.overallCard} data-status={overall}>
@@ -210,13 +210,6 @@ export function Status() {
 
     </motion.div>
   );
-}
-
-function OverallIcon({ status }: { status: OverallStatus }) {
-  if (status === "operational") return <CheckCircle size={22} className={styles.iconGreen} />;
-  if (status === "degraded")    return <AlertTriangle size={22} className={styles.iconYellow} />;
-  if (status === "outage")      return <XCircle size={22} className={styles.iconRed} />;
-  return <Circle size={22} className={styles.iconMuted} />;
 }
 
 function StatusBadge({ status }: { status: ProviderStatus }) {

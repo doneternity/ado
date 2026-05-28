@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useMe } from "../api/queries";
 import styles from "./Landing.module.scss";
 
 const WORDS = ["build", "ship", "connect", "deploy", "create"];
@@ -37,8 +36,6 @@ const REGIONS = [
 const EASE = [0.22, 1, 0.36, 1] as const;
 const VP   = { once: true, margin: "-5% 0px" } as const;
 
-const spring = { type: "spring" as const, damping: 26, stiffness: 110 };
-
 const fadeUp = {
   hidden: { opacity: 0, y: 52, filter: "blur(5px)" },
   show:   { opacity: 1, y: 0, filter: "blur(0px)",
@@ -48,17 +45,12 @@ const fadeIn = {
   hidden: { opacity: 0, scale: 0.96 },
   show:   { opacity: 1, scale: 1, transition: { duration: 0.5, ease: EASE } },
 };
-const slideLeft = {
-  hidden: { opacity: 0, x: -52, filter: "blur(4px)" },
-  show:   { opacity: 1, x: 0, filter: "blur(0px)", transition: spring },
-};
 const stagger14 = { hidden: {}, show: { transition: { staggerChildren: 0.11, delayChildren: 0.04 } } };
 const stagger10 = { hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } } };
 
 const MotionLink = motion.create(Link);
 
 export function Landing() {
-  const { data: me } = useMe();
   const [mounted, setMounted] = useState(false);
   const [wordIdx, setWordIdx] = useState(0);
   const [wordVisible, setWordVisible] = useState(true);

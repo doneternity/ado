@@ -160,7 +160,7 @@ export function Docs() {
               {
                 n: "03",
                 title: "Pick a model",
-                body: "Use any model ID from the /models list, e.g. gemini-3.1-pro-preview or deepseek/deepseek-v4-pro. The model field is required on every request.",
+                body: "Use any model ID from the /models list, e.g. codebuddy/gemini-3.1-pro or kiro/claude-sonnet-4.5. The model field is required on every request.",
               },
             ].map(({ n, title, body }) => (
               <div key={n} className={styles.step}>
@@ -238,7 +238,7 @@ export function Docs() {
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gemini-3.1-pro-preview",
+    "model": "codebuddy/gemini-3.1-pro",
     "messages": [
       { "role": "system", "content": "You are a helpful assistant." },
       { "role": "user",   "content": "Hello!" }
@@ -249,7 +249,7 @@ export function Docs() {
           <Code lang="json">{`{
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
-  "model": "gemini-3.1-pro-preview",
+  "model": "codebuddy/gemini-3.1-pro",
   "choices": [
     {
       "index": 0,
@@ -356,7 +356,7 @@ curl ${PROXY_BASE}/chat/completions \\
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gemini-3.1-pro-preview",
+    "model": "codebuddy/gemini-3.1-pro",
     "messages": [{ "role": "user", "content": "Write a haiku." }]
   }'
 
@@ -366,7 +366,7 @@ curl ${PROXY_BASE}/chat/completions \\
   -H "Content-Type: application/json" \\
   --no-buffer \\
   -d '{
-    "model": "gemini-3.1-pro-preview",
+    "model": "codebuddy/gemini-3.1-pro",
     "messages": [{ "role": "user", "content": "Write a haiku." }],
     "stream": true
   }'`}</Code>
@@ -388,14 +388,14 @@ const client = new OpenAI({
 
 // Non-streaming
 const res = await client.chat.completions.create({
-  model:    "gemini-3.1-pro-preview",
+  model:    "codebuddy/gemini-3.1-pro",
   messages: [{ role: "user", content: "Write a haiku." }],
 });
 console.log(res.choices[0].message.content);
 
 // Streaming
 const stream = await client.chat.completions.create({
-  model:    "gemini-3.1-pro-preview",
+  model:    "codebuddy/gemini-3.1-pro",
   messages: [{ role: "user", content: "Write a haiku." }],
   stream:   true,
 });
@@ -419,14 +419,14 @@ client = OpenAI(
 
 # Non-streaming
 response = client.chat.completions.create(
-    model    = "gemini-3.1-pro-preview",
+    model    = "codebuddy/gemini-3.1-pro",
     messages = [{"role": "user", "content": "Write a haiku."}],
 )
 print(response.choices[0].message.content)
 
 # Streaming
 with client.chat.completions.stream(
-    model    = "gemini-3.1-pro-preview",
+    model    = "codebuddy/gemini-3.1-pro",
     messages = [{"role": "user", "content": "Write a haiku."}],
 ) as stream:
     for text in stream.text_stream:

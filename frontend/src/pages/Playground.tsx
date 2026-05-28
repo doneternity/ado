@@ -51,6 +51,32 @@ function toPickerModels(ids: string[]): PickerModel[] {
   });
 }
 
+// Translate the backend's error code/status into a message that tells the user
+// whether the problem is their key, our quota, or the upstream provider.
+function friendlyError(status: number, code: string, rawMsg: string, model: string): string {
+  switch (code) {
+    case "NO_PROVIDER":
+      return `No upstream provider could serve "${model}" right now. This is on the provider side, not your key — try another model or try again shortly.`;
+    case "MAINTENANCE":
+      return "ADO is in maintenance mode right now. Please try again in a few minutes.";
+    case "QUOTA_EXCEEDED":
+      return "You've hit your daily request quota. It resets at UTC midnight.";
+    case "RATE_LIMITED":
+      return "You're sending requests too quickly. Wait a moment and try again.";
+    case "BANNED":
+      return "This account has been suspended.";
+    case "UNAUTHORIZED":
+      return "Your ADO key is invalid or has been rotated. Enter your current key above.";
+  }
+  if (status === 401 || status === 403) {
+    return "Your ADO key is invalid or has been rotated. Enter your current key above.";
+  }
+  if (status === 404) {
+    return `The model "${model}" isn't available. Pick another from the model list.`;
+  }
+  return rawMsg || `Request failed (HTTP ${status}).`;
+}
+
 async function streamCompletion(
   apiKey: string,
   model: string,
@@ -74,12 +100,14 @@ async function streamCompletion(
     });
 
     if (!resp.ok) {
-      let msg = `Error ${resp.status}`;
+      let rawMsg = "";
+      let code = "";
       try {
-        const j = (await resp.json()) as { error?: { message?: string } };
-        msg = j.error?.message ?? msg;
+        const j = (await resp.json()) as { error?: { message?: string; code?: string } };
+        rawMsg = j.error?.message ?? "";
+        code = j.error?.code ?? "";
       } catch (_) { /* ignore */ }
-      onError(msg, resp.status);
+      onError(friendlyError(resp.status, code, rawMsg, model), resp.status);
       return;
     }
 

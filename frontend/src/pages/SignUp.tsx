@@ -12,7 +12,7 @@ const ado = new OpenAI({
 });
 
 const msg = await ado.chat.completions.create({
-  model:    "gemini-3.1-pro-preview",
+  model:    "codebuddy/gemini-3.1-pro",
   messages: [{ role: "user", content: "Hello!" }],
 });
 

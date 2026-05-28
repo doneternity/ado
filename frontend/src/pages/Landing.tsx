@@ -197,7 +197,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model: "gemini-3.1-pro-preview",
+  model: "codebuddy/gemini-3.1-pro",
   messages: [{ role: "user", content: "Hello!" }],
 });`}</pre>
             </div>
@@ -465,7 +465,7 @@ const res = await client.chat.completions.create({
                 id: "01",
                 name: "Google Gemini",
                 tagline: "Long context and multimodal AI",
-                desc: "gemini-3.1-pro-preview and gemini-3-flash-preview: Google's most capable models with a 1M-token context window and vision.",
+                desc: "codebuddy/gemini-3.1-pro and gemini-3.0-flash: Google's most capable models with a 1M-token context window and vision.",
                 tags: ["Multimodal", "Long context", "Fast"],
                 href: "/models",
               },
@@ -473,7 +473,7 @@ const res = await client.chat.completions.create({
                 id: "02",
                 name: "DeepSeek",
                 tagline: "High-performance open reasoning",
-                desc: "deepseek-v4-pro and DeepSeek V3.2: open-weight models with exceptional reasoning and code generation.",
+                desc: "kiro/deepseek-3.2 and its thinking variant: open-weight models with exceptional reasoning and code generation.",
                 tags: ["Reasoning", "Code", "Open weights"],
                 href: "/models",
               },

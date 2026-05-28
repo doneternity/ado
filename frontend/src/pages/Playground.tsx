@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Send, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
-import { useMe } from "../api/queries";
-import { useRawKey } from "../api/queries";
+import { useMe, useRawKey, rawKeyKey } from "../api/queries";
+import { clearRawKey, saveRawKey } from "../api/raw-key-storage";
 import { MODELS } from "../data/models";
 import type { ModelProvider } from "../data/models";
 import { PROXY_REQUEST_BASE } from "../config";
@@ -183,6 +184,7 @@ const STATIC_MODELS: PickerModel[] = MODELS.map(m => ({
 export function Playground() {
   const { data: me } = useMe();
   const raw = useRawKey();
+  const qc = useQueryClient();
 
   const [apiKey, setApiKey]         = useState(() => raw?.key ?? "");
   const [model, setModel]           = useState(MODELS[0]!.id);
@@ -202,6 +204,28 @@ export function Playground() {
   }, [raw, apiKey]);
 
   const keyValid = (k: string) => k.startsWith("ado-") && k.length > 6 && /^[\x20-\x7E]+$/.test(k);
+
+  // Persist whatever the user types into the key input so it auto-fills on
+  // future visits even for keys that were issued before this client shipped.
+  useEffect(() => {
+    if (!me) return;
+    if (!apiKey) {
+      if (raw) {
+        qc.setQueryData(rawKeyKey, null);
+        clearRawKey();
+      }
+      return;
+    }
+    if (!keyValid(apiKey)) return;
+    if (raw?.key === apiKey) return;
+    const issued = {
+      key: apiKey,
+      keyPrefix: apiKey.slice(0, 12),
+      dailyLimit: raw?.dailyLimit ?? 0,
+    };
+    qc.setQueryData(rawKeyKey, issued);
+    saveRawKey(me.user.id, issued);
+  }, [apiKey, me, raw, qc]);
 
   // Fetch live model list from the proxy whenever we have a valid key.
   // Debounced so each keystroke while pasting/typing doesn't fire a request.

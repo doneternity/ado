@@ -64,6 +64,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Get("/current", d.Keys.Current)
 		r.With(mw.CSRF, d.Limiter.PerIP("rl:keys:rotate:ip", 5, time.Hour, true)).Post("/rotate", d.Keys.Rotate)
+		r.With(mw.CSRF).Patch("/reasoning", d.Keys.SetReasoning)
 		r.Get("/flash", d.Keys.Flash)
 		r.Get("/usage", d.Keys.Usage)
 	})

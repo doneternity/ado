@@ -14,6 +14,7 @@ import (
 	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
+	"github.com/ado/ado/backend/internal/validate"
 )
 
 type KeysDeps struct {
@@ -61,13 +62,14 @@ func (k *Keys) Current(w http.ResponseWriter, r *http.Request) {
 	}
 
 	out := map[string]any{
-		"keyPrefix":  row.KeyPrefix,
-		"dailyLimit": row.DailyLimit,
-		"used":       used,
-		"resetsAt":   resetsAt.Format(time.RFC3339),
-		"createdAt":  row.CreatedAt.Time.Format(time.RFC3339),
-		"rpmLimit":   rpmLimit,
-		"rpmUsed":    rpmUsed,
+		"keyPrefix":     row.KeyPrefix,
+		"dailyLimit":    row.DailyLimit,
+		"used":          used,
+		"resetsAt":      resetsAt.Format(time.RFC3339),
+		"createdAt":     row.CreatedAt.Time.Format(time.RFC3339),
+		"rpmLimit":      rpmLimit,
+		"rpmUsed":       rpmUsed,
+		"reasoningMode": row.ReasoningMode,
 	}
 	if row.LastUsedAt.Valid {
 		out["lastUsedAt"] = row.LastUsedAt.Time.Format(time.RFC3339)
@@ -93,6 +95,31 @@ func (k *Keys) Rotate(w http.ResponseWriter, r *http.Request) {
 		"keyPrefix":  issued.Prefix,
 		"dailyLimit": issued.DailyLimit,
 	})
+}
+
+// SetReasoning toggles step-by-step reasoning injection on the user's active key.
+func (k *Keys) SetReasoning(w http.ResponseWriter, r *http.Request) {
+	sess, ok := mw.SessionFromContext(r.Context())
+	if !ok {
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		return
+	}
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := validate.Bind(r, &req); err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
+	if err := k.d.Q.SetActiveKeyReasoningMode(r.Context(), db.SetActiveKeyReasoningModeParams{
+		UserID:        sess.UserID,
+		ReasoningMode: req.Enabled,
+	}); err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "set reasoning mode"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"reasoningMode": req.Enabled})
 }
 
 func (k *Keys) Usage(w http.ResponseWriter, r *http.Request) {

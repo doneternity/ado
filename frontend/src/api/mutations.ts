@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AuthResponse, KeyJustIssued, MeResponse } from "../types/api";
+import type { AuthResponse, CurrentKeyResponse, KeyJustIssued, MeResponse } from "../types/api";
 import { apiFetch, setCsrfToken } from "./client";
 import { meKey, rawKeyKey, currentKeyKey } from "./queries";
 import { clearRawKey, saveRawKey } from "./raw-key-storage";
@@ -38,6 +38,23 @@ export function useRotateKey() {
       qc.invalidateQueries({ queryKey: currentKeyKey });
       const me = qc.getQueryData<MeResponse | null>(meKey);
       if (me) saveRawKey(me.user.id, k);
+    },
+  });
+}
+
+export function useSetReasoningMode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiFetch<{ reasoningMode: boolean }>("/api/keys/reasoning", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      }),
+    onSuccess: (res) => {
+      // Patch the cached key so the toggle reflects the new state immediately.
+      qc.setQueryData<CurrentKeyResponse>(currentKeyKey, (prev) =>
+        prev ? { ...prev, reasoningMode: res.reasoningMode } : prev,
+      );
     },
   });
 }

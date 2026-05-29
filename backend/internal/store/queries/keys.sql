@@ -7,19 +7,23 @@ RETURNING *;
 SELECT * FROM ado_keys WHERE user_id = $1 AND revoked_at IS NULL;
 
 -- name: GetActiveKeyWithQuotaByUser :one
-SELECT k.id, k.key_prefix, k.created_at, k.last_used_at,
+SELECT k.id, k.key_prefix, k.created_at, k.last_used_at, k.reasoning_mode,
        COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
 WHERE k.user_id = $1 AND k.revoked_at IS NULL;
 
 -- name: GetActiveKeyByHash :one
-SELECT k.id, k.user_id,
+SELECT k.id, k.user_id, k.reasoning_mode,
        COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit,
        u.banned
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
 WHERE k.key_hash = $1 AND k.revoked_at IS NULL;
+
+-- name: SetActiveKeyReasoningMode :exec
+UPDATE ado_keys SET reasoning_mode = $2
+WHERE user_id = $1 AND revoked_at IS NULL;
 
 -- name: RevokeActiveKeyForUser :exec
 UPDATE ado_keys SET revoked_at = now()

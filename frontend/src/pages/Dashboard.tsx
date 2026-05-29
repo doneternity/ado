@@ -5,10 +5,10 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, AlertTriangle,
   Activity, Shield, BookOpen, Zap, Terminal,
-  Lock, ChevronRight, Code,
+  Lock, ChevronRight, Code, Brain,
 } from "lucide-react";
 import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels } from "../api/queries";
-import { useRotateKey, useDeleteAccount } from "../api/mutations";
+import { useRotateKey, useDeleteAccount, useSetReasoningMode } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import { API_BASE_URL } from "../config";
 import styles from "./Dashboard.module.scss";
@@ -130,6 +130,7 @@ function KeyCard() {
   const { data: current, isLoading } = useCurrentKey({ enabled: true });
   const raw = useRawKey();
   const rotate = useRotateKey();
+  const reasoning = useSetReasoningMode();
   const sampleModel = useSampleModel();
   const showToast = useUiStore((s) => s.showToast);
   const [revealed, setRevealed] = useState(false);
@@ -234,6 +235,32 @@ function KeyCard() {
             Rotate key
           </button>
         )}
+
+        <div className={styles.reasoningRow}>
+          <div className={styles.reasoningInfo}>
+            <div className={styles.reasoningLabel}>
+              <Brain size={13} className={styles.reasoningIcon} />
+              Reasoning mode
+            </div>
+            <p className={styles.reasoningHint}>
+              Ask models to show step-by-step thinking before answering. Applies to every request on this key.
+            </p>
+          </div>
+          <label className={styles.reasoningToggle} title={current.reasoningMode ? "Disable" : "Enable"}>
+            <input
+              type="checkbox"
+              checked={current.reasoningMode ?? false}
+              disabled={reasoning.isPending}
+              onChange={(e) =>
+                reasoning.mutate(e.target.checked, {
+                  onError: (err) =>
+                    showToast(err instanceof Error ? err.message : "Could not update reasoning mode"),
+                })
+              }
+            />
+            <span />
+          </label>
+        </div>
       </div>
     </motion.div>
   );

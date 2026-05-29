@@ -47,7 +47,7 @@ func (q *Queries) CreateAdoKey(ctx context.Context, arg CreateAdoKeyParams) (Ado
 }
 
 const getActiveKeyByHash = `-- name: GetActiveKeyByHash :one
-SELECT k.id, k.user_id,
+SELECT k.id, k.user_id, k.reasoning_mode,
        COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit,
        u.banned
 FROM ado_keys k
@@ -56,10 +56,11 @@ WHERE k.key_hash = $1 AND k.revoked_at IS NULL
 `
 
 type GetActiveKeyByHashRow struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	DailyLimit int32
-	Banned     bool
+	ID            uuid.UUID
+	UserID        uuid.UUID
+	ReasoningMode bool
+	DailyLimit    int32
+	Banned        bool
 }
 
 func (q *Queries) GetActiveKeyByHash(ctx context.Context, keyHash []byte) (GetActiveKeyByHashRow, error) {
@@ -68,6 +69,7 @@ func (q *Queries) GetActiveKeyByHash(ctx context.Context, keyHash []byte) (GetAc
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.ReasoningMode,
 		&i.DailyLimit,
 		&i.Banned,
 	)
@@ -95,18 +97,19 @@ func (q *Queries) GetActiveKeyByUser(ctx context.Context, userID uuid.UUID) (Ado
 }
 
 const getActiveKeyWithQuotaByUser = `-- name: GetActiveKeyWithQuotaByUser :one
-SELECT k.id, k.key_prefix, k.created_at, k.last_used_at,
+SELECT k.id, k.key_prefix, k.created_at, k.last_used_at, k.reasoning_mode,
        COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
 WHERE k.user_id = $1 AND k.revoked_at IS NULL`
 
 type GetActiveKeyWithQuotaByUserRow struct {
-	ID         uuid.UUID
-	KeyPrefix  string
-	CreatedAt  pgtype.Timestamptz
-	LastUsedAt pgtype.Timestamptz
-	DailyLimit int32
+	ID            uuid.UUID
+	KeyPrefix     string
+	CreatedAt     pgtype.Timestamptz
+	LastUsedAt    pgtype.Timestamptz
+	ReasoningMode bool
+	DailyLimit    int32
 }
 
 func (q *Queries) GetActiveKeyWithQuotaByUser(ctx context.Context, userID uuid.UUID) (GetActiveKeyWithQuotaByUserRow, error) {
@@ -117,6 +120,7 @@ func (q *Queries) GetActiveKeyWithQuotaByUser(ctx context.Context, userID uuid.U
 		&i.KeyPrefix,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+		&i.ReasoningMode,
 		&i.DailyLimit,
 	)
 	return i, err
@@ -172,6 +176,21 @@ WHERE user_id = $1 AND revoked_at IS NULL
 
 func (q *Queries) RevokeActiveKeyForUser(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeActiveKeyForUser, userID)
+	return err
+}
+
+const setActiveKeyReasoningMode = `-- name: SetActiveKeyReasoningMode :exec
+UPDATE ado_keys SET reasoning_mode = $2
+WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+type SetActiveKeyReasoningModeParams struct {
+	UserID        uuid.UUID
+	ReasoningMode bool
+}
+
+func (q *Queries) SetActiveKeyReasoningMode(ctx context.Context, arg SetActiveKeyReasoningModeParams) error {
+	_, err := q.db.Exec(ctx, setActiveKeyReasoningMode, arg.UserID, arg.ReasoningMode)
 	return err
 }
 

@@ -38,6 +38,7 @@ export type CurrentKeyResponse = {
   lastUsedAt?: string;
   rpmLimit?: number;
   rpmUsed?: number;
+  reasoningMode?: boolean;
 };
 
 export type FlashKeyResponse =

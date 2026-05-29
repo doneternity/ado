@@ -17,9 +17,10 @@ import (
 const bearerKey ctxKey = "bearerKey"
 
 type BearerKeyContext struct {
-	KeyID      uuid.UUID
-	UserID     uuid.UUID
-	DailyLimit int32
+	KeyID         uuid.UUID
+	UserID        uuid.UUID
+	DailyLimit    int32
+	ReasoningMode bool
 }
 
 func Bearer(q *db.Queries) func(http.Handler) http.Handler {
@@ -49,9 +50,10 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), bearerKey, BearerKeyContext{
-				KeyID:      row.ID,
-				UserID:     row.UserID,
-				DailyLimit: row.DailyLimit,
+				KeyID:         row.ID,
+				UserID:        row.UserID,
+				DailyLimit:    row.DailyLimit,
+				ReasoningMode: row.ReasoningMode,
 			})
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

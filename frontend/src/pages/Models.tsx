@@ -149,10 +149,11 @@ export function Models() {
   const enriched: EnrichedModel[] = (() => {
     if (!liveModels) return [];
     const liveMap = new Map(liveModels.map(m => [m.id, m]));
-    const result: EnrichedModel[] = MODELS.map(m => {
-      const live = liveMap.get(m.id);
-      return { ...m, adoStatus: live?.ado_status ?? "available" };
-    });
+    // Only show curated models the provider actually serves — prune the rest so
+    // the catalog never advertises a model that would 503.
+    const result: EnrichedModel[] = MODELS
+      .filter(m => liveMap.has(m.id))
+      .map(m => ({ ...m, adoStatus: liveMap.get(m.id)!.ado_status ?? "available" }));
     for (const lm of liveModels) {
       if (!MODELS.find(m => m.id === lm.id)) result.push(enrich(lm));
     }

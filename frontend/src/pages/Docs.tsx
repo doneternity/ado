@@ -18,6 +18,14 @@ const NAV = [
     group: "API Reference",
     links: [
       { id: "chat-completions", label: "Chat completions" },
+      { id: "responses",        label: "Responses" },
+      { id: "messages",         label: "Messages (Claude)" },
+      { id: "embeddings",       label: "Embeddings" },
+      { id: "rerank",           label: "Rerank" },
+      { id: "images",           label: "Images" },
+      { id: "audio",            label: "Audio" },
+      { id: "moderations",      label: "Moderations" },
+      { id: "realtime",         label: "Realtime" },
       { id: "list-models",      label: "List models" },
     ],
   },
@@ -268,6 +276,168 @@ export function Docs() {
     "total_tokens": 29
   }
 }`}</Code>
+        </section>
+
+        {/* Responses */}
+        <section id="responses" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" />{" /responses"}
+          </h2>
+          <p>
+            OpenAI Responses API. Same request and response shape as OpenAI.
+            A compact variant is available at{" "}
+            <code className={styles.inlineCode}>/responses/compact</code>.
+          </p>
+          <div className={styles.callout}>
+            Endpoints below are OpenAI-compatible passthroughs. They forward to the
+            active upstream provider unchanged, so availability depends on which
+            models and endpoints that provider supports. Each call counts as one
+            request against your daily quota; failed requests (4xx) are refunded.
+          </div>
+          <Code lang="bash">{`curl ${PROXY_BASE}/responses \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "${model}",
+    "input": "Write a haiku about the sea."
+  }'`}</Code>
+        </section>
+
+        {/* Messages (Claude-native) */}
+        <section id="messages" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" />{" /messages"}
+          </h2>
+          <p>
+            Anthropic-native Messages API, for clients built against Claude&apos;s
+            own format rather than the OpenAI one.
+          </p>
+          <Code lang="bash">{`curl ${PROXY_BASE}/messages \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "claude-opus-4-7",
+    "max_tokens": 256,
+    "messages": [{ "role": "user", "content": "Hello!" }]
+  }'`}</Code>
+        </section>
+
+        {/* Embeddings */}
+        <section id="embeddings" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" />{" /embeddings"}
+          </h2>
+          <p>
+            Returns a vector embedding for the given input. Compatible with the
+            OpenAI Embeddings API.
+          </p>
+          <Code lang="bash">{`curl ${PROXY_BASE}/embeddings \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "text-embedding-model",
+    "input": "The quick brown fox."
+  }'`}</Code>
+        </section>
+
+        {/* Rerank */}
+        <section id="rerank" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" />{" /rerank"}
+          </h2>
+          <p>
+            Reranks a set of documents against a query, returning relevance
+            scores. Useful for retrieval pipelines.
+          </p>
+          <Code lang="bash">{`curl ${PROXY_BASE}/rerank \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "rerank-model",
+    "query": "What is the capital of France?",
+    "documents": ["Paris is the capital of France.", "Berlin is in Germany."]
+  }'`}</Code>
+        </section>
+
+        {/* Images */}
+        <section id="images" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" />{" /images/generations"}
+          </h2>
+          <p>
+            Image generation. Edits and variations are available at{" "}
+            <code className={styles.inlineCode}>/images/edits</code> and{" "}
+            <code className={styles.inlineCode}>/images/variations</code>{" "}
+            (both accept <code className={styles.inlineCode}>multipart/form-data</code> uploads).
+          </p>
+          <Code lang="bash">{`curl ${PROXY_BASE}/images/generations \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "image-model",
+    "prompt": "a watercolor fox in a forest",
+    "n": 1,
+    "size": "1024x1024"
+  }'`}</Code>
+        </section>
+
+        {/* Audio */}
+        <section id="audio" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" />{" /audio/speech"}
+          </h2>
+          <p>
+            Text-to-speech (<code className={styles.inlineCode}>/audio/speech</code>),
+            plus transcription (<code className={styles.inlineCode}>/audio/transcriptions</code>)
+            and translation (<code className={styles.inlineCode}>/audio/translations</code>),
+            which take <code className={styles.inlineCode}>multipart/form-data</code> audio uploads.
+          </p>
+          <Code lang="bash">{`# Text to speech (returns audio bytes)
+curl ${PROXY_BASE}/audio/speech \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "model": "tts-model", "input": "Hello there", "voice": "alloy" }' \\
+  --output speech.mp3
+
+# Transcription (audio file -> text)
+curl ${PROXY_BASE}/audio/transcriptions \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -F model="whisper-model" \\
+  -F file="@audio.mp3"`}</Code>
+        </section>
+
+        {/* Moderations */}
+        <section id="moderations" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" />{" /moderations"}
+          </h2>
+          <p>
+            Classifies text for policy violations. Compatible with the OpenAI
+            Moderations API.
+          </p>
+          <Code lang="bash">{`curl ${PROXY_BASE}/moderations \\
+  -H "Authorization: Bearer ado-your-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "input": "text to classify" }'`}</Code>
+        </section>
+
+        {/* Realtime */}
+        <section id="realtime" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="GET" />{" /realtime"}
+          </h2>
+          <p>
+            WebSocket endpoint for low-latency, bidirectional sessions. Connect a
+            WebSocket and pass your key in the{" "}
+            <code className={styles.inlineCode}>Authorization</code> header.
+            Browser clients cannot set that header on a WebSocket, so this is
+            intended for server-side use.
+          </p>
+          <Code lang="javascript">{`import WebSocket from "ws";
+
+const ws = new WebSocket("${PROXY_BASE.replace(/^http/, "ws")}/realtime", {
+  headers: { Authorization: "Bearer ado-your-key" },
+});`}</Code>
         </section>
 
         {/* List Models */}

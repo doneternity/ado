@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 import styles from "./Footer.module.scss";
 
-const NAV = {
+const DISCORD_URL =
+  import.meta.env.VITE_DISCORD_INVITE_URL || "https://discord.com/invite/adoai";
+
+type NavLink =
+  | { name: string; to: string; href?: never }
+  | { name: string; href: string; to?: never };
+
+const NAV: Record<string, NavLink[]> = {
   Platform: [
     { name: "Models",     to: "/models" },
     { name: "Pricing",    to: "/pricing" },
@@ -11,12 +18,11 @@ const NAV = {
   Developers: [
     { name: "Documentation", to: "/docs" },
     { name: "API Reference",  to: "/docs" },
-    { name: "Status",         to: "#" },
+    { name: "Status",         to: "/status" },
   ],
   Company: [
-    { name: "About",   to: "#" },
-    { name: "Blog",    to: "#" },
-    { name: "Contact", to: "#" },
+    { name: "About",   to: "/docs" },
+    { name: "Contact", href: DISCORD_URL },
   ],
   Legal: [
     { name: "Privacy", to: "/privacy" },
@@ -43,7 +49,11 @@ export function Footer() {
               <ul className={styles.linkList}>
                 {links.map(l => (
                   <li key={l.name}>
-                    <Link to={l.to} className={styles.footLink}>{l.name}</Link>
+                    {l.href ? (
+                      <a href={l.href} target="_blank" rel="noopener noreferrer" className={styles.footLink}>{l.name}</a>
+                    ) : (
+                      <Link to={l.to!} className={styles.footLink}>{l.name}</Link>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { DiscordButton } from "../components/DiscordButton";
+import { useSampleModel } from "../api/queries";
 import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
 
-const CODE_SNIPPET = `import OpenAI from "openai";
+const codeSnippet = (model: string) => `import OpenAI from "openai";
 
 const ado = new OpenAI({
   apiKey:  "ado-your-key",
@@ -12,7 +13,7 @@ const ado = new OpenAI({
 });
 
 const msg = await ado.chat.completions.create({
-  model:    "gemini-3.1-pro",
+  model:    "${model}",
   messages: [{ role: "user", content: "Hello!" }],
 });
 
@@ -20,6 +21,7 @@ console.log(msg.choices[0].message.content);`;
 
 export function SignUp() {
   const [searchParams] = useSearchParams();
+  const CODE_SNIPPET = codeSnippet(useSampleModel());
   const [slotsFull, setSlotsFull] = useState<boolean | null>(
     searchParams.get("plan_full") === "1" ? true : null
   );

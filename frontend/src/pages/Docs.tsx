@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
+import { useSampleModel } from "../api/queries";
 import { API_BASE_URL } from "../config";
 import styles from "./Docs.module.scss";
 
@@ -90,6 +91,7 @@ function Param({
 export function Docs() {
   const [activeId, setActiveId] = useState("quick-start");
   const PROXY_BASE = API_BASE_URL;
+  const model = useSampleModel();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -160,7 +162,7 @@ export function Docs() {
               {
                 n: "03",
                 title: "Pick a model",
-                body: "Use any model ID from the /models list, e.g. gemini-3.1-pro or claude-opus-4-7. The model field is required on every request.",
+                body: `Use any model ID from the /models list, e.g. ${model}. The model field is required on every request.`,
               },
             ].map(({ n, title, body }) => (
               <div key={n} className={styles.step}>
@@ -238,7 +240,7 @@ export function Docs() {
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gemini-3.1-pro",
+    "model": "${model}",
     "messages": [
       { "role": "system", "content": "You are a helpful assistant." },
       { "role": "user",   "content": "Hello!" }
@@ -249,7 +251,7 @@ export function Docs() {
           <Code lang="json">{`{
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
-  "model": "gemini-3.1-pro",
+  "model": "${model}",
   "choices": [
     {
       "index": 0,
@@ -356,7 +358,7 @@ curl ${PROXY_BASE}/chat/completions \\
   -H "Authorization: Bearer ado-your-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gemini-3.1-pro",
+    "model": "${model}",
     "messages": [{ "role": "user", "content": "Write a haiku." }]
   }'
 
@@ -366,7 +368,7 @@ curl ${PROXY_BASE}/chat/completions \\
   -H "Content-Type: application/json" \\
   --no-buffer \\
   -d '{
-    "model": "gemini-3.1-pro",
+    "model": "${model}",
     "messages": [{ "role": "user", "content": "Write a haiku." }],
     "stream": true
   }'`}</Code>
@@ -388,14 +390,14 @@ const client = new OpenAI({
 
 // Non-streaming
 const res = await client.chat.completions.create({
-  model:    "gemini-3.1-pro",
+  model:    "${model}",
   messages: [{ role: "user", content: "Write a haiku." }],
 });
 console.log(res.choices[0].message.content);
 
 // Streaming
 const stream = await client.chat.completions.create({
-  model:    "gemini-3.1-pro",
+  model:    "${model}",
   messages: [{ role: "user", content: "Write a haiku." }],
   stream:   true,
 });
@@ -419,14 +421,14 @@ client = OpenAI(
 
 # Non-streaming
 response = client.chat.completions.create(
-    model    = "gemini-3.1-pro",
+    model    = "${model}",
     messages = [{"role": "user", "content": "Write a haiku."}],
 )
 print(response.choices[0].message.content)
 
 # Streaming
 with client.chat.completions.stream(
-    model    = "gemini-3.1-pro",
+    model    = "${model}",
     messages = [{"role": "user", "content": "Write a haiku."}],
 ) as stream:
     for text in stream.text_stream:

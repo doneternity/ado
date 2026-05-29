@@ -7,7 +7,7 @@ import {
   Activity, Shield, BookOpen, Zap, Terminal,
   Lock, ChevronRight, Code,
 } from "lucide-react";
-import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory } from "../api/queries";
+import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels } from "../api/queries";
 import { useRotateKey, useDeleteAccount } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import { API_BASE_URL } from "../config";
@@ -130,6 +130,7 @@ function KeyCard() {
   const { data: current, isLoading } = useCurrentKey({ enabled: true });
   const raw = useRawKey();
   const rotate = useRotateKey();
+  const sampleModel = useSampleModel();
   const showToast = useUiStore((s) => s.showToast);
   const [revealed, setRevealed] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -150,7 +151,7 @@ function KeyCard() {
 
   function copyCurl() {
     if (!raw) { showToast("Rotate your key to reveal it first."); return; }
-    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw.key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"gemini-3.1-pro","messages":[{"role":"user","content":"Hello!"}]}'`;
+    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw.key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${sampleModel}","messages":[{"role":"user","content":"Hello!"}]}'`;
     void navigator.clipboard.writeText(snippet);
     setCopiedCurl(true);
     setTimeout(() => setCopiedCurl(false), 1800);
@@ -240,6 +241,7 @@ function KeyCard() {
 
 function QuickStart() {
   const [copied, setCopied] = useState(false);
+  const model = useSampleModel();
   const snippet = `import OpenAI from "openai";
 
 const client = new OpenAI({
@@ -248,7 +250,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model:    "gemini-3.1-pro",
+  model:    "${model}",
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(res.choices[0].message.content);`;
@@ -362,7 +364,14 @@ function DeleteAccount() {
 export function Dashboard() {
   const qc = useQueryClient();
   const { data: me } = useMe();
+  const { data: liveModels } = usePublicModels();
   useEffect(() => { void fetchFlashKeyOnce(qc); }, [qc]);
+
+  // Hide any featured model the provider no longer serves so we never show a
+  // dead ID; before the live list loads, show the curated defaults.
+  const featuredModels = liveModels
+    ? FEATURED_MODELS.filter(m => liveModels.includes(m.id))
+    : FEATURED_MODELS;
 
   return (
     <div className={styles.page}>
@@ -419,7 +428,7 @@ export function Dashboard() {
                 <span className={styles.sideCardTitle}>Featured Models</span>
               </div>
               <div className={styles.modelList}>
-                {FEATURED_MODELS.map(m => (
+                {featuredModels.map(m => (
                   <div key={m.id} className={styles.modelRow}>
                     <div>
                       <div className={styles.modelName}>{m.name}</div>

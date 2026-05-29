@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useSampleModel } from "../api/queries";
 import styles from "./Landing.module.scss";
 
 const WORDS = ["build", "ship", "connect", "deploy", "create"];
@@ -51,6 +52,7 @@ const stagger10 = { hidden: {}, show: { transition: { staggerChildren: 0.07, del
 const MotionLink = motion.create(Link);
 
 export function Landing() {
+  const sampleModel = useSampleModel();
   const [mounted, setMounted] = useState(false);
   const [wordIdx, setWordIdx] = useState(0);
   const [wordVisible, setWordVisible] = useState(true);
@@ -197,7 +199,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model: "gemini-3.1-pro",
+  model: "${sampleModel}",
   messages: [{ role: "user", content: "Hello!" }],
 });`}</pre>
             </div>

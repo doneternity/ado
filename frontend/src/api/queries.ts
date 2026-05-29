@@ -2,10 +2,31 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CurrentKeyResponse, FlashKeyResponse, KeyJustIssued, MeResponse } from "../types/api";
 import { apiFetch, ApiError, setCsrfToken } from "./client";
 import { clearRawKey, loadRawKey, saveRawKey } from "./raw-key-storage";
+import { pickSampleModel } from "../data/sample-model";
 
 export const meKey = ["me"] as const;
 export const currentKeyKey = ["keys", "current"] as const;
 export const rawKeyKey = ["keys", "raw"] as const;
+export const publicModelsKey = ["models", "public"] as const;
+
+// Shared, cached fetch of the public model list (no key required).
+export function usePublicModels() {
+  return useQuery({
+    queryKey: publicModelsKey,
+    queryFn: async () => {
+      const r = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/models");
+      const d = (await r.json()) as { data?: { id: string }[] };
+      return (d.data ?? []).map((m) => m.id);
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+// The example model ID for docs/snippets — live-resolved with a static fallback.
+export function useSampleModel(): string {
+  const { data } = usePublicModels();
+  return pickSampleModel(data);
+}
 
 export function useMe(opts?: { refetchInterval?: number }) {
   const qc = useQueryClient();

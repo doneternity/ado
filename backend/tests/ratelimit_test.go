@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/store/db"
 )
@@ -60,6 +61,40 @@ func assert429(t *testing.T, resp *http.Response) {
 	}
 	if resp.Header.Get("Retry-After") == "" {
 		t.Fatal("expected Retry-After header on 429 response")
+	}
+}
+
+// TestRateLimit_WindowDoesNotSlide guards against the regression where calling
+// EXPIRE on every increment reset the TTL, turning the fixed window into a
+// never-resetting one that blocks active keys forever.
+func TestRateLimit_WindowDoesNotSlide(t *testing.T) {
+	fx := newFixture(t)
+	l := mw.NewLimiter(fx.rdb)
+	ctx := context.Background()
+	const key = "rl:test:window-slide"
+	const window = 10 * time.Second
+
+	if _, _, err := l.Check(ctx, key, 100, window); err != nil {
+		t.Fatalf("first Check: %v", err)
+	}
+	ttl1, err := fx.rdb.PTTL(ctx, key).Result()
+	if err != nil {
+		t.Fatalf("PTTL 1: %v", err)
+	}
+
+	time.Sleep(600 * time.Millisecond)
+
+	if _, _, err := l.Check(ctx, key, 100, window); err != nil {
+		t.Fatalf("second Check: %v", err)
+	}
+	ttl2, err := fx.rdb.PTTL(ctx, key).Result()
+	if err != nil {
+		t.Fatalf("PTTL 2: %v", err)
+	}
+
+	// The window must keep counting down, not get pushed back out to ~full.
+	if ttl2 >= ttl1 {
+		t.Fatalf("TTL was extended on a later request (window slid): ttl1=%v ttl2=%v", ttl1, ttl2)
 	}
 }
 

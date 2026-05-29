@@ -22,7 +22,10 @@ func NewLimiter(rdb *redis.Client) *Limiter { return &Limiter{rdb: rdb} }
 func (l *Limiter) Check(ctx context.Context, key string, limit int, window time.Duration) (allowed bool, retryAfter time.Duration, err error) {
 	pipe := l.rdb.TxPipeline()
 	incr := pipe.Incr(ctx, key)
-	pipe.Expire(ctx, key, window)
+	// ExpireNX sets the TTL only on the first increment (when the key has no
+	// expiry yet). Using plain Expire here would reset the TTL on every request,
+	// so a continuously-active key would never reset and stay blocked forever.
+	pipe.ExpireNX(ctx, key, window)
 	if _, err := pipe.Exec(ctx); err != nil {
 		return false, 0, err
 	}

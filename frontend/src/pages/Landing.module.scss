@@ -266,6 +266,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  min-width: 0; // allow the grid track to shrink instead of overflowing
   @media (min-width: 1024px) { padding: 48px; }
 }
 .cardNum {
@@ -317,6 +318,7 @@
   display: flex;
   align-items: center;
   padding: 24px 20px;
+  min-width: 0; // let the code block scroll inside instead of widening the card
 
   @media (max-width: 900px) {
     border-left: none;

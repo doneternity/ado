@@ -1,8 +1,7 @@
 import { Link } from "react-router-dom";
 import styles from "./Footer.module.scss";
 
-const DISCORD_URL =
-  import.meta.env.VITE_DISCORD_INVITE_URL || "https://discord.com/invite/adoai";
+const DISCORD_URL = import.meta.env.VITE_DISCORD_INVITE_URL as string;
 
 type NavLink =
   | { name: string; to: string; href?: never }

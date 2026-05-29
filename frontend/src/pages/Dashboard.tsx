@@ -37,9 +37,9 @@ function BetaBanner() {
 }
 
 const FEATURED_MODELS = [
-  { id: "codebuddy/gemini-3.1-pro",  name: "Gemini 3.1 Pro",    cap: "Reasoning" },
-  { id: "kiro/claude-sonnet-4.5",    name: "Claude Sonnet 4.5", cap: "Coding"    },
-  { id: "codex/gpt-5.5",             name: "GPT-5.5",           cap: "General"   },
+  { id: "gemini-3.1-pro",   name: "Gemini 3.1 Pro",  cap: "Reasoning" },
+  { id: "claude-opus-4-7",  name: "Claude Opus 4.7", cap: "Coding"    },
+  { id: "gpt-5.5",          name: "GPT-5.5",         cap: "General"   },
 ];
 
 const stagger = {
@@ -150,7 +150,7 @@ function KeyCard() {
 
   function copyCurl() {
     if (!raw) { showToast("Rotate your key to reveal it first."); return; }
-    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw.key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"codebuddy/gemini-3.1-pro","messages":[{"role":"user","content":"Hello!"}]}'`;
+    const snippet = `curl ${PROXY_BASE}/chat/completions \\\n  -H "Authorization: Bearer ${raw.key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"gemini-3.1-pro","messages":[{"role":"user","content":"Hello!"}]}'`;
     void navigator.clipboard.writeText(snippet);
     setCopiedCurl(true);
     setTimeout(() => setCopiedCurl(false), 1800);
@@ -248,7 +248,7 @@ const client = new OpenAI({
 });
 
 const res = await client.chat.completions.create({
-  model:    "codebuddy/gemini-3.1-pro",
+  model:    "gemini-3.1-pro",
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(res.choices[0].message.content);`;

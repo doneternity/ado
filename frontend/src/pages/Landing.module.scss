@@ -36,7 +36,7 @@
   font-size: clamp(3.5rem, 8vw, 8rem);
   font-weight: 400;
   letter-spacing: -.025em;
-  line-height: .9;
+  line-height: 1.05; // clears descenders ("app.") from the line below
   color: #ffffff;
 }
 

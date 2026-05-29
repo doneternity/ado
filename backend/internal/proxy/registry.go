@@ -14,16 +14,20 @@ type cachedModels struct {
 }
 
 type Registry struct {
-	chain atomic.Pointer[[]*Forwarder]
-	mcMu  sync.Mutex
-	mc    *cachedModels
+	chain  atomic.Pointer[[]*Forwarder]
+	mcMu   sync.Mutex
+	mc     *cachedModels
+	health *ModelHealth
 }
 
 func NewRegistry() *Registry {
-	r := &Registry{}
+	r := &Registry{health: NewModelHealth()}
 	r.Swap(nil)
 	return r
 }
+
+// Health exposes the per-model availability tracker.
+func (r *Registry) Health() *ModelHealth { return r.health }
 
 func (r *Registry) Get() []*Forwarder {
 	if p := r.chain.Load(); p != nil {

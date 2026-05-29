@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -70,6 +71,65 @@ func (f *Forwarder) do(r *http.Request, path string, body []byte) (*http.Respons
 	return f.Client.Do(req)
 }
 
+// probe sends a minimal chat request to check whether this provider can serve
+// the given model. Returns true only on a 2xx response.
+func (f *Forwarder) probe(ctx context.Context, model string) bool {
+	body, err := json.Marshal(map[string]any{
+		"model":      model,
+		"messages":   []map[string]string{{"role": "user", "content": "ping"}},
+		"max_tokens": 1,
+	})
+	if err != nil {
+		return false
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, f.BaseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Authorization", "Bearer "+f.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := f.Client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _, _ = io.Copy(io.Discard, resp.Body); _ = resp.Body.Close() }()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+// Probe checks a model against the chain and records the result. A model is
+// healthy if any provider in the chain serves it.
+func (r *Registry) Probe(ctx context.Context, model string) {
+	chain := r.Get()
+	if len(chain) == 0 {
+		return
+	}
+	ok := false
+	for _, f := range chain {
+		if f.probe(ctx, model) {
+			ok = true
+			break
+		}
+	}
+	r.health.Record(model, ok)
+}
+
+// CachedModelIDs returns the model IDs from the last /models aggregation, for
+// the background prober to cycle through.
+func (r *Registry) CachedModelIDs() []string {
+	r.mcMu.Lock()
+	defer r.mcMu.Unlock()
+	if r.mc == nil {
+		return nil
+	}
+	ids := make([]string, 0, len(r.mc.data))
+	for _, m := range r.mc.data {
+		if id, _ := m["id"].(string); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 // Forward tries each provider in order until one returns a non-failover
 // response, which it streams to the client. The returned status is the HTTP
 // status code that was served (0 if no provider served a response).
@@ -110,7 +170,7 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 		cached := r.mc.data
 		r.mcMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": cached})
+		return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": r.withStatus(cached)})
 	}
 	r.mcMu.Unlock()
 
@@ -175,7 +235,29 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 	r.mcMu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": all})
+	return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": r.withStatus(all)})
+}
+
+// withStatus returns a copy of the model list with each item's ado_status set
+// from the health tracker. It copies each map so the cached list (shared across
+// requests) is never mutated.
+func (r *Registry) withStatus(list []map[string]any) []map[string]any {
+	out := make([]map[string]any, len(list))
+	for i, m := range list {
+		cp := make(map[string]any, len(m)+1)
+		for k, v := range m {
+			cp[k] = v
+		}
+		status := "available"
+		if id, _ := m["id"].(string); id != "" {
+			if s := r.health.Status(id); s != "" {
+				status = s
+			}
+		}
+		cp["ado_status"] = status
+		out[i] = cp
+	}
+	return out
 }
 
 func isFailoverStatus(code int) bool {

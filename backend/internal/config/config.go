@@ -34,6 +34,11 @@ type Config struct {
 	ProviderKeySecret string `env:"PROVIDER_KEY_SECRET,required"`
 
 	AdminBootstrapEmail string `env:"ADMIN_BOOTSTRAP_EMAIL"`
+
+	// Background model health probing. Interval 0 disables active probing
+	// (passive tracking from real traffic still runs).
+	ModelProbeInterval int `env:"MODEL_PROBE_INTERVAL_SECONDS" envDefault:"90"`
+	ModelProbeBatch    int `env:"MODEL_PROBE_BATCH"           envDefault:"2"`
 }
 
 func Load() (*Config, error) {

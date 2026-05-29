@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/pgtype"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
 	"github.com/ado/ado/backend/internal/auth"
@@ -176,6 +176,38 @@ func main() {
 			}
 		}
 	}()
+
+	// Background model health prober: cycles through the live model list a few at
+	// a time so /models reports real chat availability, not just "listed".
+	if cfg.ModelProbeInterval > 0 {
+		go func() {
+			t := time.NewTicker(time.Duration(cfg.ModelProbeInterval) * time.Second)
+			defer t.Stop()
+			cursor := 0
+			batch := cfg.ModelProbeBatch
+			if batch < 1 {
+				batch = 1
+			}
+			for {
+				select {
+				case <-t.C:
+					ids := reg.CachedModelIDs()
+					if len(ids) == 0 {
+						continue
+					}
+					for i := 0; i < batch && i < len(ids); i++ {
+						model := ids[cursor%len(ids)]
+						cursor++
+						pctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+						reg.Probe(pctx, model)
+						cancel()
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions:         sessions,

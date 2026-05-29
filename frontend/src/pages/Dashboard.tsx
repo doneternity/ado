@@ -322,7 +322,18 @@ function UsageChart() {
     );
   }
 
-  const maxVal = Math.max(...data.map((d) => d.used), 1);
+  // The API only returns days that had traffic. Zero-fill a fixed 30-day window
+  // so the chart always shows 30 bars instead of one giant block for a single
+  // active day.
+  const byDay = new Map(data!.map((d) => [d.day, d.used]));
+  const days: { day: string; used: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ day: key, used: byDay.get(key) ?? 0 });
+  }
+  const maxVal = Math.max(...days.map((d) => d.used), 1);
 
   return (
     <motion.div className={styles.usageCard} variants={fade}>
@@ -331,7 +342,7 @@ function UsageChart() {
         <span className={styles.usageCardTitle}>Usage — Last 30 Days</span>
       </div>
       <div className={styles.usageChartBars}>
-        {data.map((d) => (
+        {days.map((d) => (
           <div
             key={d.day}
             title={`${d.day}: ${d.used}`}
@@ -343,7 +354,7 @@ function UsageChart() {
           />
         ))}
       </div>
-      <div className={styles.usageChartDate}>{data.at(-1)?.day ?? ""}</div>
+      <div className={styles.usageChartDate}>{days.at(-1)?.day ?? ""}</div>
     </motion.div>
   );
 }

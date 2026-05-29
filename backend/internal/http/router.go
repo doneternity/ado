@@ -41,7 +41,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(mw.Logger)
 	r.Use(mw.ErrorLogger(d.Queries))
 	r.Use(mw.LoadSession(d.Sessions, d.Queries))
-	r.Use(mw.MaxBodySize(1 << 20)) // 1 MB hard cap for all routes
+	r.Use(mw.MaxBodySize(30 << 20)) // 30 MB backstop; per-handler caps are far lower (Bind 64KB, chat 512KB, passthrough 25MB)
 
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -82,6 +82,27 @@ func NewRouter(d Deps) http.Handler {
 			Get("/models", d.Proxy.Models)
 		r.With(d.Limiter.PerKeyDynamic("rl:v1:chat:key", d.RpmCfg.Get, time.Minute, false)).
 			Post("/chat/completions", d.Proxy.ChatCompletions)
+
+		// OpenAI-compatible passthrough endpoints. They share one per-key rate
+		// limit and forward to the upstream provider with failover.
+		r.Group(func(r chi.Router) {
+			r.Use(d.Limiter.PerKeyDynamic("rl:v1:passthrough:key", d.RpmCfg.Get, time.Minute, false))
+			r.Post("/embeddings", d.Proxy.Passthrough("/embeddings"))
+			r.Post("/images/generations", d.Proxy.Passthrough("/images/generations"))
+			r.Post("/images/edits", d.Proxy.Passthrough("/images/edits"))
+			r.Post("/images/variations", d.Proxy.Passthrough("/images/variations"))
+			r.Post("/audio/speech", d.Proxy.Passthrough("/audio/speech"))
+			r.Post("/audio/transcriptions", d.Proxy.Passthrough("/audio/transcriptions"))
+			r.Post("/audio/translations", d.Proxy.Passthrough("/audio/translations"))
+			r.Post("/rerank", d.Proxy.Passthrough("/rerank"))
+			r.Post("/responses", d.Proxy.Passthrough("/responses"))
+			r.Post("/responses/compact", d.Proxy.Passthrough("/responses/compact"))
+			r.Post("/moderations", d.Proxy.Passthrough("/moderations"))
+			r.Post("/messages", d.Proxy.Passthrough("/messages"))
+		})
+
+		// Realtime is a WebSocket; it can't fail over or be rate-limited per call.
+		r.Get("/realtime", d.Proxy.Realtime)
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {

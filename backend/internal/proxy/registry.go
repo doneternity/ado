@@ -29,6 +29,16 @@ func NewRegistry() *Registry {
 // Health exposes the per-model availability tracker.
 func (r *Registry) Health() *ModelHealth { return r.health }
 
+// First returns the highest-priority forwarder, or nil if the chain is empty.
+// Used for endpoints that can't fail over (e.g. realtime WebSocket).
+func (r *Registry) First() *Forwarder {
+	chain := r.Get()
+	if len(chain) == 0 {
+		return nil
+	}
+	return chain[0]
+}
+
 func (r *Registry) Get() []*Forwarder {
 	if p := r.chain.Load(); p != nil {
 		return *p

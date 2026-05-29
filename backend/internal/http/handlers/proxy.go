@@ -6,12 +6,19 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
 
 	"github.com/ado/ado/backend/internal/apperr"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/quota"
 )
+
+// maxPassthroughBody caps passthrough request bodies. Larger than chat to allow
+// image/audio uploads, but bounded to protect the server.
+const maxPassthroughBody = 25 << 20 // 25 MB
 
 type ProxyDeps struct {
 	Registry    *proxy.Registry
@@ -159,4 +166,102 @@ func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("aggregate models failed", "err", err)
 		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
 	}
+}
+
+// Passthrough forwards a request to the given upstream path with the same
+// failover/streaming behaviour as chat completions. It charges one quota unit
+// and refunds it if no provider serves the request or it's rejected with a 4xx.
+// Works for JSON, multipart (image/audio uploads), and binary responses.
+func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if p.d.Maintenance.Enabled() {
+			apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+			return
+		}
+		bk, ok := mw.BearerFromContext(r.Context())
+		if !ok {
+			apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
+			return
+		}
+
+		data, err := io.ReadAll(io.LimitReader(r.Body, maxPassthroughBody+1))
+		if err != nil {
+			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "could not read request body"))
+			return
+		}
+		if int64(len(data)) > maxPassthroughBody {
+			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "request body too large"))
+			return
+		}
+
+		if _, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit); err != nil {
+			if errors.Is(err, quota.ErrExceeded) {
+				apperr.Write(w, apperr.TooMany("QUOTA_EXCEEDED", "daily quota exceeded").
+					WithExtra("limit", bk.DailyLimit))
+				return
+			}
+			apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
+			return
+		}
+
+		started, status, err := p.d.Registry.Forward(w, r, upstreamPath, data)
+		if !started {
+			if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
+				slog.Warn("quota refund failed", "err", rerr)
+			}
+			if err != nil {
+				slog.Warn("passthrough forward failed", "path", upstreamPath, "err", err)
+			}
+			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+			return
+		}
+		if status >= 400 && status < 500 {
+			if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
+				slog.Warn("quota refund failed", "err", rerr)
+			}
+		}
+		if err != nil {
+			slog.Warn("passthrough stream interrupted", "path", upstreamPath, "err", err)
+		}
+	}
+}
+
+// Realtime reverse-proxies the WebSocket realtime endpoint to the first active
+// provider. It cannot fail over mid-connection, so it uses a single provider and
+// rewrites auth to the provider key. Browser clients can't set the Authorization
+// header on a WebSocket, so this serves server-side clients (Bearer required).
+func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
+	if p.d.Maintenance.Enabled() {
+		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+		return
+	}
+	if _, ok := mw.BearerFromContext(r.Context()); !ok {
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
+		return
+	}
+	fwd := p.d.Registry.First()
+	if fwd == nil {
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		return
+	}
+	target, err := url.Parse(fwd.BaseURL)
+	if err != nil {
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		return
+	}
+	rp := &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = target.Scheme
+			req.URL.Host = target.Host
+			req.URL.Path = strings.TrimRight(target.Path, "/") + "/realtime"
+			req.Host = target.Host
+			req.Header.Set("Authorization", "Bearer "+fwd.APIKey)
+			req.Header.Del("Cookie")
+		},
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, e error) {
+			slog.Warn("realtime proxy failed", "err", e)
+			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		},
+	}
+	rp.ServeHTTP(w, r)
 }

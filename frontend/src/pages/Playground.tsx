@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Send, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
-import { useMe, useRawKey, rawKeyKey } from "../api/queries";
+import { useMe, useRawKey, rawKeyKey, usePublicModels } from "../api/queries";
 import { clearRawKey, saveRawKey } from "../api/raw-key-storage";
 import { MODELS } from "../data/models";
 import type { ModelProvider } from "../data/models";
@@ -214,9 +214,16 @@ export function Playground() {
   const raw = useRawKey();
   const qc = useQueryClient();
 
+  // The full model list comes from the public /models endpoint (no key needed),
+  // so the picker always reflects the live provider — not the curated subset.
+  const { data: liveIds } = usePublicModels();
+  const pickerModels = useMemo<PickerModel[]>(
+    () => (liveIds && liveIds.length ? toPickerModels(liveIds) : STATIC_MODELS),
+    [liveIds],
+  );
+
   const [apiKey, setApiKey]         = useState(() => raw?.key ?? "");
   const [model, setModel]           = useState(MODELS[0]!.id);
-  const [pickerModels, setPickerModels] = useState<PickerModel[]>(STATIC_MODELS);
   const [systemPrompt, setSystem]   = useState("");
   const [showSystem, setShowSys]    = useState(false);
   const [messages, setMessages]     = useState<Msg[]>([]);
@@ -255,31 +262,12 @@ export function Playground() {
     saveRawKey(me.user.id, issued);
   }, [apiKey, me, raw, qc]);
 
-  // Fetch live model list from the proxy whenever we have a valid key.
-  // Debounced so each keystroke while pasting/typing doesn't fire a request.
+  // Keep the selected model valid as the live list loads/changes.
   useEffect(() => {
-    if (!keyValid(apiKey)) {
-      setPickerModels(STATIC_MODELS);
-      // Snap back to a static model if the current selection is live-only.
-      if (!STATIC_MODELS.find(m => m.id === model)) setModel(STATIC_MODELS[0]!.id);
-      return;
+    if (pickerModels.length && !pickerModels.find(m => m.id === model)) {
+      setModel(pickerModels[0]!.id);
     }
-    let cancelled = false;
-    const t = setTimeout(() => {
-      fetch(`${PROXY_BASE}/models`, { headers: { Authorization: `Bearer ${apiKey}` } })
-        .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-        .then((d: { data?: { id: string }[] }) => {
-          if (cancelled || !d.data?.length) return;
-          const live = toPickerModels(d.data.map(m => m.id));
-          setPickerModels(live);
-          // If the current model isn't in the live list, switch to the first live model.
-          if (!live.find(m => m.id === model)) setModel(live[0]!.id);
-        })
-        .catch(() => { /* keep static list */ });
-    }, 300);
-    return () => { cancelled = true; clearTimeout(t); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKey]);
+  }, [pickerModels, model]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

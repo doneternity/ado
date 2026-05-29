@@ -8,7 +8,17 @@ const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, tr
 export function AdminUsage() {
   const { data: stats } = useAdminStats();
 
-  const maxVal = Math.max(...(stats?.daily?.map((d) => d.total) ?? [1]), 1);
+  // The API only returns days that had traffic. Zero-fill a fixed 30-day window
+  // so the chart shows a continuous axis instead of a few uneven bars.
+  const byDay = new Map((stats?.daily ?? []).map((d) => [d.day, d.total]));
+  const days: { day: string; total: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ day: key, total: byDay.get(key) ?? 0 });
+  }
+  const maxVal = Math.max(...days.map((d) => d.total), 1);
 
   return (
     <motion.div {...fade}>
@@ -19,7 +29,7 @@ export function AdminUsage() {
 
       <div className={styles.chartWrap}>
         <div className={styles.chartBars}>
-          {(stats?.daily ?? []).map((d) => (
+          {days.map((d) => (
             <div
               key={d.day}
               title={`${d.day}: ${d.total}`}
@@ -33,7 +43,7 @@ export function AdminUsage() {
             />
           ))}
         </div>
-        <div className={styles.chartDate}>{stats?.daily?.at(-1)?.day ?? ""}</div>
+        <div className={styles.chartDate}>{days.at(-1)?.day ?? ""}</div>
       </div>
 
       <div className={styles.sectionLabel}>Top Users This Month</div>

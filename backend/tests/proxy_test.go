@@ -37,7 +37,7 @@ func TestForwarder_Streams(t *testing.T) {
 
 	reg := proxy.NewRegistry()
 	reg.Swap([]*proxy.Forwarder{proxy.New(upstream.URL, "SECRET")})
-	if _, err := reg.Forward(rr, r, "/chat/completions", body); err != nil {
+	if _, _, err := reg.Forward(rr, r, "/chat/completions", body); err != nil {
 		t.Fatal(err)
 	}
 
@@ -47,6 +47,36 @@ func TestForwarder_Streams(t *testing.T) {
 	}
 	if rr.Header().Get("Content-Type") != "text/event-stream" {
 		t.Fatal("missing Content-Type pass-through")
+	}
+}
+
+// TestForwarder_SurfacesClientErrorStatus verifies Forward reports a served
+// 4xx (rather than failing over), so the handler can refund quota for it.
+func TestForwarder_SurfacesClientErrorStatus(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"unknown model"}}`))
+	}))
+	defer upstream.Close()
+
+	body := []byte(`{"model":"does-not-exist","messages":[{"role":"user","content":"hi"}]}`)
+	r := httptest.NewRequest("POST", "/chat/completions", bytes.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	reg := proxy.NewRegistry()
+	reg.Swap([]*proxy.Forwarder{proxy.New(upstream.URL, "SECRET")})
+
+	started, status, err := reg.Forward(rr, r, "/chat/completions", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !started {
+		t.Fatal("expected started=true for a non-failover 4xx")
+	}
+	if status != http.StatusBadRequest {
+		t.Fatalf("status=%d, want 400", status)
 	}
 }
 

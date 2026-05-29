@@ -58,15 +58,28 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
 		return
 	}
-	started, err := p.d.Registry.Forward(w, r, "/chat/completions", data)
-	if err != nil {
-		slog.Warn("proxy forward failed", "path", "/chat/completions", "err", err)
-		if !started {
-			if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
-				slog.Warn("quota refund failed", "err", rerr)
-			}
-			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+	started, status, err := p.d.Registry.Forward(w, r, "/chat/completions", data)
+	if !started {
+		// No provider served the request, so it never reached a model — refund.
+		if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
+			slog.Warn("quota refund failed", "err", rerr)
 		}
+		if err != nil {
+			slog.Warn("proxy forward failed", "path", "/chat/completions", "err", err)
+		}
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		return
+	}
+	// A response was streamed. Don't charge the user's daily quota for their own
+	// client error (4xx) — those never consumed model capacity. 5xx/429 from the
+	// provider are failover statuses and never reach here.
+	if status >= 400 && status < 500 {
+		if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
+			slog.Warn("quota refund failed", "err", rerr)
+		}
+	}
+	if err != nil {
+		slog.Warn("proxy stream interrupted", "path", "/chat/completions", "err", err)
 	}
 }
 

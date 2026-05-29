@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-
 const (
 	dialTimeout           = 5 * time.Second
 	responseHeaderTimeout = 120 * time.Second
@@ -71,10 +70,13 @@ func (f *Forwarder) do(r *http.Request, path string, body []byte) (*http.Respons
 	return f.Client.Do(req)
 }
 
-func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string, body []byte) (started bool, err error) {
+// Forward tries each provider in order until one returns a non-failover
+// response, which it streams to the client. The returned status is the HTTP
+// status code that was served (0 if no provider served a response).
+func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string, body []byte) (started bool, status int, err error) {
 	chain := r.Get()
 	if len(chain) == 0 {
-		return false, errors.New("no provider configured")
+		return false, 0, errors.New("no provider configured")
 	}
 	var lastErr error
 	for _, f := range chain {
@@ -89,9 +91,9 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 			_ = resp.Body.Close()
 			continue
 		}
-		return true, streamResponse(w, resp)
+		return true, resp.StatusCode, streamResponse(w, resp)
 	}
-	return false, lastErr
+	return false, 0, lastErr
 }
 
 // AggregateModels queries all providers concurrently and merges their model

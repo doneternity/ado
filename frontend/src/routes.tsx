@@ -1,35 +1,43 @@
 import type { ReactNode } from "react";
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate, Outlet, ScrollRestoration } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/AdminLayout";
+import { useMe } from "./api/queries";
+import { PageLoader } from "./components/PageLoader";
+
+// marketing pages load eagerly so first paint is instant
 import { Login } from "./pages/Login";
 import { SignUp } from "./pages/SignUp";
 import { JoinRequired } from "./pages/JoinRequired";
-import { Dashboard } from "./pages/Dashboard";
 import { NotFound } from "./pages/NotFound";
 import { Landing } from "./pages/Landing";
 import { Models } from "./pages/Models";
-import { Docs } from "./pages/Docs";
 import { Pricing } from "./pages/Pricing";
 import { Status } from "./pages/Status";
-import { Playground } from "./pages/Playground";
 import { Privacy } from "./pages/Privacy";
 import { Terms } from "./pages/Terms";
-import { AdminOverview } from "./pages/admin/AdminOverview";
-import { AdminProviders } from "./pages/admin/AdminProviders";
-import { AdminUsers } from "./pages/admin/AdminUsers";
-import { AdminUsage } from "./pages/admin/AdminUsage";
-import { AdminQuotas } from "./pages/admin/AdminQuotas";
-import { AdminErrors } from "./pages/admin/AdminErrors";
-import { AdminMaintenance } from "./pages/admin/AdminMaintenance";
-import { useMe } from "./api/queries";
-import { PageLoader } from "./components/PageLoader";
+
+// heavier / auth-gated pages split into their own chunks
+const named = <T,>(p: Promise<Record<string, T>>, key: string) => p.then((m) => ({ default: m[key] as T }));
+const Dashboard = lazy(() => named(import("./pages/Dashboard"), "Dashboard"));
+const Docs = lazy(() => named(import("./pages/Docs"), "Docs"));
+const Playground = lazy(() => named(import("./pages/Playground"), "Playground"));
+const AdminOverview = lazy(() => named(import("./pages/admin/AdminOverview"), "AdminOverview"));
+const AdminProviders = lazy(() => named(import("./pages/admin/AdminProviders"), "AdminProviders"));
+const AdminUsers = lazy(() => named(import("./pages/admin/AdminUsers"), "AdminUsers"));
+const AdminUsage = lazy(() => named(import("./pages/admin/AdminUsage"), "AdminUsage"));
+const AdminQuotas = lazy(() => named(import("./pages/admin/AdminQuotas"), "AdminQuotas"));
+const AdminErrors = lazy(() => named(import("./pages/admin/AdminErrors"), "AdminErrors"));
+const AdminMaintenance = lazy(() => named(import("./pages/admin/AdminMaintenance"), "AdminMaintenance"));
 
 function Root() {
   return (
     <Layout>
       <ScrollRestoration />
-      <Outlet />
+      <Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </Suspense>
     </Layout>
   );
 }
@@ -38,7 +46,9 @@ function AdminRoot() {
   return (
     <AdminLayout>
       <ScrollRestoration />
-      <Outlet />
+      <Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </Suspense>
     </AdminLayout>
   );
 }

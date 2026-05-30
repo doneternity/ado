@@ -25,3 +25,34 @@ p { line-height: 1.6; }
 @keyframes revealLine { from { opacity: 0; transform: translateY(6px);  } to { opacity: 1; transform: none; } }
 @keyframes blink      { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 @keyframes pop        { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+// keyboard focus ring; none was defined, so keyboard users saw nothing
+:focus-visible {
+  outline: 2px solid var(--electric);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+// skip link, hidden until focused
+.skip-link {
+  position: fixed;
+  top: -120px;
+  left: var(--space-4);
+  z-index: 1000;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-raised);
+  color: var(--black);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  transition: top var(--t-fast);
+}
+.skip-link:focus { top: var(--space-4); }
+
+// respect reduced-motion requests
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

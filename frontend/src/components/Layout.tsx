@@ -33,14 +33,17 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (me) return;
-    fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/slots")
-      .then((r) => r.json())
-      .then((d: { full: boolean }) => setSlotsFull(d.full))
+    const ctrl = new AbortController();
+    fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/slots", { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { full?: boolean } | null) => setSlotsFull(Boolean(d?.full)))
       .catch(() => {});
+    return () => ctrl.abort();
   }, [me]);
 
   return (
     <div className={styles.frame}>
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <header className={`${styles.header} ${scrolled ? styles.headerScrolled : styles.headerTop}`}>
         <nav className={styles.nav}>
           <Link to="/" className={styles.wordmark}>ADO</Link>
@@ -83,7 +86,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
       </header>
 
-      <div className={`${styles.shell}${isHero ? ` ${styles.shellHero}` : ""}`}>{children}</div>
+      <main id="main-content" className={`${styles.shell}${isHero ? ` ${styles.shellHero}` : ""}`}>{children}</main>
 
       <nav className={styles.mobileBottomNav}>
         <Link to="/models"     className={`${styles.mobileNavItem}${pathname === "/models"     ? ` ${styles.mobileNavActive}` : ""}`}>Models</Link>

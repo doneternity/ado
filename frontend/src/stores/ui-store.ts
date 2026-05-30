@@ -19,7 +19,7 @@ export const useUiStore = create<UiState>()(
       setTosAccepted: (v) => set({ tosAccepted: v }),
       setPrivacyAccepted: (v) => set({ privacyAccepted: v }),
       toast: null,
-      showToast: (message) => set({ toast: { message, key: Date.now() } }),
+      showToast: (message) => set((s) => ({ toast: { message, key: (s.toast?.key ?? 0) + 1 } })),
       hideToast: () => set({ toast: null }),
     }),
     {

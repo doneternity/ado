@@ -1,10 +1,12 @@
 package middleware
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 
 	"github.com/ado/ado/backend/internal/store/db"
@@ -49,4 +51,16 @@ func (sw *statusWriter) Write(b []byte) (int, error) {
 		sw.status = http.StatusOK
 	}
 	return sw.ResponseWriter.Write(b)
+}
+
+// unwrap so ResponseController can reach the real writer; without it the
+// wrapper would break streaming (flush) and websocket upgrades (hijack).
+func (sw *statusWriter) Unwrap() http.ResponseWriter { return sw.ResponseWriter }
+
+func (sw *statusWriter) Flush() {
+	_ = http.NewResponseController(sw.ResponseWriter).Flush()
+}
+
+func (sw *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(sw.ResponseWriter).Hijack()
 }

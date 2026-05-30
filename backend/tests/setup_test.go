@@ -163,7 +163,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		DiscordGuildID:      "1506040288182014043",
 	}
 	sessions := auth.NewSessions(q, auth.SessionConfig{IdleDays: 7, AbsoluteDays: 30, CookieSecure: false})
-	keysSvc := keys.NewService(q, rdb)
+	keysSvc := keys.NewService(q, pool, rdb)
 	authH := handlers.NewAuth(handlers.AuthDeps{Q: q, Sessions: sessions})
 	limiter := mw.NewLimiter(rdb)
 	keysH := handlers.NewKeys(handlers.KeysDeps{Q: q, Keys: keysSvc})

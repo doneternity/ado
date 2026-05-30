@@ -1,8 +1,9 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { DISCORD_INVITE_URL } from "../config";
 import styles from "./Legal.module.scss";
 
-const DISCORD = "https://discord.gg/PNgXaS3Hu";
+const DISCORD = DISCORD_INVITE_URL;
 
 const fade = {
   initial: { opacity: 0, y: 14 },

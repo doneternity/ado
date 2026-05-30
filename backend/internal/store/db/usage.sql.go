@@ -12,11 +12,14 @@ import (
 )
 
 const carryUsageToNewKey = `-- name: CarryUsageToNewKey :exec
+WITH moved AS (
+  DELETE FROM daily_usage
+  WHERE daily_usage.key_id = $1 AND day = CURRENT_DATE
+  RETURNING day, used
+)
 INSERT INTO daily_usage (key_id, day, used)
-SELECT $2, day, used
-FROM daily_usage
-WHERE daily_usage.key_id = $1 AND day = CURRENT_DATE
-ON CONFLICT DO NOTHING
+SELECT $2, day, used FROM moved
+ON CONFLICT (key_id, day) DO UPDATE SET used = EXCLUDED.used
 `
 
 type CarryUsageToNewKeyParams struct {

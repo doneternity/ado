@@ -6,3 +6,7 @@ export const API_BASE_URL = "https://adoai.space/v1";
 // against whatever host the app is served from, so it works on both the apex
 // and www domains without a cross-origin (CORS) hop.
 export const PROXY_REQUEST_BASE = "/v1";
+
+// discord invite, single source of truth. override via VITE_DISCORD_INVITE_URL.
+export const DISCORD_INVITE_URL =
+  import.meta.env.VITE_DISCORD_INVITE_URL || "https://discord.com/invite/adoai";

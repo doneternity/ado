@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/ado/ado/backend/internal/store/db"
@@ -17,12 +18,13 @@ import (
 const DefaultDailyLimit = 100
 
 type Service struct {
-	q   *db.Queries
-	rdb *redis.Client
+	q    *db.Queries
+	pool *pgxpool.Pool
+	rdb  *redis.Client
 }
 
-func NewService(q *db.Queries, rdb *redis.Client) *Service {
-	return &Service{q: q, rdb: rdb}
+func NewService(q *db.Queries, pool *pgxpool.Pool, rdb *redis.Client) *Service {
+	return &Service{q: q, pool: pool, rdb: rdb}
 }
 
 type Issued struct {
@@ -55,43 +57,57 @@ func (s *Service) EnsureForUser(ctx context.Context, userID uuid.UUID) (Issued, 
 	return Issued{Raw: raw, Prefix: row.KeyPrefix, DailyLimit: row.DailyLimit}, nil
 }
 
-// Rotate revokes any active key and issues a new one, carrying today's usage
-// forward so the quota cannot be reset for free by rotating.
-// Non-transactional is acceptable: the partial unique index ado_keys_one_active_per_user
-// prevents a double-issue race.
+// Rotate revokes the active key and issues a new one, moving today's usage
+// over so rotating can't reset the quota. all in one tx: a partial failure
+// rolls back, so the user is never left keyless.
 func (s *Service) Rotate(ctx context.Context, userID uuid.UUID) (Issued, error) {
-	// Fetch the old key so we can copy its usage to the new one.
-	oldKey, err := s.q.GetActiveKeyByUser(ctx, userID)
+	limit := s.defaultLimit(ctx)
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Issued{}, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.q.WithTx(tx)
+
+	// fetch the old key so we can carry its usage over.
+	oldKey, err := qtx.GetActiveKeyByUser(ctx, userID)
+	hadOld := err == nil
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return Issued{}, err
 	}
 
-	if err := s.q.RevokeActiveKeyForUser(ctx, userID); err != nil {
+	if err := qtx.RevokeActiveKeyForUser(ctx, userID); err != nil {
 		return Issued{}, err
 	}
 	raw, prefix, hash, err := Generate()
 	if err != nil {
 		return Issued{}, err
 	}
-	row, err := s.q.CreateAdoKey(ctx, db.CreateAdoKeyParams{
+	row, err := qtx.CreateAdoKey(ctx, db.CreateAdoKeyParams{
 		UserID:     userID,
 		KeyPrefix:  prefix,
 		KeyHash:    hash,
-		DailyLimit: s.defaultLimit(ctx),
+		DailyLimit: limit,
 	})
 	if err != nil {
 		return Issued{}, err
 	}
 
-	// Carry today's usage from the old key to the new key so rotating doesn't
-	// reset the daily quota counter.
-	if oldKey.ID != (uuid.UUID{}) {
-		_ = s.q.CarryUsageToNewKey(ctx, db.CarryUsageToNewKeyParams{
+	// move today's usage to the new key so rotating can't reset the quota
+	// (and so admin totals don't double-count it).
+	if hadOld {
+		if err := qtx.CarryUsageToNewKey(ctx, db.CarryUsageToNewKeyParams{
 			KeyID:   oldKey.ID,
 			KeyID_2: row.ID,
-		})
+		}); err != nil {
+			return Issued{}, err
+		}
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return Issued{}, err
+	}
 	return Issued{Raw: raw, Prefix: row.KeyPrefix, DailyLimit: row.DailyLimit}, nil
 }
 

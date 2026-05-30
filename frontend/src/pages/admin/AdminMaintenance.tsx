@@ -32,7 +32,15 @@ export function AdminMaintenance() {
             : "All systems operational. Enabling this will block all API traffic for all users."}
         </p>
         <label className={styles.toggle}>
-          <input type="checkbox" checked={on} onChange={() => toggle.mutate(undefined, { onError: (err) => showToast(err instanceof Error ? err.message : "Could not toggle maintenance") })} disabled={toggle.isPending} />
+          <input
+            type="checkbox"
+            checked={on}
+            onChange={() => {
+              if (!on && !confirm("Block ALL API traffic for every user right now?")) return;
+              toggle.mutate(undefined, { onError: (err) => showToast(err instanceof Error ? err.message : "Could not toggle maintenance") });
+            }}
+            disabled={toggle.isPending}
+          />
           <span />
         </label>
         {!on && (

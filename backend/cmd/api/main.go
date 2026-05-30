@@ -80,7 +80,7 @@ func main() {
 	defer rdb.Close()
 
 	queries := db.New(pool)
-	keysSvc := keys.NewService(queries, rdb)
+	keysSvc := keys.NewService(queries, pool, rdb)
 	sessions := auth.NewSessions(queries, auth.SessionConfig{
 		IdleDays:     cfg.SessionIdleDays,
 		AbsoluteDays: cfg.SessionAbsoluteDays,

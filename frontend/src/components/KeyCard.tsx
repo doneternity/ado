@@ -31,12 +31,19 @@ export function KeyCard() {
 
   const display = revealed && raw ? raw.key : current.keyPrefix + "…";
 
-  function copy() {
-    const text = raw?.key ?? current?.keyPrefix + "…";
-    void navigator.clipboard.writeText(text);
-    setCopied(true);
-    showToast("Key copied");
-    setTimeout(() => setCopied(false), 1800);
+  async function copy() {
+    if (!raw) {
+      showToast("Rotate your key to reveal it, then copy.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(raw.key);
+      setCopied(true);
+      showToast("Key copied");
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      showToast("Couldn't access clipboard");
+    }
   }
 
   return (

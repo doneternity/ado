@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -49,6 +50,14 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 				apperr.Write(w, apperr.Forbidden("BANNED", "account suspended"))
 				return
 			}
+			// keep last_used_at fresh so the reaper only revokes idle keys.
+			// detached + async so it never delays the request; the query
+			// self-debounces to ~once per 30s per key.
+			go func(id uuid.UUID) {
+				tctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = q.TouchKeyLastUsed(tctx, id)
+			}(row.ID)
 			ctx := context.WithValue(r.Context(), bearerKey, BearerKeyContext{
 				KeyID:         row.ID,
 				UserID:        row.UserID,

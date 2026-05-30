@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Send, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
+import { Send, Square, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
 import { useMe, useRawKey, rawKeyKey, usePublicModels } from "../api/queries";
 import { clearRawKey, saveRawKey } from "../api/raw-key-storage";
 import { MODELS } from "../data/models";
@@ -81,6 +81,7 @@ async function streamCompletion(
   apiKey: string,
   model: string,
   messages: Pick<Msg, "role" | "content">[],
+  signal: AbortSignal,
   onToken: (t: string) => void,
   onDone: () => void,
   onError: (msg: string, status?: number) => void,
@@ -97,6 +98,7 @@ async function streamCompletion(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ model, messages, stream: true }),
+      signal,
     });
 
     if (!resp.ok) {
@@ -137,6 +139,8 @@ async function streamCompletion(
     }
     onDone();
   } catch (err) {
+    // an aborted stream (stop / navigation) isn't an error
+    if (err instanceof DOMException && err.name === "AbortError") return;
     onError(err instanceof Error ? err.message : "Network error");
   }
 }
@@ -233,10 +237,14 @@ export function Playground() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
+  const abortRef  = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (raw?.key && !apiKey) setApiKey(raw.key);
   }, [raw, apiKey]);
+
+  // abort any in-flight stream on unmount
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const keyValid = (k: string) => k.startsWith("ado-") && k.length > 6 && /^[\x20-\x7E]+$/.test(k);
 
@@ -298,8 +306,11 @@ export function Playground() {
       { role: "user" as Role, content: text },
     ];
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     await streamCompletion(
-      apiKey, model, history,
+      apiKey, model, history, controller.signal,
       (tok) => {
         setMessages((prev) =>
           prev.map((m) => m.id === assistantMsg.id ? { ...m, content: m.content + tok } : m),
@@ -314,13 +325,27 @@ export function Playground() {
         if (status === 401 || status === 403) setApiKey("");
       },
     );
+    if (abortRef.current === controller) abortRef.current = null;
   }, [input, streaming, apiKey, model, messages, systemPrompt]);
+
+  // stop a running generation; the partial reply stays in the transcript
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStreaming(false);
+  }, []);
 
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
   }
 
-  function clearChat() { setMessages([]); setError(null); }
+  function clearChat() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStreaming(false);
+    setMessages([]);
+    setError(null);
+  }
 
   const isKeyValid  = keyValid(apiKey);
   const canSend     = isKeyValid && input.trim().length > 0 && !streaming;
@@ -465,15 +490,26 @@ export function Playground() {
           />
           <div className={styles.inputFooter}>
             <span className={styles.inputHint}>Enter to send · Shift+Enter for newline</span>
-            <button
-              className={styles.sendBtn}
-              onClick={() => void send()}
-              disabled={!canSend}
-              aria-label="Send"
-            >
-              <Send size={14} />
-              Send
-            </button>
+            {streaming ? (
+              <button
+                className={styles.sendBtn}
+                onClick={stop}
+                aria-label="Stop generating"
+              >
+                <Square size={14} />
+                Stop
+              </button>
+            ) : (
+              <button
+                className={styles.sendBtn}
+                onClick={() => void send()}
+                disabled={!canSend}
+                aria-label="Send"
+              >
+                <Send size={14} />
+                Send
+              </button>
+            )}
           </div>
         </div>
       </div>

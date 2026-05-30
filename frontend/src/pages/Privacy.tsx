@@ -1,10 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { DISCORD_INVITE_URL } from "../config";
 import styles from "./Legal.module.scss";
 
-const DISCORD = "https://discord.gg/PNgXaS3Hu";
 const DiscordLink = () => (
-  <a href={DISCORD} target="_blank" rel="noopener noreferrer">Discord server</a>
+  <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Discord server</a>
 );
 
 const fade = {

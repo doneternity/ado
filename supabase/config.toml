@@ -1,6 +1,0 @@
-# Supabase project config — used by the Supabase CLI.
-# project_id is the local identifier; deployment uses --project-ref flag.
-project_id = "ado"
-
-[functions.proxy]
-verify_jwt = false

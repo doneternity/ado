@@ -13,12 +13,11 @@ Sign up, get an API key, and call Claude, Gemini, DeepSeek, and more through a s
 | Layer | Service | Role |
 |-------|---------|------|
 | Frontend | Vercel — React + Vite | SPA, user dashboard |
-| API | Koyeb — Go + chi | Auth, sessions, key management, admin |
-| LLM Proxy | Supabase Edge Function | Key validation, quota, LLM forwarding (prod) |
+| API + LLM Proxy | Koyeb — Go + chi | Auth, sessions, key management, admin, and the LLM proxy with provider failover |
 | Database | Supabase Postgres | Users, keys, quotas, sessions |
 | Cache | Upstash Redis | Rate limiting, key flash storage |
 
-The Go backend handles auth, sessions, key issuance, and admin. The Supabase Edge Function (`supabase/functions/proxy/`) is the hot path in production. In local dev, the Go backend proxies LLM requests directly.
+The Go backend handles everything: auth, sessions, key issuance, admin, and the LLM proxy. Vercel rewrites `adoai.space/v1/*` and `/api/*` to the Koyeb backend (see `frontend/vercel.json`), so the Go service is the single live request path.
 
 ---
 
@@ -74,8 +73,6 @@ frontend/
     components/       shared UI components
     pages/            one file per route
     styles/           design tokens, global styles, mixins
-supabase/
-  functions/proxy/    Deno Edge Function — production LLM proxy
 nginx/
   nginx.dev.conf      local dev reverse proxy
 Dockerfile            Go backend image (Koyeb + CI)
@@ -91,9 +88,8 @@ Pushes to `main` trigger GitHub Actions (`.github/workflows/`):
 | Target | Method |
 |--------|--------|
 | Go backend | Koyeb auto-deploys via GitHub App — no CI job needed |
-| Supabase Edge Function | CI deploys via `supabase functions deploy` |
 | Frontend | CI deploys via Vercel CLI |
 
-**Required GitHub secrets:** `SUPABASE_PROJECT_REF` `SUPABASE_ACCESS_TOKEN` `VERCEL_TOKEN` `VERCEL_ORG_ID` `VERCEL_PROJECT_ID`
+**Required GitHub secrets:** `VERCEL_TOKEN` `VERCEL_ORG_ID` `VERCEL_PROJECT_ID`
 
 The backend reads config from environment variables set in the Koyeb dashboard — see `.env.example` for the full list. `DATABASE_URL` must use the Supabase **IPv4 Session pooler** (`aws-0-eu-west-1.pooler.supabase.com:5432`), not the direct connection string.

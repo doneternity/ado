@@ -16,14 +16,25 @@ import (
 )
 
 const (
-	dialTimeout           = 5 * time.Second
+	dialTimeout = 5 * time.Second
+	// generous on purpose: a non-streamed completion may not send headers until
+	// the whole answer is ready. fast failover comes from the breaker, not here.
 	responseHeaderTimeout = 120 * time.Second
+
+	// breaker: after this many consecutive failures, skip a provider for the
+	// cooldown so a dead upstream stops slowing every request.
+	breakerThreshold = 2
+	breakerCooldown  = 30 * time.Second
 )
 
 type Forwarder struct {
 	BaseURL string
 	APIKey  string
 	Client  *http.Client
+
+	mu        sync.Mutex
+	fails     int
+	openUntil time.Time
 }
 
 func New(baseURL, apiKey string) *Forwarder {
@@ -45,7 +56,33 @@ func New(baseURL, apiKey string) *Forwarder {
 	}
 }
 
-func (f *Forwarder) do(r *http.Request, path string, body []byte) (*http.Response, error) {
+// breakerOpen reports whether the provider is in its skip window.
+func (f *Forwarder) breakerOpen(now time.Time) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return now.Before(f.openUntil)
+}
+
+// tripBreaker records a failure and opens the breaker at the threshold.
+func (f *Forwarder) tripBreaker() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fails++
+	if f.fails >= breakerThreshold {
+		f.openUntil = time.Now().Add(breakerCooldown)
+		f.fails = 0
+	}
+}
+
+// resetBreaker clears failure state after a success.
+func (f *Forwarder) resetBreaker() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fails = 0
+	f.openUntil = time.Time{}
+}
+
+func (f *Forwarder) do(ctx context.Context, r *http.Request, path string, body []byte) (*http.Response, error) {
 	upstreamURL := f.BaseURL + path
 	if r.URL.RawQuery != "" {
 		upstreamURL += "?" + r.URL.RawQuery
@@ -54,7 +91,7 @@ func (f *Forwarder) do(r *http.Request, path string, body []byte) (*http.Respons
 	if body != nil {
 		bodyReader = bytes.NewReader(body)
 	}
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstreamURL, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -130,30 +167,76 @@ func (r *Registry) CachedModelIDs() []string {
 	return ids
 }
 
-// Forward tries each provider in order until one returns a non-failover
-// response, which it streams to the client. The returned status is the HTTP
-// status code that was served (0 if no provider served a response).
-func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string, body []byte) (started bool, status int, err error) {
+// ForwardResult is the outcome of a Forward call (used for logging + quota).
+type ForwardResult struct {
+	Started  bool   // a provider response was streamed to the client
+	Status   int    // http status served (0 if none)
+	Provider string // base url of the provider that served (empty if none)
+	Attempts int    // providers tried
+}
+
+// Forward streams the first non-failover provider response to the client.
+// tripped providers are tried last so an all-down state still gets an attempt,
+// and it stops early if the client has disconnected.
+func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string, body []byte) (ForwardResult, error) {
 	chain := r.Get()
 	if len(chain) == 0 {
-		return false, 0, errors.New("no provider configured")
+		return ForwardResult{}, errors.New("no provider configured")
 	}
+
 	var lastErr error
-	for _, f := range chain {
-		resp, derr := f.do(req, path, body)
+	attempts := 0
+	for _, f := range failoverOrder(chain) {
+		if cerr := req.Context().Err(); cerr != nil {
+			return ForwardResult{Attempts: attempts}, cerr
+		}
+		attempts++
+
+		// per-attempt context so the idle watchdog can cancel one stalled
+		// upstream without touching the others.
+		streamCtx, cancel := context.WithCancel(req.Context())
+		resp, derr := f.do(streamCtx, req, path, body)
 		if derr != nil {
+			cancel()
+			// client cancel isn't the provider's fault: don't trip it, just stop.
+			if cerr := req.Context().Err(); cerr != nil {
+				return ForwardResult{Attempts: attempts}, cerr
+			}
 			lastErr = derr
+			f.tripBreaker()
+			slog.Warn("proxy failover", "provider", f.BaseURL, "path", path, "reason", "request error", "err", derr)
 			continue
 		}
 		if isFailoverStatus(resp.StatusCode) {
 			lastErr = fmt.Errorf("provider returned %d", resp.StatusCode)
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
+			cancel()
+			f.tripBreaker()
+			slog.Warn("proxy failover", "provider", f.BaseURL, "path", path, "reason", "status", "status", resp.StatusCode)
 			continue
 		}
-		return true, resp.StatusCode, streamResponse(w, resp)
+		f.resetBreaker()
+		serr := streamResponse(w, resp, cancel)
+		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts}, serr
 	}
-	return false, 0, lastErr
+	return ForwardResult{Attempts: attempts}, lastErr
+}
+
+// failoverOrder puts closed-breaker providers first (priority order), tripped
+// ones last as a fallback.
+func failoverOrder(chain []*Forwarder) []*Forwarder {
+	now := time.Now()
+	order := make([]*Forwarder, 0, len(chain))
+	var tripped []*Forwarder
+	for _, f := range chain {
+		if f.breakerOpen(now) {
+			tripped = append(tripped, f)
+		} else {
+			order = append(order, f)
+		}
+	}
+	return append(order, tripped...)
 }
 
 // AggregateModels queries all providers concurrently and merges their model
@@ -181,7 +264,10 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 		wg.Add(1)
 		go func(idx int, fwd *Forwarder) {
 			defer wg.Done()
-			resp, err := fwd.do(req, "/models", nil)
+			// bound each fetch so one slow upstream can't stall the aggregation.
+			ctx, cancel := context.WithTimeout(req.Context(), 15*time.Second)
+			defer cancel()
+			resp, err := fwd.do(ctx, req, "/models", nil)
 			if err != nil {
 				slog.Warn("aggregate models: request failed", "url", fwd.BaseURL+"/models", "err", err)
 				return
@@ -267,8 +353,15 @@ func isFailoverStatus(code int) bool {
 		code == http.StatusUnauthorized || code == http.StatusForbidden
 }
 
-func streamResponse(w http.ResponseWriter, resp *http.Response) error {
+// max gap between chunks before we treat the stream as stalled and cancel it,
+// so a wedged upstream can't pin a connection forever.
+const streamIdleTimeout = 120 * time.Second
+
+// streamResponse relays the upstream response, flushing each chunk. cancel
+// cancels the upstream request; it fires on idle (watchdog) and on return.
+func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc) error {
 	defer resp.Body.Close()
+	defer cancel()
 	for k, vs := range resp.Header {
 		if isHopByHop(k) || isUpstreamOnly(k) {
 			continue
@@ -279,17 +372,19 @@ func streamResponse(w http.ResponseWriter, resp *http.Response) error {
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	flusher, _ := w.(http.Flusher)
+	idle := time.AfterFunc(streamIdleTimeout, cancel)
+	defer idle.Stop()
+
+	rc := http.NewResponseController(w)
 	buf := make([]byte, 4096)
 	for {
 		n, rerr := resp.Body.Read(buf)
 		if n > 0 {
+			idle.Reset(streamIdleTimeout)
 			if _, werr := w.Write(buf[:n]); werr != nil {
 				return werr
 			}
-			if flusher != nil {
-				flusher.Flush()
-			}
+			_ = rc.Flush()
 		}
 		if errors.Is(rerr, io.EOF) {
 			return nil

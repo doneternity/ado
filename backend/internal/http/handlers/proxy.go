@@ -9,6 +9,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/ado/ado/backend/internal/apperr"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
@@ -76,35 +77,32 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
 		return
 	}
-	started, status, err := p.d.Registry.Forward(w, r, "/chat/completions", data)
-	if !started {
+	start := time.Now()
+	res, ferr := p.d.Registry.Forward(w, r, "/chat/completions", data)
+	if !res.Started {
 		// No provider served the request, so it never reached a model — refund
 		// and mark the model unhealthy.
 		p.d.Registry.Health().Record(meta.Model, false)
 		if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
 			slog.Warn("quota refund failed", "err", rerr)
 		}
-		if err != nil {
-			slog.Warn("proxy forward failed", "path", "/chat/completions", "err", err)
-		}
+		slog.Warn("proxy no provider", "path", "/chat/completions", "model", meta.Model, "attempts", res.Attempts, "err", ferr)
 		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
 		return
 	}
-	// A response was streamed. A 2xx means the model is healthy. Don't charge the
-	// user's daily quota for their own client error (4xx) — those never consumed
-	// model capacity. 5xx/429 from the provider are failover statuses and never
-	// reach here.
-	if status >= 200 && status < 300 {
+	// 2xx with no stream error means the model is healthy. refund client
+	// errors (4xx): they never used model capacity. 5xx/429 fail over earlier.
+	if res.Status >= 200 && res.Status < 300 && ferr == nil {
 		p.d.Registry.Health().Record(meta.Model, true)
 	}
-	if status >= 400 && status < 500 {
+	if res.Status >= 400 && res.Status < 500 {
 		if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
 			slog.Warn("quota refund failed", "err", rerr)
 		}
 	}
-	if err != nil {
-		slog.Warn("proxy stream interrupted", "path", "/chat/completions", "err", err)
-	}
+	slog.Info("proxy request", "path", "/chat/completions", "model", meta.Model,
+		"provider", res.Provider, "attempts", res.Attempts, "status", res.Status,
+		"ms", time.Since(start).Milliseconds(), "stream_err", ferr != nil)
 }
 
 func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
@@ -204,25 +202,24 @@ func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 			return
 		}
 
-		started, status, err := p.d.Registry.Forward(w, r, upstreamPath, data)
-		if !started {
+		start := time.Now()
+		res, ferr := p.d.Registry.Forward(w, r, upstreamPath, data)
+		if !res.Started {
 			if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
 				slog.Warn("quota refund failed", "err", rerr)
 			}
-			if err != nil {
-				slog.Warn("passthrough forward failed", "path", upstreamPath, "err", err)
-			}
+			slog.Warn("passthrough no provider", "path", upstreamPath, "attempts", res.Attempts, "err", ferr)
 			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
 			return
 		}
-		if status >= 400 && status < 500 {
+		if res.Status >= 400 && res.Status < 500 {
 			if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
 				slog.Warn("quota refund failed", "err", rerr)
 			}
 		}
-		if err != nil {
-			slog.Warn("passthrough stream interrupted", "path", upstreamPath, "err", err)
-		}
+		slog.Info("proxy request", "path", upstreamPath, "provider", res.Provider,
+			"attempts", res.Attempts, "status", res.Status,
+			"ms", time.Since(start).Milliseconds(), "stream_err", ferr != nil)
 	}
 }
 

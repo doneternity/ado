@@ -27,10 +27,6 @@ type Config struct {
 
 	FrontendOrigin string `env:"FRONTEND_ORIGIN" envDefault:""`
 
-	Mailer       string `env:"MAILER" envDefault:"console"`
-	ResendAPIKey string `env:"RESEND_API_KEY"`
-	MailFrom     string `env:"MAIL_FROM"`
-
 	ProviderKeySecret string `env:"PROVIDER_KEY_SECRET,required"`
 
 	AdminBootstrapEmail string `env:"ADMIN_BOOTSTRAP_EMAIL"`
@@ -45,14 +41,6 @@ func Load() (*Config, error) {
 	cfg := &Config{}
 	if err := env.Parse(cfg); err != nil {
 		return nil, fmt.Errorf("config: %w", err)
-	}
-	if cfg.Mailer == "resend" {
-		if cfg.ResendAPIKey == "" {
-			return nil, fmt.Errorf("config: MAILER=resend requires RESEND_API_KEY")
-		}
-		if cfg.MailFrom == "" {
-			return nil, fmt.Errorf("config: MAILER=resend requires MAIL_FROM")
-		}
 	}
 	if cfg.DiscordClientID != "" {
 		if cfg.DiscordClientSecret == "" {

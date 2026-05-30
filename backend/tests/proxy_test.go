@@ -37,7 +37,7 @@ func TestForwarder_Streams(t *testing.T) {
 
 	reg := proxy.NewRegistry()
 	reg.Swap([]*proxy.Forwarder{proxy.New(upstream.URL, "SECRET")})
-	if _, _, err := reg.Forward(rr, r, "/chat/completions", body); err != nil {
+	if _, err := reg.Forward(rr, r, "/chat/completions", body); err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,15 +68,15 @@ func TestForwarder_SurfacesClientErrorStatus(t *testing.T) {
 	reg := proxy.NewRegistry()
 	reg.Swap([]*proxy.Forwarder{proxy.New(upstream.URL, "SECRET")})
 
-	started, status, err := reg.Forward(rr, r, "/chat/completions", body)
+	res, err := reg.Forward(rr, r, "/chat/completions", body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !started {
+	if !res.Started {
 		t.Fatal("expected started=true for a non-failover 4xx")
 	}
-	if status != http.StatusBadRequest {
-		t.Fatalf("status=%d, want 400", status)
+	if res.Status != http.StatusBadRequest {
+		t.Fatalf("status=%d, want 400", res.Status)
 	}
 }
 

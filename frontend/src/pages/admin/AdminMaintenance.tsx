@@ -37,7 +37,7 @@ export function AdminMaintenance() {
             checked={on}
             onChange={() => {
               if (!on && !confirm("Block ALL API traffic for every user right now?")) return;
-              toggle.mutate(undefined, { onError: (err) => showToast(err instanceof Error ? err.message : "Could not toggle maintenance") });
+              toggle.mutate(!on, { onError: (err) => showToast(err instanceof Error ? err.message : "Could not toggle maintenance") });
             }}
             disabled={toggle.isPending}
           />

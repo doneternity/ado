@@ -192,8 +192,12 @@ export function useMaintenanceStatus() {
 export function useToggleMaintenance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () =>
-      apiFetch<MaintenanceStatus>("/api/admin/maintenance/toggle", { method: "POST" }),
+    // backend expects the explicit target state, not a blind flip
+    mutationFn: (enabled: boolean) =>
+      apiFetch<MaintenanceStatus>("/api/admin/maintenance/toggle", {
+        method: "POST",
+        body: JSON.stringify({ enabled }),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "maintenance"] }),
   });
 }

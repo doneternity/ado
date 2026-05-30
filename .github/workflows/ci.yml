@@ -36,7 +36,6 @@ jobs:
         env:
           DATABASE_URL: postgres://ado:ado@localhost:5432/ado?sslmode=disable
           REDIS_URL: redis://localhost:6379
-          MAIL_FROM: "ADO <noreply@example.com>"
         run: cd backend && go test -race ./...
 
   frontend:

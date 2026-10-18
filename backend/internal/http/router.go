@@ -35,15 +35,18 @@ type Deps struct {
 	AdminPlans       *handlers.AdminPlans
 	AdminRequestInfo *handlers.AdminRequestInfo
 	UsageLog         *handlers.UsageLog
+	ClientErrors     *handlers.ClientErrors
 	Maintenance      *proxy.MaintenanceFlag
 	AdminMiddleware  func(http.Handler) http.Handler
 	FrontendOrigin   string
+	OriginSecret     string
 }
 
 func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(mw.Recover)
 	r.Use(mw.Logger)
+	r.Use(mw.RequireOrigin(d.OriginSecret)) // only traffic proxied by Vercel
 	r.Use(mw.ErrorLogger(d.Queries))
 	r.Use(mw.LoadSession(d.Sessions, d.Queries))
 	r.Use(mw.MaxBodySize(30 << 20)) // 30 MB backstop; per-handler caps are far lower (Bind 64KB, chat 512KB, passthrough 25MB)
@@ -90,6 +93,11 @@ func NewRouter(d Deps) http.Handler {
 	// Public on/off read so the website can show its maintenance page.
 	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:maintenance:ip", 60, time.Minute, false)).
 		Get("/api/maintenance", d.AdminMaintenance.Status)
+
+	// Website crash reports (same-origin, no session needed). Open during
+	// maintenance too, since that is when things are most likely to break.
+	r.With(d.Limiter.PerIP("rl:client-errors:ip", 20, time.Hour, false)).
+		Post("/api/client-errors", d.ClientErrors.Report)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)

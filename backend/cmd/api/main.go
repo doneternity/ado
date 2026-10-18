@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
@@ -35,6 +36,13 @@ const (
 	requestLogRetentionDays = 90
 )
 
+// Error spike alert: this many errors within one window sends a Discord alert.
+const (
+	errorSpikeWindow   = 5 * time.Minute
+	errorSpikeServer   = 10 // 5xx responses
+	errorSpikeFrontend = 5  // website crash reports
+)
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -56,6 +64,9 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	slog.SetDefault(logger)
 	mw.ConfigureClientIP(cfg.ClientIPHeader, cfg.TrustedProxyHops)
+	if cfg.OriginSecret == "" {
+		slog.Warn("ORIGIN_SECRET not set; the backend accepts requests that bypass Vercel")
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -165,6 +176,21 @@ func main() {
 	adminPlansH := handlers.NewAdminPlans(queries)
 	adminReqInfoH := handlers.NewAdminRequestInfo(limiter)
 	usageLogH := handlers.NewUsageLog(queries)
+	clientErrorsH := handlers.NewClientErrors(queries, limiter)
+
+	// Operator alerts go to the Discord webhook, if configured.
+	notifier := alert.NewDiscord(cfg.AlertWebhookURL)
+	if !notifier.Enabled() {
+		slog.Info("ALERT_WEBHOOK_URL not set; alerts are log-only")
+	}
+	sendAlert := func(msg string) {
+		slog.Warn("alert", "msg", msg)
+		sctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := notifier.Send(sctx, "**ADO:** "+msg); err != nil {
+			slog.Warn("send alert", "err", err)
+		}
+	}
 
 	// Hourly housekeeping. Each job also runs once at startup, so frequent
 	// deploys (which restart the timers) can't keep postponing it.
@@ -225,18 +251,7 @@ func main() {
 	// Provider monitor: alerts (Discord webhook, if configured) when providers go
 	// down or recover, so a dead upstream key doesn't go unnoticed for months.
 	if cfg.ProviderCheckInterval > 0 {
-		notifier := alert.NewDiscord(cfg.AlertWebhookURL)
-		if !notifier.Enabled() {
-			slog.Info("ALERT_WEBHOOK_URL not set; provider alerts are log-only")
-		}
-		monitor := proxy.NewProviderMonitor(reg, func(msg string) {
-			slog.Warn("provider alert", "msg", msg)
-			sctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			defer cancel()
-			if err := notifier.Send(sctx, "**ADO:** "+msg); err != nil {
-				slog.Warn("send alert", "err", err)
-			}
-		})
+		monitor := proxy.NewProviderMonitor(reg, sendAlert)
 		go func() {
 			t := time.NewTicker(time.Duration(cfg.ProviderCheckInterval) * time.Second)
 			defer t.Stop()
@@ -250,6 +265,24 @@ func main() {
 			}
 		}()
 	}
+
+	// Error spike alert: a burst of 5xx responses or website crash reports (both
+	// land in error_logs) posts once to Discord, then waits an hour.
+	spike := &alert.ErrorSpike{
+		ServerThreshold:   errorSpikeServer,
+		FrontendThreshold: errorSpikeFrontend,
+		Cooldown:          time.Hour,
+		Send:              sendAlert,
+	}
+	every(ctx, errorSpikeWindow, func(ctx context.Context) {
+		now := time.Now()
+		n, err := queries.CountErrorLogsSince(ctx, pgtype.Timestamptz{Time: now.Add(-errorSpikeWindow), Valid: true})
+		if err != nil {
+			slog.Warn("count recent errors", "err", err)
+			return
+		}
+		spike.Observe(now, errorSpikeWindow, n.Server, n.Frontend)
+	})
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions:         sessions,
@@ -272,9 +305,11 @@ func main() {
 		AdminPlans:       adminPlansH,
 		AdminRequestInfo: adminReqInfoH,
 		UsageLog:         usageLogH,
+		ClientErrors:     clientErrorsH,
 		AdminMiddleware:  adminMW,
 		Maintenance:      maint,
 		FrontendOrigin:   cfg.FrontendOrigin,
+		OriginSecret:     cfg.OriginSecret,
 	})
 
 	srv := &http.Server{

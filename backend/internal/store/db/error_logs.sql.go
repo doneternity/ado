@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countErrorLogs = `-- name: CountErrorLogs :one
@@ -18,6 +20,28 @@ func (q *Queries) CountErrorLogs(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countErrorLogsSince = `-- name: CountErrorLogsSince :one
+SELECT
+  COUNT(*) FILTER (WHERE context->>'source' = 'frontend')                AS frontend,
+  COUNT(*) FILTER (WHERE context->>'source' IS DISTINCT FROM 'frontend') AS server
+FROM error_logs
+WHERE created_at > $1
+`
+
+type CountErrorLogsSinceRow struct {
+	Frontend int64
+	Server   int64
+}
+
+// Split by where the error came from: website crash reports carry
+// context.source = 'frontend', everything else is a server 5xx.
+func (q *Queries) CountErrorLogsSince(ctx context.Context, createdAt pgtype.Timestamptz) (CountErrorLogsSinceRow, error) {
+	row := q.db.QueryRow(ctx, countErrorLogsSince, createdAt)
+	var i CountErrorLogsSinceRow
+	err := row.Scan(&i.Frontend, &i.Server)
+	return i, err
 }
 
 const deleteErrorLog = `-- name: DeleteErrorLog :exec

@@ -20,9 +20,23 @@
       ]
     }
   ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/$1",
+      "transforms": [
+        { "type": "request.headers", "op": "set", "target": { "key": "x-origin-secret" }, "args": "$ORIGIN_SECRET", "env": ["ORIGIN_SECRET"] }
+      ]
+    },
+    {
+      "src": "/v1/(.*)",
+      "dest": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/v1/$1",
+      "transforms": [
+        { "type": "request.headers", "op": "set", "target": { "key": "x-origin-secret" }, "args": "$ORIGIN_SECRET", "env": ["ORIGIN_SECRET"] }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/:path*" },
-    { "source": "/v1/:path*",  "destination": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/v1/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
   "buildCommand": "npm run build",

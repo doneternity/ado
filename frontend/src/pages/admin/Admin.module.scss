@@ -79,6 +79,22 @@
   white-space: nowrap;
 }
 
+.errorDetails {
+  margin-top: 6px;
+  white-space: normal;
+  color: var(--silver);
+
+  summary { cursor: pointer; }
+
+  pre {
+    margin: 6px 0 0;
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre;
+    font-size: .68rem;
+  }
+}
+
 .providerKey {
   color: var(--silver);
   font-size: .68rem;

@@ -67,3 +67,14 @@ func TestLoad_ProviderKeySecretExactly32(t *testing.T) {
 		t.Fatalf("expected no error for 32-byte secret, got %v", err)
 	}
 }
+
+func TestLoad_OriginSecretTooShort(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("DATABASE_URL", "postgres://x")
+	os.Setenv("REDIS_URL", "redis://y")
+	os.Setenv("PROVIDER_KEY_SECRET", "test-secret-32-bytes-xxxxxxxxxx!!")
+	os.Setenv("ORIGIN_SECRET", "0123456789abcdef0123456789abcdef, short")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for a short ORIGIN_SECRET value, got nil")
+	}
+}

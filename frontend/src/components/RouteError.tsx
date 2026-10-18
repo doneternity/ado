@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { isStaleChunkError, reloadOnceForNewVersion } from "./staleChunk";
+import { reportError } from "../api/reportError";
 import shared from "../pages/StatusPage.module.scss";
 
 // Shown instead of a page (or the whole layout) when rendering throws or a
@@ -14,6 +15,8 @@ export function RouteError() {
     // After a deploy, an open tab may ask for page code that no longer exists.
     // A reload fetches the new version; reloadOnce stops it looping.
     if (stale) reloadOnceForNewVersion();
+    // A 404 page is not a crash; anything else that reaches here is.
+    else if (!isRouteErrorResponse(error)) reportError("render", error);
   }, [error, stale]);
 
   const status = isRouteErrorResponse(error) ? error.status : null;

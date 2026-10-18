@@ -22,7 +22,7 @@ export function AdminErrors() {
         <div className={styles.pageRow}>
           <div>
             <h1 className={styles.title}><AlertTriangle size={18} className={styles.titleIcon} /> Errors</h1>
-            <p className={styles.subtitle}>Proxy error log: {data?.total ?? 0} entries</p>
+            <p className={styles.subtitle}>Server errors and website crashes: {data?.total ?? 0} entries</p>
           </div>
           <button className={styles.btnDanger} onClick={() => bulk.mutate(7, { onError: onErr("Could not clear old errors") })} style={{ padding: "8px 16px" }}>
             Clear older than 7 days
@@ -44,7 +44,10 @@ export function AdminErrors() {
                     {e.level}
                   </span>
                 </td>
-                <td className={styles.cellMessage}>{e.message}</td>
+                <td className={styles.cellMessage}>
+                  {e.message}
+                  <ErrorDetails context={e.context} />
+                </td>
                 <td>
                   <button className={styles.btnDanger} onClick={() => del.mutate(e.id, { onError: onErr("Could not delete entry") })}>Delete</button>
                 </td>
@@ -65,5 +68,18 @@ export function AdminErrors() {
         </div>
       )}
     </motion.div>
+  );
+}
+
+// Website crash reports carry the page and a stack trace; show them on demand.
+function ErrorDetails({ context }: { context: Record<string, unknown> | null }) {
+  if (context?.source !== "frontend") return null;
+  const page = typeof context.page === "string" ? context.page : "";
+  const stack = typeof context.stack === "string" ? context.stack : "";
+  return (
+    <details className={styles.errorDetails}>
+      <summary>{page || "unknown page"}{typeof context.kind === "string" ? ` (${context.kind})` : ""}</summary>
+      {stack && <pre>{stack}</pre>}
+    </details>
   );
 }

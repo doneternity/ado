@@ -43,6 +43,11 @@ type Config struct {
 	ClientIPHeader   string `env:"CLIENT_IP_HEADER"`
 	TrustedProxyHops int    `env:"TRUSTED_PROXY_HOPS" envDefault:"1"`
 
+	// Shared secret Vercel adds to every proxied request (X-Origin-Secret), so the
+	// backend only serves traffic that came through adoai.space. Comma-separated
+	// to allow rotation. Empty disables the check (see middleware/origin.go).
+	OriginSecret string `env:"ORIGIN_SECRET"`
+
 	AlertWebhookURL       string `env:"ALERT_WEBHOOK_URL"`
 	ProviderCheckInterval int    `env:"PROVIDER_CHECK_INTERVAL_SECONDS" envDefault:"300"`
 }
@@ -62,6 +67,11 @@ func Load() (*Config, error) {
 	}
 	if cfg.AlertWebhookURL != "" && !strings.HasPrefix(cfg.AlertWebhookURL, "https://") {
 		return nil, fmt.Errorf("config: ALERT_WEBHOOK_URL must be an https URL")
+	}
+	for _, s := range strings.Split(cfg.OriginSecret, ",") {
+		if s = strings.TrimSpace(s); s != "" && len(s) < 32 {
+			return nil, fmt.Errorf("config: each ORIGIN_SECRET value must be at least 32 characters")
+		}
 	}
 	if len(cfg.ProviderKeySecret) < 32 {
 		return nil, fmt.Errorf("config: PROVIDER_KEY_SECRET must be at least 32 bytes")

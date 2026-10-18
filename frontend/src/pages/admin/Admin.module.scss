@@ -754,3 +754,55 @@
 
 .previewDegraded { border-color: rgba(255,138,61,.25) !important; }
 .previewDown     { border-color: rgba(225,29,72,.25) !important; opacity: .5; }
+
+/* ── Provider keys ── */
+.keyList {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.keyRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-sub);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.02);
+}
+.keyRowOff { opacity: .5; }
+.keyMask {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: var(--black);
+}
+.keyLabel {
+  font-size: .68rem;
+  color: var(--silver);
+}
+.keyRowSpacer { flex: 1; }
+.toggleSm { transform: scale(.75); transform-origin: right center; }
+.keyAddBtn {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--border-sub);
+  border-radius: var(--r-md);
+  color: var(--silver);
+  font-size: .7rem;
+  padding: 5px 12px;
+  cursor: pointer;
+  &:hover { color: var(--black); border-color: var(--silver); }
+}
+.keyAddForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.keyTextarea {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  resize: vertical;
+  min-height: 64px;
+}

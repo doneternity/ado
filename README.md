@@ -32,7 +32,8 @@ Sign-in is Discord-only, so you need a Discord app whose redirect URL is
 `http://localhost:8080/api/auth/discord/callback`. Set `ADMIN_BOOTSTRAP_EMAIL` to your
 Discord email to become admin on first login, then add LLM providers at `/admin/providers`.
 Provider keys are encrypted with `PROVIDER_KEY_SECRET`, so changing that secret means
-re-entering them.
+re-entering them. A provider can hold several keys: requests take turns across its active keys, and
+a key that fails (401, 403, 429, 5xx) hands the request to the provider's next key before the next provider.
 
 | URL | Service |
 |-----|---------|
@@ -133,4 +134,4 @@ Test a restore into a scratch database now and then. A backup nobody has restore
 | `monitor.yml` | GitHub Action every 10 minutes: checks the site and `/api/health/deep`, posts to Discord (`ALERT_WEBHOOK_URL` secret) when it goes down or recovers. Also keeps Supabase (pauses after ~7 idle days) and Upstash (deletes inactive DBs) active, and re-enables itself so GitHub's 60-day schedule shutoff doesn't apply. |
 | `/api/admin/request-info` | Admin-only: how the backend sees your request (client IP, proxy headers) and a live rate-limiter test. Use it to set `CLIENT_IP_HEADER` / `TRUSTED_PROXY_HOPS`. |
 | Error alerts | Website crashes are reported to `/api/client-errors` and stored next to server 5xx errors (Admin > Errors). 10 server errors or 5 crashes within 5 minutes post one Discord alert, then it waits an hour. |
-| Provider monitor | Pings every provider's `/models` every `PROVIDER_CHECK_INTERVAL_SECONDS`; posts to `ALERT_WEBHOOK_URL` (Discord) when one goes down or recovers. |
+| Provider monitor | Pings every provider key's `/models` every `PROVIDER_CHECK_INTERVAL_SECONDS`; posts to `ALERT_WEBHOOK_URL` (Discord) when one goes down or recovers. |

@@ -15,6 +15,7 @@ type cachedModels struct {
 
 type Registry struct {
 	chain  atomic.Pointer[[]*Forwarder]
+	rr     atomic.Uint64 // round-robin counter for rotateGroups
 	mcMu   sync.Mutex
 	mc     *cachedModels
 	health *ModelHealth

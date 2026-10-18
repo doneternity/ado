@@ -34,24 +34,23 @@ func (q *Queries) CountProviders(ctx context.Context) (int64, error) {
 }
 
 const createProvider = `-- name: CreateProvider :one
-INSERT INTO providers (name, base_url, api_key, is_active, priority)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO providers (name, base_url, is_active, priority)
+VALUES ($1, $2, $3, $4)
 RETURNING id, name, base_url, api_key, is_active, created_at, updated_at, priority
 `
 
 type CreateProviderParams struct {
 	Name     string
 	BaseUrl  string
-	ApiKey   string
 	IsActive bool
 	Priority int32
 }
 
+// Keys live in provider_keys; providers.api_key is legacy and left empty.
 func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) (Provider, error) {
 	row := q.db.QueryRow(ctx, createProvider,
 		arg.Name,
 		arg.BaseUrl,
-		arg.ApiKey,
 		arg.IsActive,
 		arg.Priority,
 	)
@@ -98,39 +97,6 @@ func (q *Queries) GetProvider(ctx context.Context, id uuid.UUID) (Provider, erro
 	return i, err
 }
 
-const listActiveProviders = `-- name: ListActiveProviders :many
-SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority FROM providers WHERE is_active = TRUE ORDER BY priority ASC, created_at ASC
-`
-
-func (q *Queries) ListActiveProviders(ctx context.Context) ([]Provider, error) {
-	rows, err := q.db.Query(ctx, listActiveProviders)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Provider
-	for rows.Next() {
-		var i Provider
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.BaseUrl,
-			&i.ApiKey,
-			&i.IsActive,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Priority,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listProviders = `-- name: ListProviders :many
 SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority FROM providers ORDER BY created_at ASC
 `
@@ -175,20 +141,6 @@ type SetProviderActiveStateParams struct {
 
 func (q *Queries) SetProviderActiveState(ctx context.Context, arg SetProviderActiveStateParams) error {
 	_, err := q.db.Exec(ctx, setProviderActiveState, arg.ID, arg.IsActive)
-	return err
-}
-
-const updateProviderKey = `-- name: UpdateProviderKey :exec
-UPDATE providers SET api_key = $2, updated_at = NOW() WHERE id = $1
-`
-
-type UpdateProviderKeyParams struct {
-	ID     uuid.UUID
-	ApiKey string
-}
-
-func (q *Queries) UpdateProviderKey(ctx context.Context, arg UpdateProviderKeyParams) error {
-	_, err := q.db.Exec(ctx, updateProviderKey, arg.ID, arg.ApiKey)
 	return err
 }
 

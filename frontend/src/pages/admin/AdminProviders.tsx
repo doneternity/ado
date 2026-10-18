@@ -4,6 +4,7 @@ import { Plug, Info, Eye, RefreshCw, ChevronDown, ChevronUp } from "lucide-react
 import {
   useAdminProviders, useCreateProvider, useUpdateProvider,
   useSetProviderActive, useDeleteProvider,
+  useAddProviderKeys, useSetProviderKeyActive, useDeleteProviderKey,
 } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
 import type { AdminProvider } from "../../types/api";
@@ -16,8 +17,13 @@ function errMsg(err: unknown, fallback: string): string {
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
-type FormState = { name: string; baseUrl: string; apiKey: string; priority: number };
-const empty: FormState = { name: "", baseUrl: "", apiKey: "", priority: 0 };
+type FormState = { name: string; baseUrl: string; apiKeys: string; priority: number };
+const empty: FormState = { name: "", baseUrl: "", apiKeys: "", priority: 0 };
+
+// One key per line (commas and spaces also separate), blanks and repeats dropped.
+function parseKeys(text: string): string[] {
+  return [...new Set(text.split(/[\s,]+/).map((k) => k.trim()).filter(Boolean))];
+}
 
 type LiveModel = {
   id: string;
@@ -52,12 +58,14 @@ export function AdminProviders() {
     e.preventDefault();
     setFormError(null);
     if (editing) {
-      update.mutate({ id: editing.id, ...form }, {
+      update.mutate({ id: editing.id, name: form.name, baseUrl: form.baseUrl, priority: form.priority }, {
         onSuccess: () => { setEditing(null); setForm(empty); setShowForm(false); },
         onError: (err) => setFormError(errMsg(err, "Could not save provider")),
       });
     } else {
-      create.mutate(form, {
+      const apiKeys = parseKeys(form.apiKeys);
+      if (apiKeys.length === 0) { setFormError("Add at least one API key"); return; }
+      create.mutate({ name: form.name, baseUrl: form.baseUrl, priority: form.priority, apiKeys }, {
         onSuccess: () => { setForm(empty); setShowForm(false); },
         onError: (err) => setFormError(errMsg(err, "Could not create provider")),
       });
@@ -66,7 +74,7 @@ export function AdminProviders() {
 
   const startEdit = (p: AdminProvider) => {
     setEditing(p);
-    setForm({ name: p.name, baseUrl: p.baseUrl, apiKey: "", priority: p.priority });
+    setForm({ name: p.name, baseUrl: p.baseUrl, apiKeys: "", priority: p.priority });
     setFormError(null);
     create.reset(); update.reset();
     setShowForm(true);
@@ -101,7 +109,8 @@ export function AdminProviders() {
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
         <span>
           Requests try each active provider by priority (lower number first) until one succeeds.
-          Priority 0 is tried first. Set it on your preferred provider.
+          A provider with several keys takes turns between them, and if one key fails the next
+          is tried before moving on to the next provider.
         </span>
       </div>
 
@@ -178,19 +187,22 @@ export function AdminProviders() {
                 />
                 <span className={styles.fieldHint}>lower = tried first</span>
               </div>
-              <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.label}>
-                  API Key{editing ? " (leave blank to keep existing)" : ""}
-                </label>
-                <input
-                  className={styles.input}
-                  type="password"
-                  placeholder="sk-••••••••••••••••"
-                  value={form.apiKey}
-                  onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                  required={!editing}
-                />
-              </div>
+              {!editing && (
+                <div className={styles.field} style={{ flex: 1 }}>
+                  <label className={styles.label}>API keys</label>
+                  <textarea
+                    className={`${styles.input} ${styles.keyTextarea}`}
+                    placeholder={"sk-first-key\nsk-second-key"}
+                    value={form.apiKeys}
+                    onChange={(e) => setForm((f) => ({ ...f, apiKeys: e.target.value }))}
+                    rows={3}
+                    spellCheck={false}
+                    autoComplete="off"
+                    required
+                  />
+                  <span className={styles.fieldHint}>one per line; add more later on the provider card</span>
+                </div>
+              )}
             </div>
             {formError && <p className={styles.formError}>{formError}</p>}
             <div className={styles.btnRow}>
@@ -233,6 +245,7 @@ function ProviderCard({
   onDelete: () => void;
   isPending: boolean;
 }) {
+  const activeKeys = p.keys.filter((k) => k.isActive).length;
   return (
     <div className={`${styles.providerCard}${p.isActive ? ` ${styles.providerCardActive}` : ""}`}>
       <div className={styles.providerCardInner}>
@@ -241,7 +254,11 @@ function ProviderCard({
           <div className={styles.providerInfo}>
             <div className={styles.providerName}>{p.name}</div>
             <div className={styles.providerUrl}>{p.baseUrl}</div>
-            <div className={styles.providerKey}>sk-••••{p.keySuffix}</div>
+            <div className={styles.providerKey}>
+              {p.keys.length === 0
+                ? "no keys: add one below"
+                : `${activeKeys} of ${p.keys.length} key${p.keys.length === 1 ? "" : "s"} active`}
+            </div>
           </div>
         </div>
 
@@ -262,6 +279,8 @@ function ProviderCard({
         </div>
       </div>
 
+      <ProviderKeys provider={p} />
+
       <div className={styles.providerCardActions}>
         <button className={styles.btnSecondary} style={{ fontSize: ".7rem", padding: "4px 12px" }} onClick={onEdit}>
           Edit
@@ -270,6 +289,98 @@ function ProviderCard({
           Delete
         </button>
       </div>
+    </div>
+  );
+}
+
+function ProviderKeys({ provider: p }: { provider: AdminProvider }) {
+  const add = useAddProviderKeys();
+  const setKeyActive = useSetProviderKeyActive();
+  const delKey = useDeleteProviderKey();
+  const showToast = useUiStore((s) => s.showToast);
+  const [adding, setAdding] = useState(false);
+  const [text, setText] = useState("");
+  const [label, setLabel] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const apiKeys = parseKeys(text);
+    if (apiKeys.length === 0) { setError("Paste at least one key"); return; }
+    setError(null);
+    add.mutate({ id: p.id, apiKeys, label: label.trim() }, {
+      onSuccess: (added) => {
+        showToast(`Added ${added.length} key${added.length === 1 ? "" : "s"} to ${p.name}`);
+        setText(""); setLabel(""); setAdding(false);
+      },
+      onError: (err) => setError(errMsg(err, "Could not add keys")),
+    });
+  };
+
+  return (
+    <div className={styles.keyList}>
+      {p.keys.map((k) => (
+        <div key={k.id} className={`${styles.keyRow}${k.isActive ? "" : ` ${styles.keyRowOff}`}`}>
+          <code className={styles.keyMask}>••••{k.suffix}</code>
+          {k.label && <span className={styles.keyLabel}>{k.label}</span>}
+          <span className={styles.keyRowSpacer} />
+          <label className={`${styles.toggle} ${styles.toggleSm}`} title={k.isActive ? "Turn this key off" : "Turn this key on"}>
+            <input
+              type="checkbox"
+              checked={k.isActive}
+              disabled={setKeyActive.isPending}
+              onChange={() => setKeyActive.mutate({ id: p.id, keyId: k.id, active: !k.isActive }, {
+                onError: (err) => showToast(errMsg(err, "Could not change the key")),
+              })}
+            />
+            <span />
+          </label>
+          <button
+            className={styles.btnDanger}
+            onClick={() => {
+              if (!confirm(`Remove key ••••${k.suffix} from ${p.name}?`)) return;
+              delKey.mutate({ id: p.id, keyId: k.id }, {
+                onError: (err) => showToast(errMsg(err, "Could not remove the key")),
+              });
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+
+      {adding ? (
+        <form className={styles.keyAddForm} onSubmit={submit}>
+          <textarea
+            className={`${styles.input} ${styles.keyTextarea}`}
+            placeholder={"Paste keys, one per line"}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={3}
+            spellCheck={false}
+            autoComplete="off"
+            autoFocus
+          />
+          <input
+            className={styles.input}
+            placeholder="Label (optional), e.g. second account"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            maxLength={60}
+          />
+          {error && <p className={styles.formError}>{error}</p>}
+          <div className={styles.btnRow}>
+            <button className={styles.btnPrimary} type="submit" disabled={add.isPending}>
+              {add.isPending ? "Adding…" : "Add keys"}
+            </button>
+            <button className={styles.btnSecondary} type="button" onClick={() => { setAdding(false); setError(null); }}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button className={styles.keyAddBtn} onClick={() => setAdding(true)}>+ Add keys</button>
+      )}
     </div>
   );
 }

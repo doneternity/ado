@@ -51,13 +51,20 @@ export type ApiErrorBody = {
 };
 
 // Admin types
+export type AdminProviderKey = {
+  id: string;
+  label: string;
+  suffix: string; // last 4 characters; the full key never leaves the backend
+  isActive: boolean;
+};
+
 export type AdminProvider = {
   id: string;
   name: string;
   baseUrl: string;
-  keySuffix: string;
   isActive: boolean;
   priority: number;
+  keys: AdminProviderKey[];
 };
 
 export type AdminUser = {

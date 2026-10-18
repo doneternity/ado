@@ -31,6 +31,12 @@ type Forwarder struct {
 	BaseURL string
 	APIKey  string
 	Client  *http.Client
+	// Label names this provider key in logs and alerts, e.g. "DeepSeek …a1b2".
+	// Never the full key. Empty means BaseURL.
+	Label string
+	// Group ties together the keys of one provider: requests take turns across
+	// a group's keys. 0 means not part of a group (never rotated).
+	Group int
 
 	mu        sync.Mutex
 	fails     int
@@ -54,6 +60,14 @@ func New(baseURL, apiKey string) *Forwarder {
 			},
 		},
 	}
+}
+
+// Name is how logs and alerts refer to this forwarder.
+func (f *Forwarder) Name() string {
+	if f.Label != "" {
+		return f.Label
+	}
+	return f.BaseURL
 }
 
 // breakerOpen reports whether the provider is in its skip window.
@@ -187,7 +201,7 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 
 	var lastErr error
 	attempts := 0
-	for _, f := range failoverOrder(chain) {
+	for _, f := range failoverOrder(rotateGroups(chain, r.rr.Add(1))) {
 		if cerr := req.Context().Err(); cerr != nil {
 			return ForwardResult{Attempts: attempts}, cerr
 		}
@@ -205,7 +219,7 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 			}
 			lastErr = derr
 			f.tripBreaker()
-			slog.Warn("proxy failover", "provider", f.BaseURL, "path", path, "reason", "request error", "err", derr)
+			slog.Warn("proxy failover", "provider", f.Name(), "path", path, "reason", "request error", "err", derr)
 			continue
 		}
 		if isFailoverStatus(resp.StatusCode) {
@@ -214,7 +228,7 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 			_ = resp.Body.Close()
 			cancel()
 			f.tripBreaker()
-			slog.Warn("proxy failover", "provider", f.BaseURL, "path", path, "reason", "status", "status", resp.StatusCode)
+			slog.Warn("proxy failover", "provider", f.Name(), "path", path, "reason", "status", "status", resp.StatusCode)
 			continue
 		}
 		f.resetBreaker()
@@ -224,6 +238,28 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, Usage: parseUsage(tail.Bytes())}, serr
 	}
 	return ForwardResult{Attempts: attempts}, lastErr
+}
+
+// rotateGroups spreads load across a provider's keys: within each run of
+// forwarders sharing a non-zero Group, it starts at a different key each call
+// (n is a per-request counter). Group order and ungrouped entries are kept, so
+// failover still goes through the rest of a provider's keys before moving on.
+func rotateGroups(chain []*Forwarder, n uint64) []*Forwarder {
+	out := make([]*Forwarder, 0, len(chain))
+	for i := 0; i < len(chain); {
+		j := i + 1
+		if g := chain[i].Group; g != 0 {
+			for j < len(chain) && chain[j].Group == g {
+				j++
+			}
+		}
+		group := chain[i:j]
+		start := int(n % uint64(len(group)))
+		out = append(out, group[start:]...)
+		out = append(out, group[:start]...)
+		i = j
+	}
+	return out
 }
 
 // failoverOrder puts closed-breaker providers first (priority order), tripped

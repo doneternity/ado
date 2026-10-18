@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 import type { ModelUsage } from "./queries";
 import type {
-  AdminProvider, AdminUser, AdminStats, AdminQuotas,
+  AdminProvider, AdminProviderKey, AdminUser, AdminStats, AdminQuotas,
   AdminErrorsResponse, MaintenanceStatus, AdminPlan,
 } from "../types/api";
 
@@ -17,7 +17,7 @@ export function useAdminProviders() {
 export function useCreateProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; baseUrl: string; apiKey: string; priority?: number }) =>
+    mutationFn: (data: { name: string; baseUrl: string; apiKeys: string[]; priority?: number }) =>
       apiFetch<AdminProvider>("/api/admin/providers", {
         method: "POST", body: JSON.stringify(data),
       }),
@@ -28,8 +28,8 @@ export function useCreateProvider() {
 export function useUpdateProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name: string; baseUrl: string; apiKey?: string; priority?: number }) =>
-      apiFetch<AdminProvider>(`/api/admin/providers/${id}`, {
+    mutationFn: ({ id, ...data }: { id: string; name: string; baseUrl: string; priority?: number }) =>
+      apiFetch<void>(`/api/admin/providers/${id}`, {
         method: "PUT", body: JSON.stringify(data),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "providers"] }),
@@ -43,6 +43,37 @@ export function useSetProviderActive() {
       apiFetch<void>(`/api/admin/providers/${id}/active`, {
         method: "PATCH", body: JSON.stringify({ active }),
       }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "providers"] }),
+  });
+}
+
+export function useAddProviderKeys() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; apiKeys: string[]; label?: string }) =>
+      apiFetch<AdminProviderKey[]>(`/api/admin/providers/${id}/keys`, {
+        method: "POST", body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "providers"] }),
+  });
+}
+
+export function useSetProviderKeyActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, keyId, active }: { id: string; keyId: string; active: boolean }) =>
+      apiFetch<void>(`/api/admin/providers/${id}/keys/${keyId}/active`, {
+        method: "PATCH", body: JSON.stringify({ active }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "providers"] }),
+  });
+}
+
+export function useDeleteProviderKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, keyId }: { id: string; keyId: string }) =>
+      apiFetch<void>(`/api/admin/providers/${id}/keys/${keyId}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "providers"] }),
   });
 }

@@ -88,7 +88,7 @@ func (m *ProviderMonitor) Check(ctx context.Context) {
 	var wentDown, recovered []string
 	seen := make(map[string]bool, len(chain))
 	for i, f := range chain {
-		url := f.BaseURL
+		url := f.Name() // one entry per key, so a single dead key is reported
 		seen[url] = true
 		if errs[i] == nil {
 			m.fails[url] = 0

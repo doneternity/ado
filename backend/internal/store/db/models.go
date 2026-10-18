@@ -63,6 +63,15 @@ type Provider struct {
 	Priority  int32
 }
 
+type ProviderKey struct {
+	ID         uuid.UUID
+	ProviderID uuid.UUID
+	Label      string
+	ApiKey     string
+	IsActive   bool
+	CreatedAt  pgtype.Timestamptz
+}
+
 type RequestLog struct {
 	ID               int64
 	CreatedAt        pgtype.Timestamptz

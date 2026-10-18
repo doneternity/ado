@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -174,5 +175,79 @@ func TestForward_StripsUpstreamHeaders(t *testing.T) {
 	}
 	if got := rr.Header().Get("Connection"); got != "" {
 		t.Fatalf("hop-by-hop header leaked to client: %q", got)
+	}
+}
+
+// TestRotateGroups: a provider's keys take turns, provider order and ungrouped
+// entries stay put.
+func TestRotateGroups(t *testing.T) {
+	a1, a2, a3 := &Forwarder{Label: "a1", Group: 1}, &Forwarder{Label: "a2", Group: 1}, &Forwarder{Label: "a3", Group: 1}
+	b1 := &Forwarder{Label: "b1", Group: 2}
+	u := &Forwarder{Label: "u"}
+	chain := []*Forwarder{a1, a2, a3, b1, u}
+	names := func(fs []*Forwarder) string {
+		var s []string
+		for _, f := range fs {
+			s = append(s, f.Name())
+		}
+		return strings.Join(s, ",")
+	}
+	for n, want := range map[uint64]string{
+		0: "a1,a2,a3,b1,u",
+		1: "a2,a3,a1,b1,u",
+		2: "a3,a1,a2,b1,u",
+		3: "a1,a2,a3,b1,u",
+	} {
+		if got := names(rotateGroups(chain, n)); got != want {
+			t.Errorf("n=%d: got %s, want %s", n, got, want)
+		}
+	}
+}
+
+// TestForward_SpreadsAndFailsOverAcrossKeys: requests alternate between one
+// provider's two keys, and a rejected key fails over to the other.
+func TestForward_SpreadsAndFailsOverAcrossKeys(t *testing.T) {
+	var hits sync.Map
+	var bad atomic.Value
+	bad.Store("")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		n, _ := hits.LoadOrStore(key, new(atomic.Int32))
+		n.(*atomic.Int32).Add(1)
+		if key == bad.Load().(string) {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	k1, k2 := New(srv.URL, "key-one"), New(srv.URL, "key-two")
+	k1.Group, k2.Group = 1, 1
+	reg := NewRegistry()
+	reg.Swap([]*Forwarder{k1, k2})
+
+	count := func(key string) int32 {
+		n, ok := hits.Load(key)
+		if !ok {
+			return 0
+		}
+		return n.(*atomic.Int32).Load()
+	}
+	for i := 0; i < 4; i++ {
+		if _, err := reg.Forward(httptest.NewRecorder(), chatReq(), "/chat/completions", []byte(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if count("key-one") != 2 || count("key-two") != 2 {
+		t.Fatalf("load not spread: key-one=%d key-two=%d", count("key-one"), count("key-two"))
+	}
+
+	bad.Store("key-one")
+	for i := 0; i < 2; i++ {
+		res, err := reg.Forward(httptest.NewRecorder(), chatReq(), "/chat/completions", []byte(`{}`))
+		if err != nil || res.Status != http.StatusOK {
+			t.Fatalf("request %d: status %d err %v, want failover to key-two", i, res.Status, err)
+		}
 	}
 }

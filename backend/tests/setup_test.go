@@ -111,6 +111,7 @@ type fixture struct {
 	keys       *keys.Service
 	rpmCfg     *proxy.RpmConfig
 	maint      *proxy.MaintenanceFlag
+	reg        *proxy.Registry
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -221,6 +222,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		keys:       keysSvc,
 		rpmCfg:     rpmCfg,
 		maint:      maint,
+		reg:        reg,
 	}
 }
 

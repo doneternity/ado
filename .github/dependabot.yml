@@ -1,0 +1,27 @@
+# Weekly dependency update PRs. Minor and patch bumps are grouped into one PR
+# per ecosystem so they're quick to review; majors come separately. CI runs on
+# every PR, and nothing deploys until a PR is merged to main.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule: { interval: weekly, day: monday }
+    groups:
+      go-minor:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly, day: monday }
+    groups:
+      npm-minor:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions:
+        update-types: [minor, patch, major]

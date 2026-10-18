@@ -284,6 +284,8 @@
   color: rgba(255,255,255,0.38);
   display: block;
   font-weight: 300;
+
+  a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 }
 
 /* ── bottom CTA ── */

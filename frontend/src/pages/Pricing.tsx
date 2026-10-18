@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Check, Zap, Clock, Cpu } from "lucide-react";
 import { DISCORD_INVITE_URL } from "../config";
-import { useCatalog } from "../api/queries";
+import { useCatalog, useMe } from "../api/queries";
 import styles from "./Pricing.module.scss";
 
 const fade = {
@@ -59,10 +59,10 @@ const STATS = [
   { icon: Zap,   value: "<30s",      label: "to first request" },
 ];
 
-const FAQ = [
+const FAQ: { q: string; a: React.ReactNode }[] = [
   {
     q: "What models can I access?",
-    a: "Every model on the models page. That list comes live from the providers we connect to, so it always shows exactly what you can call right now.",
+    a: <>Check out our <Link to="/models">models page</Link> for the full list. It updates live, so it always shows exactly what you can call right now.</>,
   },
   {
     q: "How does the rate limiting work?",
@@ -74,8 +74,10 @@ const FAQ = [
   },
 ];
 
-function PlanCard({ plan }: { plan: Plan }) {
+function PlanCard({ plan, signedIn }: { plan: Plan; signedIn: boolean }) {
   const soon = plan.status === "soon";
+  // Signed-in users already have the free plan; send them to their key instead.
+  const cta = signedIn && plan.id === "free" ? { label: "Go to your dashboard", to: "/dashboard" } : plan.cta;
   const ctaClass = soon ? styles.ctaWaitlist : styles.ctaFree;
   return (
     <div className={soon ? styles.cardPro : styles.cardFree}>
@@ -100,10 +102,10 @@ function PlanCard({ plan }: { plan: Plan }) {
         </ul>
       )}
       {plan.teaser && <p className={styles.proTeaser}>{plan.teaser}</p>}
-      {"to" in plan.cta ? (
-        <Link to={plan.cta.to} className={ctaClass}>{plan.cta.label}</Link>
+      {"to" in cta ? (
+        <Link to={cta.to} className={ctaClass}>{cta.label}</Link>
       ) : (
-        <a href={plan.cta.href} target="_blank" rel="noopener noreferrer" className={ctaClass}>{plan.cta.label}</a>
+        <a href={cta.href} target="_blank" rel="noopener noreferrer" className={ctaClass}>{cta.label}</a>
       )}
     </div>
   );
@@ -112,6 +114,7 @@ function PlanCard({ plan }: { plan: Plan }) {
 export function Pricing() {
   // The model count is live; it is left out until the list loads.
   const { count } = useCatalog();
+  const { data: me } = useMe();
   const stats = count > 0
     ? [{ icon: Cpu, value: String(count), label: count === 1 ? "model available" : "models available" }, ...STATS]
     : STATS;
@@ -140,7 +143,7 @@ export function Pricing() {
 
       {/* Tier cards */}
       <div className={styles.cards}>
-        {PLANS.map((plan) => <PlanCard key={plan.id} plan={plan} />)}
+        {PLANS.map((plan) => <PlanCard key={plan.id} plan={plan} signedIn={!!me} />)}
       </div>
 
       {/* FAQ */}
@@ -158,8 +161,17 @@ export function Pricing() {
 
       {/* Bottom CTA */}
       <div className={styles.bottomCta}>
-        <h2 className={styles.ctaHeadline}>Ready to start?</h2>
-        <Link to="/sign-up" className={styles.ctaBtn}>Create free account</Link>
+        {me ? (
+          <>
+            <h2 className={styles.ctaHeadline}>You&apos;re all set.</h2>
+            <Link to="/dashboard" className={styles.ctaBtn}>Go to your dashboard</Link>
+          </>
+        ) : (
+          <>
+            <h2 className={styles.ctaHeadline}>Ready to start?</h2>
+            <Link to="/sign-up" className={styles.ctaBtn}>Create free account</Link>
+          </>
+        )}
       </div>
 
     </motion.div>

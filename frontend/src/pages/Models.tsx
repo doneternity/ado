@@ -6,6 +6,7 @@ import { Copy, Check, Zap, Brain, Eye, Wrench, Layers, Search, RefreshCw } from 
 import type { ModelDef, Capability } from "../data/models";
 import { enrichAll } from "../data/model-meta";
 import type { LiveModel, EnrichedModel } from "../data/model-meta";
+import { useMe } from "../api/queries";
 import styles from "./Models.module.scss";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "") as string;
@@ -61,6 +62,7 @@ const cardVariants = {
 };
 
 export function Models() {
+  const { data: me } = useMe();
   const [liveModels, setLiveModels] = useState<LiveModel[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -266,7 +268,9 @@ export function Models() {
 
       <section className={styles.ctaStrip}>
         <h2 className={styles.ctaHeadline}>one key for all of them.</h2>
-        <Link to="/login" className={styles.ctaBtn}>Get your free key</Link>
+        {me
+          ? <Link to="/dashboard" className={styles.ctaBtn}>Go to your dashboard</Link>
+          : <Link to="/sign-up" className={styles.ctaBtn}>Get your free key</Link>}
       </section>
     </motion.div>
   );

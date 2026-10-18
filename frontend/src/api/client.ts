@@ -36,6 +36,9 @@ let currentCsrf: string | null = null;
 export function setCsrfToken(t: string | null) {
   currentCsrf = t;
 }
+export function getCsrfToken(): string | null {
+  return currentCsrf;
+}
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);

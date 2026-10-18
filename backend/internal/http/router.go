@@ -100,6 +100,18 @@ func NewRouter(d Deps) http.Handler {
 	r.With(d.Limiter.PerIP("rl:client-errors:ip", 20, time.Hour, false)).
 		Post("/api/client-errors", d.ClientErrors.Report)
 
+	// The website's Playground: chat as the signed-in user's own key, without the
+	// browser holding the raw key. Same handler, quota and per-key RPM bucket as
+	// /api/v1/chat/completions, and logged the same way.
+	r.Route("/api/playground", func(r chi.Router) {
+		r.Use(mw.CORSPrivate(d.FrontendOrigin))
+		r.Use(mw.CSRF)
+		r.Use(mw.SessionKey(d.Queries))
+		r.Use(mw.RequestLog(d.Queries, "/api/playground"))
+		r.With(d.Limiter.PerKeyDynamic("rl:v1:chat:key", d.RpmCfg.Get, time.Minute, false)).
+			Post("/chat/completions", d.Proxy.ChatCompletions)
+	})
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)
 		r.Use(mw.Bearer(d.Queries))

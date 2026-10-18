@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Send, Square, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
-import { useMe, useRawKey, rawKeyKey, usePublicModels } from "../api/queries";
-import { clearRawKey, saveRawKey } from "../api/raw-key-storage";
+import { useMe, useCurrentKey, usePublicModels } from "../api/queries";
+import { ApiError, getCsrfToken } from "../api/client";
 import { MODELS } from "../data/models";
 import type { ModelProvider } from "../data/models";
-import { PROXY_REQUEST_BASE } from "../config";
 import styles from "./Playground.module.scss";
 
 type Role = "user" | "assistant" | "system";
@@ -22,7 +21,9 @@ const PROVIDER_LABEL: Record<ModelProvider, string> = {
   other:    "Other",
 };
 
-const PROXY_BASE = PROXY_REQUEST_BASE;
+// Chats run as the signed-in user's own key through their session, so the
+// browser never needs the raw key (the backend only keeps its hash).
+const PLAYGROUND_URL = (import.meta.env.VITE_API_BASE_URL ?? "") + "/api/playground/chat/completions";
 
 function inferProvider(id: string): ModelProvider {
   const key = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
@@ -56,7 +57,7 @@ function toPickerModels(ids: string[]): PickerModel[] {
 function friendlyError(status: number, code: string, rawMsg: string, model: string): string {
   switch (code) {
     case "NO_PROVIDER":
-      return `No upstream provider could serve "${model}" right now. This is on the provider side, not your key — try another model or try again shortly.`;
+      return `No upstream provider could serve "${model}" right now. This is on the provider side, not your key. Try another model or try again shortly.`;
     case "MAINTENANCE":
       return "ADO is in maintenance mode right now. Please try again in a few minutes.";
     case "QUOTA_EXCEEDED":
@@ -65,11 +66,15 @@ function friendlyError(status: number, code: string, rawMsg: string, model: stri
       return "You're sending requests too quickly. Wait a moment and try again.";
     case "BANNED":
       return "This account has been suspended.";
+    case "NO_KEY":
+      return "You don't have an active key right now. Get one on the dashboard, then come back.";
     case "UNAUTHORIZED":
-      return "Your ADO key is invalid or has been rotated. Enter your current key above.";
+      return "Your session has expired. Sign in again to keep chatting.";
+    case "INVALID_CSRF":
+      return "This page is out of date. Reload it and try again.";
   }
-  if (status === 401 || status === 403) {
-    return "Your ADO key is invalid or has been rotated. Enter your current key above.";
+  if (status === 401) {
+    return "Your session has expired. Sign in again to keep chatting.";
   }
   if (status === 404) {
     return `The model "${model}" isn't available. Pick another from the model list.`;
@@ -78,7 +83,6 @@ function friendlyError(status: number, code: string, rawMsg: string, model: stri
 }
 
 async function streamCompletion(
-  apiKey: string,
   model: string,
   messages: Pick<Msg, "role" | "content">[],
   signal: AbortSignal,
@@ -87,15 +91,12 @@ async function streamCompletion(
   onError: (msg: string, status?: number) => void,
 ) {
   try {
-    if (!/^[\x20-\x7E]+$/.test(apiKey)) {
-      onError("API key contains invalid characters. Please check and re-enter your key.");
-      return;
-    }
-    const resp = await fetch(`${PROXY_BASE}/chat/completions`, {
+    const resp = await fetch(PLAYGROUND_URL, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        "X-CSRF-Token": getCsrfToken() ?? "",
       },
       body: JSON.stringify({ model, messages, stream: true }),
       signal,
@@ -214,8 +215,11 @@ const STATIC_MODELS: PickerModel[] = MODELS.map(m => ({
 
 export function Playground() {
   const { data: me } = useMe();
-  const raw = useRawKey();
-  const qc = useQueryClient();
+  // Only used to say whether there's a key to chat with; the chat itself
+  // authenticates with the session (see PLAYGROUND_URL).
+  const currentKey = useCurrentKey({ enabled: !!me });
+  const noKey = currentKey.error instanceof ApiError && currentKey.error.status === 404;
+  const refetchKey = currentKey.refetch;
 
   // The full model list comes from the public /models endpoint (no key needed),
   // so the picker always reflects the live provider — not the curated subset.
@@ -225,7 +229,6 @@ export function Playground() {
     [liveIds],
   );
 
-  const [apiKey, setApiKey]         = useState(() => raw?.key ?? "");
   const [model, setModel]           = useState(MODELS[0]!.id);
   const [systemPrompt, setSystem]   = useState("");
   const [showSystem, setShowSys]    = useState(false);
@@ -238,36 +241,8 @@ export function Playground() {
   const inputRef  = useRef<HTMLTextAreaElement>(null);
   const abortRef  = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    if (raw?.key && !apiKey) setApiKey(raw.key);
-  }, [raw, apiKey]);
-
   // abort any in-flight stream on unmount
   useEffect(() => () => abortRef.current?.abort(), []);
-
-  const keyValid = (k: string) => k.startsWith("ado-") && k.length > 6 && /^[\x20-\x7E]+$/.test(k);
-
-  // Persist whatever the user types into the key input so it auto-fills on
-  // future visits even for keys that were issued before this client shipped.
-  useEffect(() => {
-    if (!me) return;
-    if (!apiKey) {
-      if (raw) {
-        qc.setQueryData(rawKeyKey, null);
-        clearRawKey();
-      }
-      return;
-    }
-    if (!keyValid(apiKey)) return;
-    if (raw?.key === apiKey) return;
-    const issued = {
-      key: apiKey,
-      keyPrefix: apiKey.slice(0, 12),
-      dailyLimit: raw?.dailyLimit ?? 0,
-    };
-    qc.setQueryData(rawKeyKey, issued);
-    saveRawKey(me.user.id, issued);
-  }, [apiKey, me, raw, qc]);
 
   // Keep the selected model valid as the live list loads/changes.
   useEffect(() => {
@@ -289,7 +264,7 @@ export function Playground() {
 
   const send = useCallback(async () => {
     const text = input.trim();
-    if (!text || streaming || !keyValid(apiKey)) return;
+    if (!text || streaming || noKey) return;
     setError(null);
 
     const userMsg: Msg = { role: "user", content: text, id: ++msgIdCounter };
@@ -309,23 +284,23 @@ export function Playground() {
     abortRef.current = controller;
 
     await streamCompletion(
-      apiKey, model, history, controller.signal,
+      model, history, controller.signal,
       (tok) => {
         setMessages((prev) =>
           prev.map((m) => m.id === assistantMsg.id ? { ...m, content: m.content + tok } : m),
         );
       },
       () => setStreaming(false),
-      (msg, status) => {
+      (msg) => {
         setError(msg);
         setMessages((prev) => prev.filter((m) => m.id !== assistantMsg.id));
         setStreaming(false);
-        // Server rejected the key — reveal the input so the user can replace it.
-        if (status === 401 || status === 403) setApiKey("");
       },
     );
     if (abortRef.current === controller) abortRef.current = null;
-  }, [input, streaming, apiKey, model, messages, systemPrompt]);
+    // The key may have been revoked or rotated meanwhile; refresh what we show.
+    void refetchKey();
+  }, [input, streaming, noKey, model, messages, systemPrompt, refetchKey]);
 
   // stop a running generation; the partial reply stays in the transcript
   const stop = useCallback(() => {
@@ -346,8 +321,7 @@ export function Playground() {
     setError(null);
   }
 
-  const isKeyValid  = keyValid(apiKey);
-  const canSend     = isKeyValid && input.trim().length > 0 && !streaming;
+  const canSend     = !noKey && input.trim().length > 0 && !streaming;
   const empty       = messages.length === 0;
   const currentModel = pickerModels.find(m => m.id === model) ?? pickerModels[0];
 
@@ -384,23 +358,18 @@ export function Playground() {
       </div>
 
       {/* ── Key banner ── */}
-      {!isKeyValid && (
+      {noKey ? (
         <div className={styles.keyBanner}>
           <span className={styles.keyLabel}>ADO Key</span>
-          <input
-            className={styles.keyInput}
-            type="text"
-            placeholder="ado-xxxxxxxxxxxxxxxx"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            spellCheck={false}
-            autoComplete="off"
-          />
           <span className={styles.keyHint}>
-            {me
-              ? "Rotate your key on the dashboard to reveal it."
-              : "Sign in to get a free key, or paste yours here."}
+            You don&apos;t have an active key right now. <Link to="/dashboard" className={styles.keyLink}>Get one on the dashboard</Link>, then come back.
           </span>
+        </div>
+      ) : currentKey.data && (
+        <div className={styles.keyBanner}>
+          <span className={styles.keyLabel}>ADO Key</span>
+          <code className={styles.keyPrefix}>{currentKey.data.keyPrefix}…</code>
+          <span className={styles.keyHint}>Chats here use your current key and count toward its daily quota.</span>
         </div>
       )}
 
@@ -483,8 +452,8 @@ export function Playground() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder={isKeyValid ? "Message…" : "Enter your API key above first"}
-            disabled={!isKeyValid || streaming}
+            placeholder={noKey ? "Get a key on the dashboard first" : "Message…"}
+            disabled={noKey || streaming}
             rows={1}
           />
           <div className={styles.inputFooter}>

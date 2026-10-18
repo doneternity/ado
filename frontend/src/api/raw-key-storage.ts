@@ -1,7 +1,7 @@
 import type { KeyJustIssued } from "../types/api";
 
 // localStorage persistence for the raw API key. The backend stores only the
-// hash, so to keep the Playground filled across page reloads we cache the raw
+// hash, so to keep the dashboard showing it across page reloads we cache the raw
 // key in the browser, tied to the owning user id.
 
 const STORAGE_KEY = "ado-raw-key-v1";

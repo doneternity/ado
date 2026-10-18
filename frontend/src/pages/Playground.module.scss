@@ -231,21 +231,20 @@
   flex-shrink: 0;
 }
 
-.keyInput {
-  flex: 1;
-  min-width: 220px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--r-pill);
-  color: #ffffff;
+.keyPrefix {
   font-family: var(--font-mono);
   font-size: .78rem;
-  padding: 7px 14px;
-  outline: none;
-  transition: border-color var(--t-fast);
+  color: #ffffff;
+  padding: 4px 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.03);
+}
 
-  &:focus { border-color: rgba(236,168,214,0.3); }
-  &::placeholder { color: rgba(255,255,255,0.15); }
+.keyLink {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .keyHint {

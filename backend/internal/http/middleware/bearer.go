@@ -52,14 +52,7 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 				apperr.Write(w, apperr.Forbidden("BANNED", "account suspended"))
 				return
 			}
-			// keep last_used_at fresh so the reaper only revokes idle keys.
-			// detached + async so it never delays the request; the query
-			// self-debounces to ~once per 30s per key.
-			go func(id uuid.UUID) {
-				tctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				_ = q.TouchKeyLastUsed(tctx, id)
-			}(row.ID)
+			touchKey(q, row.ID)
 			ctx := context.WithValue(r.Context(), bearerKey, BearerKeyContext{
 				KeyID:         row.ID,
 				UserID:        row.UserID,
@@ -70,6 +63,53 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// SessionKey is Bearer for the website's Playground: it authenticates with the
+// signed-in session instead of a raw key, and attaches that user's active key,
+// so the backend never has to hand the raw key back to the browser (it only
+// stores a hash). Everything downstream (quota, per-key RPM, request log)
+// treats the call exactly like one made with the key. Use behind LoadSession
+// and CSRF; banned users are already stopped by LoadSession.
+func SessionKey(q *db.Queries) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sess, ok := SessionFromContext(r.Context())
+			if !ok {
+				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "sign in to use the playground"))
+				return
+			}
+			row, err := q.GetActiveKeyWithQuotaByUser(r.Context(), sess.UserID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				apperr.Write(w, apperr.Forbidden("NO_KEY", "you have no active key; get one on the dashboard"))
+				return
+			}
+			if err != nil {
+				apperr.Write(w, apperr.Internal("INTERNAL", "key lookup"))
+				return
+			}
+			touchKey(q, row.ID)
+			ctx := context.WithValue(r.Context(), bearerKey, BearerKeyContext{
+				KeyID:         row.ID,
+				UserID:        sess.UserID,
+				DailyLimit:    row.DailyLimit,
+				PlanRPM:       row.PlanRpm,
+				ReasoningMode: row.ReasoningMode,
+			})
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// touchKey keeps last_used_at fresh so the reaper only revokes idle keys.
+// Detached and async so it never delays the request; the query self-debounces
+// to about once per 30s per key.
+func touchKey(q *db.Queries, id uuid.UUID) {
+	go func() {
+		tctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = q.TouchKeyLastUsed(tctx, id)
+	}()
 }
 
 func BearerFromContext(ctx context.Context) (BearerKeyContext, bool) {

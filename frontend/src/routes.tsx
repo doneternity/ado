@@ -12,6 +12,7 @@ import { SignUp } from "./pages/SignUp";
 import { JoinRequired } from "./pages/JoinRequired";
 import { NotFound } from "./pages/NotFound";
 import { PageMeta } from "./components/PageMeta";
+import { RouteError } from "./components/RouteError";
 import { Landing } from "./pages/Landing";
 import { Models } from "./pages/Models";
 import { Pricing } from "./pages/Pricing";
@@ -81,7 +82,9 @@ function RedirectIfAuthed({ children }: { children: ReactNode }) {
 export const router = createBrowserRouter([
   {
     element: <Root />,
-    children: [
+    errorElement: <RouteError />,
+    // Pathless wrapper: a page that throws shows the error inside the layout.
+    children: [{ errorElement: <RouteError />, children: [
       { path: "/",              element: <Landing /> },
       { path: "/models",        element: <Models /> },
       { path: "/docs",          element: <Docs /> },
@@ -95,12 +98,13 @@ export const router = createBrowserRouter([
       { path: "/join-required", element: <JoinRequired /> },
       { path: "/dashboard",     element: <RequireAuth><Dashboard /></RequireAuth> },
       { path: "*",              element: <NotFound /> },
-    ],
+    ] }],
   },
   {
     path: "/admin",
     element: <AdminRoot />,
-    children: [
+    errorElement: <RouteError />,
+    children: [{ errorElement: <RouteError />, children: [
       { index: true,         element: <RequireAdmin><AdminOverview /></RequireAdmin> },
       { path: "providers",   element: <RequireAdmin><AdminProviders /></RequireAdmin> },
       { path: "users",       element: <RequireAdmin><AdminUsers /></RequireAdmin> },
@@ -108,6 +112,6 @@ export const router = createBrowserRouter([
       { path: "quotas",      element: <RequireAdmin><AdminQuotas /></RequireAdmin> },
       { path: "errors",      element: <RequireAdmin><AdminErrors /></RequireAdmin> },
       { path: "maintenance", element: <RequireAdmin><AdminMaintenance /></RequireAdmin> },
-    ],
+    ] }],
   },
 ]);

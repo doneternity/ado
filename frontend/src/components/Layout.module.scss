@@ -16,6 +16,7 @@
 
 .nav {
   margin: 0 auto;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -175,4 +176,17 @@
   color: #050508 !important;
   font-weight: 600;
   &:hover { color: #050508 !important; opacity: 0.88; }
+}
+
+/* Reading progress on long pages (ScrollProgress.tsx) */
+.scrollProgress {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: -1px;
+  height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(236, 168, 214, 0.6);
+  transform-origin: left;
+  pointer-events: none;
 }

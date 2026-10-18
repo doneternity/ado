@@ -1,10 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { DISCORD_INVITE_URL } from "../config";
-import { LEGAL } from "../data/legal";
 import styles from "./Legal.module.scss";
 
 const DISCORD = DISCORD_INVITE_URL;
+const LAST_UPDATED = "October 18, 2026";
 
 const fade = {
   initial: { opacity: 0, y: 14 },
@@ -16,10 +16,6 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
     title: "Acceptance of Terms",
     body: "By accessing or using ADO (\"the Service\"), you agree to these Terms of Service. If you do not agree, do not use the Service.",
-  },
-  {
-    title: "Who Runs the Service",
-    body: `The Service is operated by ${LEGAL.operator}, ${LEGAL.address}, ${LEGAL.country}. Contact: ${LEGAL.email}.`,
   },
   {
     title: "Description of Service",
@@ -70,12 +66,12 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     body: "If we change these terms, we will update the date above, and we will announce material changes on the site or our Discord server. If you keep using the Service after a change takes effect, the new terms apply.",
   },
   {
-    title: "Governing Law",
-    body: `These terms are governed by the laws of ${LEGAL.country}. If you are a consumer, you also keep the protection of the mandatory laws of the country where you live, and you may bring claims in its courts.`,
+    title: "Consumer Rights",
+    body: "If you are a consumer, nothing in these terms takes away the protection of the mandatory laws of the country where you live.",
   },
   {
     title: "Contact",
-    body: <>Questions about these terms: email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> or reach us on our <a href={DISCORD} target="_blank" rel="noopener noreferrer">Discord server</a>.</>,
+    body: <>Questions about these terms: reach us on our <a href={DISCORD} target="_blank" rel="noopener noreferrer">Discord server</a>.</>,
   },
 ];
 
@@ -85,7 +81,7 @@ export function Terms() {
       <div className={styles.content}>
         <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Legal</span>
         <h1 className={styles.headline}>Terms of Service</h1>
-        <p className={styles.meta}>Last updated: {LEGAL.lastUpdated}</p>
+        <p className={styles.meta}>Last updated: {LAST_UPDATED}</p>
 
         {SECTIONS.map((s) => (
           <Section key={s.title} title={s.title}>

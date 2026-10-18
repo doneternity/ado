@@ -383,3 +383,11 @@
   letter-spacing: .06em;
   color: rgba(255,255,255,.3);
 }
+
+/* ── syntax colours (components/highlight.tsx) ── */
+.tokComment { color: rgba(255,255,255,.28); font-style: italic; }
+.tokString  { color: var(--accent); }
+.tokKey     { color: rgba(255,255,255,.9); }
+.tokKeyword { color: #ffffff; font-weight: 700; }
+.tokNumber  { color: var(--green); }
+.tokFlag    { color: var(--electric); }

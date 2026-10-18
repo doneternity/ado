@@ -1,0 +1,51 @@
+.wrap {
+  position: relative;
+  min-height: calc(100dvh - 80px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 80px 5vw 120px;
+}
+
+// The hero's grid, faded out towards the edges.
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 8.333% 12.5%;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 70%);
+          mask-image: radial-gradient(ellipse at center, #000 20%, transparent 70%);
+  pointer-events: none;
+}
+
+// Huge outlined serif numerals behind the message.
+.big {
+  position: absolute;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(12rem, 38vw, 34rem);
+  line-height: 1;
+  letter-spacing: -.04em;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(236, 168, 214, 0.35);
+  user-select: none;
+  pointer-events: none;
+}
+
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 440px;
+  text-align: left;
+}
+
+.path {
+  font-family: var(--font-mono);
+  font-size: .85em;
+  color: var(--accent);
+  word-break: break-all;
+}

@@ -1,14 +1,13 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { DISCORD_INVITE_URL } from "../config";
-import { LEGAL } from "../data/legal";
 import styles from "./Legal.module.scss";
 
 const DiscordLink = () => (
   <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Discord server</a>
 );
 
-const Email = () => <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>;
+const LAST_UPDATED = "October 18, 2026";
 
 const fade = {
   initial: { opacity: 0, y: 14 },
@@ -19,7 +18,7 @@ const fade = {
 const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
     title: "Who We Are",
-    body: <>ADO is operated by {LEGAL.operator}, {LEGAL.address}, {LEGAL.country}, which is the controller of the personal data described here. For any privacy question or request, email <Email /> or reach us on our <DiscordLink />.</>,
+    body: <>ADO is an independent, non-commercial project. For any privacy question or request, reach us on our <DiscordLink />.</>,
   },
   {
     title: "Information We Collect",
@@ -47,7 +46,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Your Rights",
-    body: <>You can rotate your API key, view your usage, and delete your account from the dashboard at any time. Depending on where you live, you may also have the right to access, correct, or export your data, and to object to or restrict its processing. Email <Email /> to make a request. If you are in the EU or UK, you can also complain to your local data protection authority.</>,
+    body: <>You can rotate your API key, view your usage, and delete your account from the dashboard at any time. Depending on where you live, you may also have the right to access, correct, or export your data, and to object to or restrict its processing. Reach us on our <DiscordLink /> to make a request. If you are in the EU or UK, you can also complain to your local data protection authority.</>,
   },
   {
     title: "Cookies and Local Storage",
@@ -55,7 +54,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Children's Privacy",
-    body: <>ADO is not intended for children under 16, and we do not knowingly collect their data. If you believe a child has signed up, email <Email /> and we will delete the account.</>,
+    body: <>ADO is not intended for children under 16, and we do not knowingly collect their data. If you believe a child has signed up, tell us on our <DiscordLink /> and we will delete the account.</>,
   },
   {
     title: "International Transfers",
@@ -73,7 +72,7 @@ export function Privacy() {
       <div className={styles.content}>
         <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Legal</span>
         <h1 className={styles.headline}>Privacy Policy</h1>
-        <p className={styles.meta}>Last updated: {LEGAL.lastUpdated}</p>
+        <p className={styles.meta}>Last updated: {LAST_UPDATED}</p>
 
         {SECTIONS.map((s) => (
           <Section key={s.title} title={s.title}>

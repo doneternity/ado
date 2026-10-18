@@ -126,12 +126,48 @@
   background: rgba(255,255,255,0.1);
 }
 
+/* Accent grid lines that light up around the cursor (vars set in Landing.tsx) */
+.heroGridGlow {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(236,168,214,0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(236,168,214,0.55) 1px, transparent 1px);
+  background-size: 8.333% 12.5%;
+  background-position: -1px -1px;
+  -webkit-mask-image: radial-gradient(260px circle at var(--spot-x, -999px) var(--spot-y, -999px), #000 0%, transparent 70%);
+          mask-image: radial-gradient(260px circle at var(--spot-x, -999px) var(--spot-y, -999px), #000 0%, transparent 70%);
+  opacity: calc(var(--spot-on, 0) * 0.5);
+  transition: opacity .4s ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(420px circle at var(--spot-x, -999px) var(--spot-y, -999px), rgba(236,168,214,0.10), transparent 65%);
+  }
+}
+
+.heroAside {
+  flex: 0 0 auto;
+  width: min(440px, 36%);
+  margin-left: auto;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 1s .35s cubic-bezier(0.22,1,0.36,1), transform 1s .35s cubic-bezier(0.22,1,0.36,1);
+  @media (max-width: 1100px) { display: none; }
+}
+.heroAsideIn { opacity: 1; transform: none; }
+
 .heroInner {
   position: relative;
   z-index: 10;
   flex: 1;
   display: flex;
   align-items: center;
+  gap: 48px;
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
@@ -493,6 +529,7 @@
 
 .stepCard {
   position: relative;
+  @include edge-sweep;
   text-align: left;
   padding: 24px;
   border: 1px solid rgba(255,255,255,0.25);
@@ -901,6 +938,7 @@
 
 .portCard {
   position: relative;
+  @include edge-sweep;
   border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.015);
   padding: 24px;

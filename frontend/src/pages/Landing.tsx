@@ -1,7 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useMe, useSampleModel } from "../api/queries";
+import { HeroTerminal } from "../components/HeroTerminal";
+import { ModelMarquee } from "../components/ModelMarquee";
+import { WordReveal } from "../components/WordReveal";
 import styles from "./Landing.module.scss";
 
 const WORDS = ["build", "ship", "connect", "deploy", "create"];
@@ -67,6 +71,21 @@ export function Landing() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Cursor spotlight: written straight to CSS variables so moving the mouse
+  // doesn't re-render the page.
+  const heroRef = useRef<HTMLElement>(null);
+  function moveSpotlight(e: ReactPointerEvent<HTMLElement>) {
+    const el = heroRef.current;
+    if (!el || e.pointerType === "touch" || reducedMotion) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--spot-x", `${e.clientX - r.left}px`);
+    el.style.setProperty("--spot-y", `${e.clientY - r.top}px`);
+    el.style.setProperty("--spot-on", "1");
+  }
+  function hideSpotlight() {
+    heroRef.current?.style.setProperty("--spot-on", "0");
+  }
+
   useEffect(() => {
     const timer = setInterval(() => {
       setWordVisible(false);
@@ -102,7 +121,7 @@ export function Landing() {
     <div className={styles.page}>
 
       {/* ─── HERO ──────────────────────────────────────── */}
-      <section className={styles.hero}>
+      <section className={styles.hero} ref={heroRef} onPointerMove={moveSpotlight} onPointerLeave={hideSpotlight}>
         <div className={styles.heroBg} aria-hidden="true">
           <video className={styles.heroBgVideo} autoPlay={!reducedMotion} muted loop playsInline poster="/hero-poster.webp">
             <source src="/hero-bg.mp4" type="video/mp4" />
@@ -119,6 +138,8 @@ export function Landing() {
             <div key={`v${i}`} className={styles.heroGridV} style={{ left: `${8.33 * (i + 1)}%` }} />
           ))}
         </div>
+        {/* Same grid in the accent colour, revealed only around the cursor. */}
+        <div className={styles.heroGridGlow} aria-hidden="true" />
 
         <div className={styles.heroInner}>
           <div className={`${styles.heroContent} ${mounted ? styles.heroContentIn : ""}`}>
@@ -142,6 +163,9 @@ export function Landing() {
               <Link to="/docs" className={styles.heroCtaSecondary}>Read the docs</Link>
             </div>
           </div>
+          <div className={`${styles.heroAside} ${mounted ? styles.heroAsideIn : ""}`}>
+            <HeroTerminal />
+          </div>
         </div>
 
         <div className={`${styles.heroStats} ${mounted ? styles.heroStatsIn : ""}`}>
@@ -160,6 +184,8 @@ export function Landing() {
         </div>
       </section>
 
+      <ModelMarquee />
+
       {/* ─── FEATURES ──────────────────────────────────── */}
       <section className={styles.featSection} id="features">
         <div className={styles.container}>
@@ -171,10 +197,7 @@ export function Landing() {
             viewport={VP}
           >
             <motion.div className={styles.sectionHeaderLeft} variants={fadeUp}>
-              <h2 className={styles.displayHeadline}>
-                Compatible<br />
-                <span className={styles.dim}>with everything.</span>
-              </h2>
+              <WordReveal className={styles.displayHeadline} lines={[{ text: "Compatible" }, { text: "with everything.", className: styles.dim }]} />
             </motion.div>
             <motion.p className={styles.sectionDesc} variants={fadeUp}>
               Drop-in OpenAI replacement. No SDK changes, no vendor lock-in.
@@ -289,10 +312,7 @@ const res = await client.chat.completions.create({
               whileInView="show"
               viewport={VP}
             >
-              <motion.h2 className={styles.displayHeadline} variants={fadeUp}>
-                One endpoint,<br />
-                <span className={styles.dim}>everywhere.</span>
-              </motion.h2>
+              <WordReveal className={styles.displayHeadline} lines={[{ text: "One endpoint," }, { text: "everywhere.", className: styles.dim }]} />
               <motion.p className={styles.infraDesc} variants={fadeUp}>
                 ADO runs a redundant routing layer across multiple providers, engineered
                 so one provider going down never takes your app with it.
@@ -410,10 +430,7 @@ const res = await client.chat.completions.create({
             whileInView="show"
             viewport={VP}
           >
-            <motion.h2 className={styles.displayHeadline} variants={fadeUp}>
-              Code your app.<br />
-              <span className={styles.dim}>Or use any client.</span>
-            </motion.h2>
+            <WordReveal className={styles.displayHeadline} lines={[{ text: "Code your app." }, { text: "Or use any client.", className: styles.dim }]} />
           </motion.div>
 
           <div className={styles.devGrid}>
@@ -460,10 +477,7 @@ const res = await client.chat.completions.create({
             whileInView="show"
             viewport={VP}
           >
-            <motion.h2 className={styles.displayHeadline} variants={fadeUp}>
-              What we<br />
-              <span className={styles.dim}>route.</span>
-            </motion.h2>
+            <WordReveal className={styles.displayHeadline} lines={[{ text: "What we" }, { text: "route.", className: styles.dim }]} />
           </motion.div>
 
           <motion.div

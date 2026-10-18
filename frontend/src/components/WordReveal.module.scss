@@ -1,0 +1,15 @@
+.line { display: block; }
+
+// Each word clips its own slide-up. The padding/negative margin give
+// descenders (g, y, p) room so the mask doesn't cut them off.
+.mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: .14em;
+  margin-bottom: -.14em;
+  margin-right: .24em;
+  &:last-child { margin-right: 0; }
+}
+
+.word { display: inline-block; will-change: transform; }

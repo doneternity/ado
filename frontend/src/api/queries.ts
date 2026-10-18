@@ -9,17 +9,27 @@ export const currentKeyKey = ["keys", "current"] as const;
 export const rawKeyKey = ["keys", "raw"] as const;
 export const publicModelsKey = ["models", "public"] as const;
 
-// Shared, cached fetch of the public model list (no key required).
+export type ModelStatus = "available" | "degraded" | "down";
+export type PublicModel = { id: string; status: ModelStatus };
+
+// Shared, cached fetch of the public model list (no key required). Both hooks
+// below read the same cache entry, so the list is fetched once per page.
+const publicModelsQuery = {
+  queryKey: publicModelsKey,
+  queryFn: async (): Promise<PublicModel[]> => {
+    const r = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/models");
+    const d = (await r.json()) as { data?: { id: string; ado_status?: ModelStatus }[] };
+    return (d.data ?? []).map((m) => ({ id: m.id, status: m.ado_status ?? "available" }));
+  },
+  staleTime: 5 * 60_000,
+};
+
 export function usePublicModels() {
-  return useQuery({
-    queryKey: publicModelsKey,
-    queryFn: async () => {
-      const r = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/models");
-      const d = (await r.json()) as { data?: { id: string }[] };
-      return (d.data ?? []).map((m) => m.id);
-    },
-    staleTime: 5 * 60_000,
-  });
+  return useQuery({ ...publicModelsQuery, select: (ms: PublicModel[]) => ms.map((m) => m.id) });
+}
+
+export function usePublicModelStatuses() {
+  return useQuery(publicModelsQuery);
 }
 
 // The example model ID for docs/snippets — live-resolved with a static fallback.

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
 import { useSampleModel } from "../api/queries";
 import { API_BASE_URL } from "../config";
+import { highlight } from "../components/highlight";
 import styles from "./Docs.module.scss";
 
 const NAV = [
@@ -48,6 +49,11 @@ const NAV = [
 
 const ALL_IDS = NAV.flatMap(g => g.links.map(l => l.id));
 
+const TOKEN_CLASSES = {
+  comment: styles.tokComment, string: styles.tokString, key: styles.tokKey,
+  keyword: styles.tokKeyword, number: styles.tokNumber, flag: styles.tokFlag,
+};
+
 function Code({ children, lang }: { children: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
   function copy() {
@@ -64,7 +70,7 @@ function Code({ children, lang }: { children: string; lang?: string }) {
           {copied ? "copied" : "copy"}
         </button>
       </div>
-      <pre className={styles.codePre}><code>{children}</code></pre>
+      <pre className={styles.codePre}><code>{highlight(children, lang, TOKEN_CLASSES)}</code></pre>
     </div>
   );
 }

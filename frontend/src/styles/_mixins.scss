@@ -51,3 +51,33 @@
 
 @mixin breakpoint-md { @media (min-width: 768px)  { @content; } }
 @mixin breakpoint-lg { @media (min-width: 1024px) { @content; } }
+
+// Thin accent line that sweeps around a card's border on hover/focus.
+// Needs --sweep-angle registered with @property (styles/global.scss).
+// Uses ::after, so don't combine with a card that already has one.
+@mixin edge-sweep($color: var(--accent)) {
+  position: relative;
+
+  @keyframes edge-sweep { to { --sweep-angle: 360deg; } }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(from var(--sweep-angle), transparent 0 65%, #{$color} 85%, transparent 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    opacity: 0;
+    transition: opacity .4s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+  &:hover::after,
+  &:focus-visible::after {
+    opacity: 1;
+    animation: edge-sweep 2.4s linear infinite;
+  }
+}

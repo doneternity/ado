@@ -11,6 +11,7 @@ import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory,
 import { useRotateKey, useDeleteAccount, useSetReasoningMode } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import { API_BASE_URL } from "../config";
+import { ScrambleText } from "../components/ScrambleText";
 import styles from "./Dashboard.module.scss";
 
 const PROXY_BASE = API_BASE_URL;
@@ -199,7 +200,7 @@ function KeyCard() {
         </div>
 
         <div className={`${styles.keyDisplayWrap}${revealed && raw ? ` ${styles.keyDisplayWrapNew}` : ""}`}>
-          <code className={styles.keyDisplay}>{display}</code>
+          <code className={styles.keyDisplay}><ScrambleText text={display} /></code>
         </div>
 
         {revealed && raw && (

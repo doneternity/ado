@@ -7,11 +7,13 @@ import { Toast } from "./Toast";
 import { Footer } from "./Footer";
 import { BetaModal } from "./BetaModal";
 import { useDialog } from "./useDialog";
+import { ScrollProgress } from "./ScrollProgress";
 import styles from "./Layout.module.scss";
 import betaStyles from "./BetaModal.module.scss";
 
 const DARK_PAGES = new Set(["/dashboard", "/playground", "/admin"]);
 const HERO_PAGES = new Set(["/"]);
+const LONG_PAGES = new Set(["/docs", "/models", "/privacy", "/terms"]);
 
 export function Layout({ children }: { children: ReactNode }) {
   const { data: me } = useMe();
@@ -85,6 +87,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </>
             )}
           </div>
+          {LONG_PAGES.has(pathname) && <ScrollProgress />}
         </nav>
       </header>
 

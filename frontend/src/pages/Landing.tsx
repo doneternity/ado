@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useMe, useSampleModel } from "../api/queries";
 import { HeroTerminal } from "../components/HeroTerminal";
+import { RoutingCanvas } from "../components/RoutingCanvas";
+import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import { ModelMarquee } from "../components/ModelMarquee";
 import { WordReveal } from "../components/WordReveal";
 import styles from "./Landing.module.scss";
@@ -64,10 +66,7 @@ export function Landing() {
   const [activeStep, setActiveStep] = useState(0);
   const [stepKey, setStepKey] = useState(0);
   const [activeRegion, setActiveRegion] = useState(1);
-  // With reduced motion the hero video doesn't autoplay; its poster shows instead.
-  const [reducedMotion] = useState(
-    () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-  );
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -123,9 +122,7 @@ export function Landing() {
       {/* ─── HERO ──────────────────────────────────────── */}
       <section className={styles.hero} ref={heroRef} onPointerMove={moveSpotlight} onPointerLeave={hideSpotlight}>
         <div className={styles.heroBg} aria-hidden="true">
-          <video className={styles.heroBgVideo} autoPlay={!reducedMotion} muted loop playsInline poster="/hero-poster.webp">
-            <source src="/hero-bg.mp4" type="video/mp4" />
-          </video>
+          <RoutingCanvas className={styles.heroBgCanvas} />
           <div className={styles.heroBgOverlayH} />
           <div className={styles.heroBgOverlayV} />
         </div>

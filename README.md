@@ -24,9 +24,15 @@ The Go backend handles everything: auth, sessions, key issuance, admin, and the 
 ## Local Development
 
 ```bash
-cp .env.example .env   # fill in GEMINI_API_KEY at minimum
+cp .env.example .env   # set PROVIDER_KEY_SECRET (32+ bytes) and the DISCORD_* vars
 docker compose up      # postgres + redis + go api + vite + nginx
 ```
+
+Sign-in is Discord-only, so you need a Discord app whose redirect URL is
+`http://localhost:8080/api/auth/discord/callback`. Set `ADMIN_BOOTSTRAP_EMAIL` to your
+Discord email to become admin on first login, then add LLM providers at `/admin/providers`.
+Provider keys are encrypted with `PROVIDER_KEY_SECRET`, so changing that secret means
+re-entering them.
 
 | URL | Service |
 |-----|---------|
@@ -36,15 +42,18 @@ docker compose up      # postgres + redis + go api + vite + nginx
 **Running services individually**
 
 ```bash
-cd backend && go run ./cmd/api   # backend only (requires .env)
+cd backend && go run ./cmd/api   # backend only (env vars must be exported; .env is not auto-loaded)
 cd frontend && npm run dev        # frontend only
 ```
+
+Outside compose, point `DATABASE_URL` / `REDIS_URL` at `localhost` instead of `postgres` / `redis`.
+The backend runs goose migrations from `./migrations` on startup.
 
 **Tests**
 
 ```bash
 cd backend && go test -race ./internal/...   # unit (no containers needed)
-cd backend && go test -race ./tests/         # integration (testcontainers)
+cd backend && go test -race ./tests/         # integration (testcontainers, needs Docker)
 cd frontend && npm test -- --run             # frontend
 cd frontend && npm run typecheck             # type check
 ```
@@ -57,14 +66,16 @@ cd frontend && npm run typecheck             # type check
 backend/
   cmd/api/            binary entry point
   internal/
-    auth/             sessions, email verification, password, Google OAuth
+    apperr/           typed API errors
+    auth/             sessions, password hashing, Discord OAuth
     config/           env-based config (caarlos0/env)
     http/             router, handlers, middleware
+    keyencrypt/       AES-GCM encryption for stored provider keys
     keys/             API key generation and flash storage
-    mailer/           Resend + console mailer
-    proxy/            LLM forwarder (local dev only)
+    proxy/            LLM forwarder: provider registry, failover, model health
     quota/            daily usage enforcement
     store/            sqlc-generated DB queries + Redis client
+    validate/         request validation
   migrations/         goose SQL migrations
   tests/              integration tests (testcontainers)
 frontend/

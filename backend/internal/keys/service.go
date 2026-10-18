@@ -67,7 +67,7 @@ func (s *Service) Rotate(ctx context.Context, userID uuid.UUID) (Issued, error) 
 	if err != nil {
 		return Issued{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := s.q.WithTx(tx)
 
 	// fetch the old key so we can carry its usage over.

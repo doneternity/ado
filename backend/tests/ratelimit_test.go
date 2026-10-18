@@ -5,7 +5,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/cookiejar"
-	"strings"
 	"testing"
 	"time"
 
@@ -19,23 +18,6 @@ func seedRL(t *testing.T, fx *fixture, key string, count int64, ttl time.Duratio
 	if err := fx.rdb.Set(context.Background(), key, count, ttl).Err(); err != nil {
 		t.Fatalf("seedRL: %v", err)
 	}
-}
-
-func post(t *testing.T, fx *fixture, path, body, bearerKey string) *http.Response {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, fx.server.URL+path, strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if bearerKey != "" {
-		req.Header.Set("Authorization", "Bearer "+bearerKey)
-	}
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp
 }
 
 func getReq(t *testing.T, fx *fixture, path, bearerKey string) *http.Response {

@@ -16,7 +16,7 @@ import (
 func TestForwarder_Streams(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer SECRET" {
-			http.Error(w, "no key", 401)
+			http.Error(w, "no key", http.StatusUnauthorized)
 			return
 		}
 		flusher := w.(http.Flusher)

@@ -204,7 +204,7 @@ func (h *DiscordHandler) resolveUser(r *http.Request, ident oauth.DiscordIdentit
 	// 4. Create fresh account.
 	role := "user"
 	if h.d.Cfg.AdminBootstrapEmail != "" &&
-		strings.ToLower(ident.Email) == strings.ToLower(h.d.Cfg.AdminBootstrapEmail) {
+		strings.EqualFold(ident.Email, h.d.Cfg.AdminBootstrapEmail) {
 		if has, herr := h.d.Q.HasAdmin(ctx); herr == nil && !has {
 			role = "admin"
 		}

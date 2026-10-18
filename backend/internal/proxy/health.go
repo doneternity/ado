@@ -69,7 +69,9 @@ func (h *ModelHealth) Status(model string) string {
 		return "" // no recent signal — caller defaults to available
 	}
 	// The most recent observation wins: a success means it's working now.
-	if s.lastOK.After(s.lastFail) {
+	// Use the fail counter rather than comparing timestamps — a success resets
+	// it to 0, and clock resolution can make lastOK == lastFail.
+	if s.fails == 0 {
 		return "available"
 	}
 	// Most recent signal is a failure.

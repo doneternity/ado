@@ -1,11 +1,14 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { DISCORD_INVITE_URL } from "../config";
+import { LEGAL } from "../data/legal";
 import styles from "./Legal.module.scss";
 
 const DiscordLink = () => (
   <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Discord server</a>
 );
+
+const Email = () => <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>;
 
 const fade = {
   initial: { opacity: 0, y: 14 },
@@ -15,44 +18,52 @@ const fade = {
 
 const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
+    title: "Who We Are",
+    body: <>ADO is operated by {LEGAL.operator}, {LEGAL.address}, {LEGAL.country}, which is the controller of the personal data described here. For any privacy question or request, email <Email /> or reach us on our <DiscordLink />.</>,
+  },
+  {
     title: "Information We Collect",
-    body: "We collect account details such as your email address and (for Google sign-in) your name and profile photo when you sign up. We collect usage metadata including per-day request counts and model selections. Technical data collected includes browser type, IP address, and a session cookie. We do not collect the content of your AI requests or responses.",
+    body: "When you sign in with Discord we receive and store your Discord user ID, username, email address, and avatar URL. At sign-in we also check, without storing it, whether you are a member of the ADO Discord server and hold the required role. For your API key we store only a hash and a short prefix, plus per-day request counts and when the key was last used. A newly issued key is held for up to 5 minutes so it can be shown to you once. For each login session we store a session token, your IP address, and your browser's user agent. To enforce rate limits we keep short-lived counters keyed by IP address or API key. When a request fails we log its method, path, and status code, without your IP address or request content.",
   },
   {
-    title: "How We Use Information",
-    body: "Data is used to provide and secure the service, route API requests, troubleshoot issues, and improve reliability. Your email may be used for account-related notifications. Aggregated and anonymized usage insights may be used for analytics and product improvement. We never use your API requests or prompts to train AI models.",
+    title: "Your Prompts and Responses",
+    body: "The content of your API requests and the AI responses passes through our servers to the AI provider that handles it. We do not store or log that content, and we never use it to train AI models. The AI provider processes it under its own terms and privacy policy, which may include its own retention.",
   },
   {
-    title: "Data Sharing",
-    body: "We do not sell personal data. We share information with trusted infrastructure providers (cloud hosting, database services) required to deliver the service. Subprocessors are bound by data protection agreements. We may disclose information when required by law, to enforce our terms, or protect rights, safety, or property. API requests are proxied to Google Gemini and are subject to Google's privacy policy.",
+    title: "How We Use Information and Why",
+    body: "We use this data to run your account, issue and check API keys, route requests, enforce quotas and rate limits, prevent abuse, and fix problems. We process it because it is necessary to provide the service you signed up for, and for our legitimate interest in keeping the service secure and working. We also look at aggregate usage statistics to operate the service. We do not send marketing email, and we do not use analytics or advertising trackers.",
+  },
+  {
+    title: "Who We Share It With",
+    body: "We do not sell personal data. We use these service providers to run ADO: Vercel (website hosting), Koyeb (API hosting), Supabase (database), Upstash (rate-limit store), and Discord (sign-in). Your API requests are sent to the third-party AI providers that serve the model you request. We may also disclose information when required by law.",
   },
   {
     title: "Security",
-    body: "We implement industry-standard technical and organizational safeguards including encryption in transit (TLS) and at rest, access controls, and monitoring. Provider API keys are stored encrypted with AES-256-GCM. Session cookies are HttpOnly and Secure. However, no system is perfectly secure; we recommend rotating your key periodically and not sharing it publicly.",
+    body: "Traffic is encrypted in transit with TLS, and our database host encrypts data at rest. API keys are stored only as hashes, and the AI-provider keys we hold are encrypted with AES-256-GCM. Session cookies are HttpOnly, Secure, and SameSite-restricted. No system is perfectly secure, so rotate your key if you think it has leaked and don't share it publicly.",
   },
   {
     title: "Data Retention",
-    body: <>Information is retained for as long as necessary to operate the service. Account data is deleted upon account termination. Daily usage counters reset at UTC midnight and are not retained long-term. Error logs are retained for 30 days for debugging purposes. You may request deletion of your personal data at any time via our <DiscordLink />.</>,
+    body: "Account data is kept until you delete your account, which removes your account, keys, usage history, and sessions. Daily request counts are deleted after 90 days and error logs after 30 days. Session data is deleted when the session expires: after 7 days of inactivity, or 30 days at most. Rate-limit counters and sign-in state expire within an hour. API keys that go unused for 14 days are automatically revoked.",
   },
   {
-    title: "Your Choices",
-    body: <>You can rotate your API key, view your usage, and delete your account from the dashboard at any time. For questions or requests about data (access, correction, deletion), reach us on our <DiscordLink />.</>,
+    title: "Your Rights",
+    body: <>You can rotate your API key, view your usage, and delete your account from the dashboard at any time. Depending on where you live, you may also have the right to access, correct, or export your data, and to object to or restrict its processing. Email <Email /> to make a request. If you are in the EU or UK, you can also complain to your local data protection authority.</>,
   },
   {
-    title: "Cookies",
-    body: "We set one cookie: ado_session, an opaque token used to identify your login session. It is HttpOnly, Secure (in production), and SameSite-restricted. No third-party tracking or analytics cookies are set.",
+    title: "Cookies and Local Storage",
+    body: "We set two cookies, both strictly necessary: ado_session keeps you signed in (up to 30 days), and ado_oauth_state protects the Discord sign-in flow (10 minutes). We also use your browser's local storage to keep your API key visible on your dashboard and to remember notices you have dismissed. We don't use analytics, advertising, or third-party cookies, and our fonts are served from our own domain. Because everything we store is needed to provide the service, there is no cookie consent banner.",
   },
   {
     title: "Children's Privacy",
-    body: <>Our service is not intended for children under 16. We do not knowingly collect data from children. If you believe a child has provided personal data, reach us immediately via our <DiscordLink /> to remove it.</>,
+    body: <>ADO is not intended for children under 16, and we do not knowingly collect their data. If you believe a child has signed up, email <Email /> and we will delete the account.</>,
   },
   {
-    title: "International Data Transfer",
-    body: "Your data may be processed on servers in various countries. We ensure appropriate safeguards for international transfers in compliance with applicable regulations.",
+    title: "International Transfers",
+    body: "Some of our service providers and AI providers process data outside your country, including in the United States. Where they do, transfers rely on the safeguards those providers offer, such as the EU Standard Contractual Clauses.",
   },
   {
     title: "Changes to This Policy",
-    body: "We may update this Privacy Policy periodically. Material changes will be notified via the service. Continued use of the platform after changes constitutes acceptance of the updated policy.",
+    body: "If we change this policy, we will update the date above, and we will announce material changes on the site or our Discord server.",
   },
 ];
 
@@ -62,7 +73,7 @@ export function Privacy() {
       <div className={styles.content}>
         <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Legal</span>
         <h1 className={styles.headline}>Privacy Policy</h1>
-        <p className={styles.meta}>Last updated: May 18, 2026</p>
+        <p className={styles.meta}>Last updated: {LEGAL.lastUpdated}</p>
 
         {SECTIONS.map((s) => (
           <Section key={s.title} title={s.title}>

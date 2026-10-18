@@ -6,6 +6,7 @@ import { useLogout } from "../api/mutations";
 import { Toast } from "./Toast";
 import { Footer } from "./Footer";
 import { BetaModal } from "./BetaModal";
+import { useDialog } from "./useDialog";
 import styles from "./Layout.module.scss";
 import betaStyles from "./BetaModal.module.scss";
 
@@ -22,6 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [scrolled, setScrolled] = useState(false);
   const [slotsFull, setSlotsFull] = useState(false);
   const [showSlotsModal, setShowSlotsModal] = useState(false);
+  const slotsDialogRef = useDialog<HTMLDivElement>(showSlotsModal, () => setShowSlotsModal(false));
 
   useEffect(() => {
     if (!isHero) { setScrolled(true); return; }
@@ -103,9 +105,16 @@ export function Layout({ children }: { children: ReactNode }) {
       <Toast />
       {showSlotsModal && (
         <div className={betaStyles.backdrop} onClick={() => setShowSlotsModal(false)}>
-          <div className={betaStyles.modal} onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={slotsDialogRef}
+            className={betaStyles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="slots-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
             <span className={betaStyles.eyebrow}>Access Limited</span>
-            <h2 className={betaStyles.headline}>plan is full.</h2>
+            <h2 id="slots-modal-title" className={betaStyles.headline}>plan is full.</h2>
             <p className={betaStyles.body}>
               All free-tier slots are taken. Join our Discord server to get notified when a spot opens up.
             </p>

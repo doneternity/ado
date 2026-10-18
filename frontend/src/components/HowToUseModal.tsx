@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Copy, Check } from "lucide-react";
 import { useRawKey } from "../api/queries";
 import { useUiStore } from "../stores/ui-store";
+import { useDialog } from "./useDialog";
 import styles from "./HowToUseModal.module.scss";
 
 type Tab = "janitor" | "sillytavern" | "generic";
@@ -56,19 +57,30 @@ export function HowToUseModal() {
     showToast("Config copied");
   }
 
-  if (!open) {
-    return (
-      <button className={styles.trigger} onClick={() => setOpen(true)}>
-        How to use this key
-      </button>
-    );
-  }
+  const dialogRef = useDialog<HTMLDivElement>(open, () => setOpen(false));
+
+  const trigger = (
+    <button className={styles.trigger} onClick={() => setOpen(true)}>
+      How to use this key
+    </button>
+  );
+
+  if (!open) return trigger;
 
   return (
+    <>
+    {trigger}
     <div className={styles.backdrop} onClick={() => setOpen(false)}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="how-to-use-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.modalHead}>
-          <span className={styles.modalTitle}>How to use your key</span>
+          <span id="how-to-use-title" className={styles.modalTitle}>How to use your key</span>
           <button className={styles.closeBtn} onClick={() => setOpen(false)} aria-label="Close">
             <X size={16} />
           </button>
@@ -130,5 +142,6 @@ export function HowToUseModal() {
         </div>
       </div>
     </div>
+    </>
   );
 }

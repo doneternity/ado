@@ -10,6 +10,9 @@ RETURNING used;
 UPDATE daily_usage SET used = used - 1
 WHERE key_id = $1 AND day = CURRENT_DATE AND used > 0;
 
+-- name: DeleteOldUsage :exec
+DELETE FROM daily_usage WHERE day < CURRENT_DATE - sqlc.arg(days)::int;
+
 -- name: CarryUsageToNewKey :exec
 WITH moved AS (
   DELETE FROM daily_usage

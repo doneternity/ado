@@ -42,6 +42,15 @@ func (q *Queries) DecrementUsage(ctx context.Context, keyID uuid.UUID) error {
 	return err
 }
 
+const deleteOldUsage = `-- name: DeleteOldUsage :exec
+DELETE FROM daily_usage WHERE day < CURRENT_DATE - $1::int
+`
+
+func (q *Queries) DeleteOldUsage(ctx context.Context, days int32) error {
+	_, err := q.db.Exec(ctx, deleteOldUsage, days)
+	return err
+}
+
 const incrementUsage = `-- name: IncrementUsage :one
 INSERT INTO daily_usage (key_id, day, used)
 VALUES ($1, CURRENT_DATE, 1)

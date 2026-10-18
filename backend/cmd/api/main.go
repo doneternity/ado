@@ -29,6 +29,12 @@ import (
 	"github.com/ado/ado/backend/internal/store/redis"
 )
 
+// Retention periods stated in the privacy policy (frontend/src/pages/Privacy.tsx).
+const (
+	errorLogRetentionDays = 30
+	usageRetentionDays    = 90
+)
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -179,6 +185,26 @@ func main() {
 				cutoff := pgtype.Timestamptz{Time: time.Now().Add(-14 * 24 * time.Hour), Valid: true}
 				if err := queries.RevokeInactiveKeys(ctx, cutoff); err != nil {
 					slog.Warn("revoke inactive keys", "err", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Retention cleanup, matching what the privacy policy promises: error logs
+	// 30 days, daily usage counters 90 days.
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				if err := queries.DeleteOldErrorLogs(ctx, int32(errorLogRetentionDays)); err != nil {
+					slog.Warn("delete old error logs", "err", err)
+				}
+				if err := queries.DeleteOldUsage(ctx, usageRetentionDays); err != nil {
+					slog.Warn("delete old usage", "err", err)
 				}
 			case <-ctx.Done():
 				return

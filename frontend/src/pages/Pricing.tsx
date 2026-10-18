@@ -31,7 +31,7 @@ const FAQ = [
   },
   {
     q: "How does the rate limiting work?",
-    a: "Rate limits are applied per API key. Each call to /chat/completions counts as one request, regardless of token length or streaming. Your daily quota resets at UTC midnight and is shown on your dashboard.",
+    a: "Rate limits are applied per API key. Each API call (chat, embeddings, images, audio, and so on) counts as one request, regardless of token length or streaming. Calls that fail upstream are refunded. Your daily quota resets at UTC midnight and is shown on your dashboard.",
   },
   {
     q: "Will ADO always be free?",

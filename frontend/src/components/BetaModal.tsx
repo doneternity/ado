@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMe } from "../api/queries";
+import { useDialog } from "./useDialog";
 import styles from "./BetaModal.module.scss";
 
 function ackKey(userId: string) {
@@ -23,13 +24,16 @@ export function BetaModal() {
     setShow(false);
   }
 
+  // Escape acknowledges, same as the button.
+  const dialogRef = useDialog<HTMLDivElement>(show, acknowledge);
+
   if (!show) return null;
 
   return (
     <div className={styles.backdrop}>
-      <div className={styles.modal}>
+      <div ref={dialogRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="beta-modal-title">
         <span className={styles.eyebrow}>Early Access</span>
-        <h2 className={styles.headline}>heads up.</h2>
+        <h2 id="beta-modal-title" className={styles.headline}>heads up.</h2>
         <p className={styles.body}>
           ADO is still in early access. You may run into rough edges, brief outages,
           or features that aren&apos;t fully baked yet.

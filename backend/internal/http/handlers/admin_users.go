@@ -28,6 +28,8 @@ type adminUserDTO struct {
 	DailyQuotaOverride *int32    `json:"dailyQuotaOverride"`
 	PlanID             string    `json:"planId"`
 	RequestsToday      int32     `json:"requestsToday"`
+	// LastActive is the latest sign-in, session, or key use (same rule as the inactive cleanup).
+	LastActive time.Time `json:"lastActive"`
 }
 
 func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +50,7 @@ func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
 			DailyQuotaOverride: u.DailyQuotaOverride,
 			PlanID:             u.PlanID,
 			RequestsToday:      u.RequestsToday,
+			LastActive:         u.LastActive.Time,
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

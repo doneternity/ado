@@ -2,8 +2,22 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAdminUsers, useSetUserRole, useSetUserBanned, useAdminPlans, useSetUserPlan } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
-import { InactiveCleanup } from "./InactiveCleanup";
+import { InactiveCleanup, MIN_INACTIVE_DAYS } from "./InactiveCleanup";
 import styles from "./Admin.module.scss";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// "12 Oct 2026 · 6d ago". Accounts past the cleanup threshold are flagged.
+function LastActive({ iso }: { iso: string }) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
+  const ago = days <= 0 ? "today" : `${days}d ago`;
+  const stale = days >= MIN_INACTIVE_DAYS;
+  return (
+    <span className={stale ? styles.cellStale : styles.cellSubtle} title={stale ? "Eligible for the inactive-account cleanup" : undefined}>
+      {new Date(iso).toLocaleDateString()} · {ago}
+    </span>
+  );
+}
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
@@ -49,6 +63,7 @@ export function AdminUsers() {
               <th>Status</th>
               <th>Plan</th>
               <th>Requests today</th>
+              <th>Last active</th>
               <th>Joined</th>
               <th>Actions</th>
             </tr>
@@ -82,6 +97,7 @@ export function AdminUsers() {
                   </select>
                 </td>
                 <td>{u.requestsToday}</td>
+                <td><LastActive iso={u.lastActive} /></td>
                 <td className={styles.cellSubtle}>
                   {new Date(u.createdAt).toLocaleDateString()}
                 </td>
@@ -104,7 +120,7 @@ export function AdminUsers() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={8} style={{ color: "var(--silver)", textAlign: "center", padding: 24 }}>
+              <tr><td colSpan={9} style={{ color: "var(--silver)", textAlign: "center", padding: 24 }}>
                 {users.length === 0 ? "No users yet" : "No users match your search"}
               </td></tr>
             )}

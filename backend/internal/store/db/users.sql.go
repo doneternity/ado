@@ -342,6 +342,7 @@ type ListInactiveUsersRow struct {
 	LastActive pgtype.Timestamptz
 }
 
+// The last-active rule is repeated in ListUsersAdmin (admin.sql); change both together.
 // Accounts with no sign-in, session or API activity since the cutoff. Admins,
 // banned users (deleting them would lift the ban) and anyone on a plan other
 // than free are never included.

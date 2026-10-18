@@ -77,6 +77,7 @@ export type AdminUser = {
   dailyQuotaOverride: number | null;
   planId: string;
   requestsToday: number;
+  lastActive: string; // latest sign-in, session or key use
 };
 
 // null limits mean "use the global setting".

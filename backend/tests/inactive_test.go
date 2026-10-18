@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -94,6 +95,24 @@ func TestInactiveUsers_PreviewAndDelete(t *testing.T) {
 	}
 	if len(got) != 2 || !got["idle@example.com"] || !got["late@example.com"] {
 		t.Fatalf("preview listed %v, want only idle@ and late@", got)
+	}
+
+	// Admin > Users shows the same last-active dates the cleanup uses.
+	code, body = do("GET", "/api/admin/users", "")
+	if code != http.StatusOK {
+		t.Fatalf("list users: %d %s", code, body)
+	}
+	var listed []struct {
+		Email      string    `json:"email"`
+		LastActive time.Time `json:"lastActive"`
+	}
+	_ = json.Unmarshal(body, &listed)
+	daysAgo := map[string]int{}
+	for _, u := range listed {
+		daysAgo[u.Email] = int(time.Since(u.LastActive).Hours() / 24)
+	}
+	if daysAgo["idle@example.com"] != 190 || daysAgo["signed-in@example.com"] != 10 || daysAgo["used-api@example.com"] != 1 {
+		t.Fatalf("last active days ago: %v (want idle 190, signed-in 10, used-api 1)", daysAgo)
 	}
 
 	// late@ signs in between the preview and the delete, so it must be kept.

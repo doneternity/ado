@@ -57,6 +57,7 @@ DELETE FROM email_verification_tokens WHERE user_id = $1;
 UPDATE users SET last_login_at = now() WHERE id = $1;
 
 -- name: ListInactiveUsers :many
+-- The last-active rule is repeated in ListUsersAdmin (admin.sql); change both together.
 -- Accounts with no sign-in, session or API activity since the cutoff. Admins,
 -- banned users (deleting them would lift the ban) and anyone on a plan other
 -- than free are never included.

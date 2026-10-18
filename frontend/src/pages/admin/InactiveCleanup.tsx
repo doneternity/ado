@@ -5,6 +5,7 @@ import styles from "./Admin.module.scss";
 
 // The backend refuses anything shorter than 150 days (MinInactiveDays), which
 // is also what the privacy policy promises.
+export const MIN_INACTIVE_DAYS = 150;
 const PERIODS = [
   { days: 150, label: "5 months" },
   { days: 183, label: "6 months" },

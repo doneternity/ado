@@ -1,6 +1,14 @@
 -- name: ListUsersAdmin :many
+-- last_active follows the same rule as ListInactiveUsers (users.sql); keep
+-- them in step so Admin > Users shows what the inactive cleanup sees.
 SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override, u.plan_id,
-       COALESCE(SUM(du.used), 0)::int4 AS requests_today
+       COALESCE(SUM(du.used), 0)::int4 AS requests_today,
+       GREATEST(
+         u.created_at,
+         u.last_login_at,
+         (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id),
+         (SELECT MAX(GREATEST(k2.created_at, k2.last_used_at)) FROM ado_keys k2 WHERE k2.user_id = u.id)
+       )::timestamptz AS last_active
 FROM users u
 LEFT JOIN ado_keys k ON k.user_id = u.id
 LEFT JOIN daily_usage du ON du.key_id = k.id AND du.day = CURRENT_DATE

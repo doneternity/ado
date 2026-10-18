@@ -108,7 +108,7 @@ async function streamCompletion(
         const j = (await resp.json()) as { error?: { message?: string; code?: string } };
         rawMsg = j.error?.message ?? "";
         code = j.error?.code ?? "";
-      } catch (_) { /* ignore */ }
+      } catch { /* ignore */ }
       onError(friendlyError(resp.status, code, rawMsg, model), resp.status);
       return;
     }
@@ -117,7 +117,6 @@ async function streamCompletion(
     const dec = new TextDecoder();
     let buf = "";
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -134,7 +133,7 @@ async function streamCompletion(
           };
           const tok = chunk.choices?.[0]?.delta?.content;
           if (tok) onToken(tok);
-        } catch (_) { /* ignore */ }
+        } catch { /* ignore */ }
       }
     }
     onDone();

@@ -129,7 +129,7 @@ export function Models() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  useEffect(() => { doLoad(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { doLoad(); }, []);
 
   async function doLoad() {
     setLoading(true);

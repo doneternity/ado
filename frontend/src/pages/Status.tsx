@@ -94,7 +94,7 @@ export function Status() {
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  useEffect(() => { doFetch(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { doFetch(); }, []);
 
   async function doFetch() {
     setLoading(true);

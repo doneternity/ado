@@ -22,6 +22,11 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 	return n, err
 }
 
+// Unwrap lets http.ResponseController reach the real writer. Without it every
+// Flush and Hijack below this middleware fails silently: streamed responses
+// arrive in 4 KB bursts instead of token by token, and websocket upgrades break.
+func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
+
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

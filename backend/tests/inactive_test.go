@@ -30,8 +30,8 @@ func TestInactiveUsers_PreviewAndDelete(t *testing.T) {
 		var id uuid.UUID
 		if err := fx.pool.QueryRow(ctx, `
 			INSERT INTO users (email, email_verified, discord_id, display_name, role, banned, plan_id, created_at)
-			VALUES ($1, true, $1, 'x', $2, $3, $4, now() - interval '200 days') RETURNING id`,
-			email, role, banned, plan).Scan(&id); err != nil {
+			VALUES ($1, true, $5, 'x', $2, $3, $4, now() - interval '200 days') RETURNING id`,
+			email, role, banned, plan, "discord-"+email).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := fx.pool.Exec(ctx, `

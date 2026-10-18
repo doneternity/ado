@@ -3,21 +3,13 @@ import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Copy, Check, Zap, Brain, Eye, Wrench, Layers, Search, RefreshCw } from "lucide-react";
-import { MODELS } from "../data/models";
-import type { ModelDef, ModelProvider, Capability } from "../data/models";
+import type { ModelDef, Capability } from "../data/models";
+import { enrichAll } from "../data/model-meta";
+import type { LiveModel, EnrichedModel } from "../data/model-meta";
 import styles from "./Models.module.scss";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "") as string;
 
-type LiveModel = {
-  id: string;
-  ado_status?: "available" | "degraded" | "down";
-  context_length?: number;
-  display_name?: string;
-  provider?: string;
-};
-
-type EnrichedModel = ModelDef & { adoStatus: "available" | "degraded" | "down" };
 
 const CAP_ICONS: Record<Capability, ReactNode> = {
   Vision: <Eye size={12} />,
@@ -44,60 +36,6 @@ const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
   xai:      "xAI",
   other:    "Other",
 };
-
-function inferProvider(id: string): ModelProvider {
-  const key = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
-  if (/gemini|google|bard/i.test(key)) return "gemini";
-  if (/claude|anthropic/i.test(key)) return "claude";
-  if (/deepseek/i.test(key)) return "deepseek";
-  if (/gpt|openai|^o\d/i.test(key)) return "openai";
-  if (/grok|xai/i.test(key)) return "xai";
-  return "other";
-}
-
-function providerFromLabel(label: string): ModelProvider {
-  const l = label.toLowerCase();
-  if (l.includes("google") || l.includes("gemini")) return "gemini";
-  if (l.includes("anthropic") || l.includes("claude")) return "claude";
-  if (l.includes("deepseek")) return "deepseek";
-  if (l.includes("openai")) return "openai";
-  if (l.includes("xai") || l.includes("grok")) return "xai";
-  return "other";
-}
-
-function fmtCtx(n: number): string {
-  return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(0)}M tokens`
-       : n >= 1_000     ? `${(n / 1_000).toFixed(0)}K tokens`
-       : `${n} tokens`;
-}
-
-function enrich(live: LiveModel): EnrichedModel {
-  const match = MODELS.find(m => m.id === live.id);
-  const adoStatus = live.ado_status ?? "available";
-  if (match) return { ...match, adoStatus };
-
-  const provider: ModelProvider = live.provider
-    ? providerFromLabel(live.provider)
-    : inferProvider(live.id);
-
-  const rawName = (live.display_name || live.id)
-    .replace(/^\[[^\]]+\]/, "")   // strip [TAG] prefix
-    .replace(/^[^/]*\//, "")       // strip PROVIDER/ prefix
-    .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, c => c.toUpperCase())
-    .trim();
-
-  return {
-    id: live.id,
-    name: rawName || live.id,
-    provider,
-    context: live.context_length ? fmtCtx(live.context_length) : "",
-    speed: 2 as const,
-    capabilities: [] as Capability[],
-    description: "",
-    adoStatus,
-  };
-}
 
 function CopyId({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
@@ -146,19 +84,9 @@ export function Models() {
     }
   }
 
-  const enriched: EnrichedModel[] = (() => {
-    if (!liveModels) return [];
-    const liveMap = new Map(liveModels.map(m => [m.id, m]));
-    // Only show curated models the provider actually serves — prune the rest so
-    // the catalog never advertises a model that would 503.
-    const result: EnrichedModel[] = MODELS
-      .filter(m => liveMap.has(m.id))
-      .map(m => ({ ...m, adoStatus: liveMap.get(m.id)!.ado_status ?? "available" }));
-    for (const lm of liveModels) {
-      if (!MODELS.find(m => m.id === lm.id)) result.push(enrich(lm));
-    }
-    return result;
-  })();
+  // Every model the provider serves, with live metadata (name, context,
+  // capabilities) and curated extras like tags where we have them.
+  const enriched: EnrichedModel[] = liveModels ? enrichAll(liveModels) : [];
 
   // Dynamic provider list for filter pills
   const providers = [...new Set(enriched.map(m => m.provider))];

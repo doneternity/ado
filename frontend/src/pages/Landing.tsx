@@ -497,7 +497,7 @@ const res = await client.chat.completions.create({
                 id: "02",
                 name: "DeepSeek",
                 tagline: "High-performance open reasoning",
-                desc: "deepseek-v4-pro and deepseek-r1: open-weight models with exceptional reasoning and code generation.",
+                desc: "deepseek-v4-pro and deepseek-flash: strong reasoning and code generation, with 1M-token context.",
                 tags: ["Reasoning", "Code", "Open weights"],
                 href: "/models",
               },

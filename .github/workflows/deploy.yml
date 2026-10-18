@@ -46,9 +46,14 @@ jobs:
           KOYEB_SERVICE_ID: ${{ vars.KOYEB_SERVICE_ID }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          if [ -z "$KOYEB_TOKEN" ] || [ -z "$KOYEB_SERVICE_ID" ]; then
-            echo "::warning::KOYEB_TOKEN secret or KOYEB_SERVICE_ID variable not set; backend not deployed by CI."
-            exit 0
+          # Koyeb's autodeploy is off, so skipping here means the backend silently
+          # falls behind the frontend. Fail loudly instead, naming what's missing.
+          missing=""
+          [ -n "$KOYEB_TOKEN" ] || missing="$missing KOYEB_TOKEN (repo Settings > Secrets and variables > Actions > Secrets tab)"
+          [ -n "$KOYEB_SERVICE_ID" ] || missing="$missing KOYEB_SERVICE_ID (same page > Variables tab, not Secrets)"
+          if [ -n "$missing" ]; then
+            echo "::error::Backend not deployed. Missing:$missing"
+            exit 1
           fi
           curl -fsS -X POST "https://app.koyeb.com/v1/services/$KOYEB_SERVICE_ID/redeploy" \
             -H "Authorization: Bearer $KOYEB_TOKEN" \

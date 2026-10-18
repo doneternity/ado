@@ -88,6 +88,14 @@ export function useDeleteProvider() {
 }
 
 // ── Users ──────────────────────────────────────────────────
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/api/admin/users/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
 export type InactiveUser = { id: string; email: string; createdAt: string; lastActive: string };
 
 // Accounts with no sign-in, session or API activity for `days` days (preview only).

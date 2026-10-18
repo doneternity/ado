@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/ado/ado/backend/internal/apperr"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
@@ -108,5 +111,39 @@ func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set banned"))
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// Delete removes one account with its keys, sessions, usage and request logs
+// (ON DELETE CASCADE). Admin accounts, including your own, can't be deleted
+// here: demote first, so nobody locks the site out of its admin by accident.
+func (h *AdminUsers) Delete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		return
+	}
+	if sess, ok := mw.SessionFromContext(r.Context()); ok && sess.UserID == id {
+		apperr.Write(w, apperr.BadRequest("SELF_DELETE", "you cannot delete your own account here"))
+		return
+	}
+	u, err := h.q.GetUserByID(r.Context(), id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "user not found"))
+		return
+	}
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "load user"))
+		return
+	}
+	if u.Role == "admin" {
+		apperr.Write(w, apperr.BadRequest("IS_ADMIN", "demote this admin before deleting the account"))
+		return
+	}
+	if err := h.q.DeleteUser(r.Context(), id); err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "delete user"))
+		return
+	}
+	slog.Info("admin deleted account", "user", id)
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -143,3 +143,59 @@ func TestInactiveUsers_PreviewAndDelete(t *testing.T) {
 		t.Fatal("an active account was deleted")
 	}
 }
+
+// TestAdminDeleteUser: an admin can delete a regular account (its key goes
+// with it), but not an admin account or their own.
+func TestAdminDeleteUser(t *testing.T) {
+	ctx := context.Background()
+	fx := newFixture(t)
+	jar, _ := cookiejar.New(nil)
+	c := &http.Client{Jar: jar}
+	csrf, _ := createDiscordUser(t, fx, c, "discord-del-admin", "del-admin@example.com")
+	var self uuid.UUID
+	if err := fx.pool.QueryRow(ctx, `SELECT id FROM users WHERE email = 'del-admin@example.com'`).Scan(&self); err != nil {
+		t.Fatal(err)
+	}
+
+	other := &http.Client{}
+	other.Jar, _ = cookiejar.New(nil)
+	createDiscordUser(t, fx, other, "discord-del-target", "target@example.com")
+	var target, adminID uuid.UUID
+	_ = fx.pool.QueryRow(ctx, `SELECT id FROM users WHERE email = 'target@example.com'`).Scan(&target)
+	if err := fx.pool.QueryRow(ctx, `
+		INSERT INTO users (email, email_verified, discord_id, display_name, role)
+		VALUES ('other-admin@example.com', true, 'discord-other-admin', 'x', 'admin') RETURNING id`).Scan(&adminID); err != nil {
+		t.Fatal(err)
+	}
+
+	del := func(id uuid.UUID) int {
+		t.Helper()
+		req, _ := http.NewRequest("DELETE", fx.server.URL+"/api/admin/users/"+id.String(), nil)
+		req.Header.Set("X-CSRF-Token", csrf)
+		resp, err := c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+
+	if code := del(self); code != http.StatusBadRequest {
+		t.Fatalf("deleting yourself: want 400, got %d", code)
+	}
+	if code := del(adminID); code != http.StatusBadRequest {
+		t.Fatalf("deleting an admin: want 400, got %d", code)
+	}
+	if code := del(uuid.New()); code != http.StatusNotFound {
+		t.Fatalf("unknown user: want 404, got %d", code)
+	}
+	if code := del(target); code != http.StatusNoContent {
+		t.Fatalf("deleting a user: want 204, got %d", code)
+	}
+	var users, keys int
+	_ = fx.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE id = $1`, target).Scan(&users)
+	_ = fx.pool.QueryRow(ctx, `SELECT COUNT(*) FROM ado_keys WHERE user_id = $1`, target).Scan(&keys)
+	if users != 0 || keys != 0 {
+		t.Fatalf("after delete: %d user rows, %d keys", users, keys)
+	}
+}

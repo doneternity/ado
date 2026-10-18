@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useAdminUsers, useSetUserRole, useSetUserBanned, useAdminPlans, useSetUserPlan } from "../../api/admin";
+import { useAdminUsers, useSetUserRole, useSetUserBanned, useAdminPlans, useSetUserPlan, useDeleteUser } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
 import { InactiveCleanup, MIN_INACTIVE_DAYS } from "./InactiveCleanup";
 import styles from "./Admin.module.scss";
@@ -27,6 +27,7 @@ export function AdminUsers() {
   const setBanned = useSetUserBanned();
   const { data: plans = [] } = useAdminPlans();
   const setPlan = useSetUserPlan();
+  const deleteUser = useDeleteUser();
   const showToast = useUiStore((s) => s.showToast);
   const [search, setSearch] = useState("");
 
@@ -115,6 +116,25 @@ export function AdminUsers() {
                       : <button className={`${styles.btnDanger} ${styles.btnXs}`}
                           onClick={() => setBanned.mutate({ id: u.id, banned: true }, { onError: onErr("Could not ban user") })}>Ban</button>
                     }
+                    {u.role !== "admin" && (
+                      <button
+                        className={`${styles.btnDanger} ${styles.btnXs}`}
+                        disabled={deleteUser.isPending}
+                        onClick={() => {
+                          if (!confirm(
+                            `Permanently delete ${u.email}, with their key, usage and request history?` +
+                            (u.banned ? "\n\nThey are banned: deleting the account lifts the ban, so they could sign up again." : "") +
+                            "\n\nThis can't be undone here. Only a database backup can bring it back.",
+                          )) return;
+                          deleteUser.mutate(u.id, {
+                            onSuccess: () => showToast(`Deleted ${u.email}`),
+                            onError: onErr("Could not delete user"),
+                          });
+                        }}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

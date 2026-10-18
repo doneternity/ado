@@ -11,10 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ado/ado/backend/internal/apperr"
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/quota"
+	"github.com/ado/ado/backend/internal/store/db"
 )
 
 // maxPassthroughBody caps passthrough request bodies. Larger than chat to allow
@@ -25,14 +28,37 @@ type ProxyDeps struct {
 	Registry    *proxy.Registry
 	Maintenance *proxy.MaintenanceFlag
 	Quota       *quota.Service
+	// Queries lets admins through maintenance mode; nil blocks everyone.
+	Queries *db.Queries
 }
 
 type Proxy struct{ d ProxyDeps }
 
 func NewProxy(d ProxyDeps) *Proxy { return &Proxy{d: d} }
 
+// blocked reports whether maintenance mode refuses this request. Admins, found
+// by bearer key or session, are let through so they can test while working.
+func (p *Proxy) blocked(r *http.Request) bool {
+	if !p.d.Maintenance.Enabled() {
+		return false
+	}
+	if p.d.Queries == nil {
+		return true
+	}
+	var uid uuid.UUID
+	if bk, ok := mw.BearerFromContext(r.Context()); ok {
+		uid = bk.UserID
+	} else if s, ok := mw.SessionFromContext(r.Context()); ok {
+		uid = s.UserID
+	} else {
+		return true
+	}
+	u, err := p.d.Queries.GetUserByID(r.Context(), uid)
+	return err != nil || u.Role != "admin"
+}
+
 func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
-	if p.d.Maintenance.Enabled() {
+	if p.blocked(r) {
 		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
 		return
 	}
@@ -106,7 +132,7 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
-	if p.d.Maintenance.Enabled() {
+	if p.blocked(r) {
 		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
 		return
 	}
@@ -156,7 +182,7 @@ func injectReasoning(body []byte) []byte {
 }
 
 func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
-	if p.d.Maintenance.Enabled() {
+	if p.blocked(r) {
 		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
 		return
 	}
@@ -172,7 +198,7 @@ func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
 // Works for JSON, multipart (image/audio uploads), and binary responses.
 func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if p.d.Maintenance.Enabled() {
+		if p.blocked(r) {
 			apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
 			return
 		}
@@ -228,7 +254,7 @@ func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 // rewrites auth to the provider key. Browser clients can't set the Authorization
 // header on a WebSocket, so this serves server-side clients (Bearer required).
 func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
-	if p.d.Maintenance.Enabled() {
+	if p.blocked(r) {
 		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
 		return
 	}

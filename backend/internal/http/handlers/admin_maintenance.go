@@ -24,6 +24,14 @@ func (h *AdminMaintenance) Get(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]bool{"enabled": h.flag.Enabled()})
 }
 
+// Status is the public read of the flag, so the website can show its
+// maintenance page. It reveals nothing beyond on/off.
+func (h *AdminMaintenance) Status(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]bool{"enabled": h.flag.Enabled()})
+}
+
 func (h *AdminMaintenance) Toggle(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Enabled bool `json:"enabled"`

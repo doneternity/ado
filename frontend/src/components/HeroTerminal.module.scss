@@ -82,3 +82,7 @@
   font-size: .68rem;
   color: rgba(255, 255, 255, 0.35);
 }
+
+// Local copy: CSS modules rename animation names, so the global blink
+// keyframes in global.scss are not reachable from here.
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }

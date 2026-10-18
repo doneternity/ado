@@ -33,6 +33,7 @@ type Deps struct {
 	AdminErrors      *handlers.AdminErrors
 	AdminMaintenance *handlers.AdminMaintenance
 	AdminPlans       *handlers.AdminPlans
+	Maintenance      *proxy.MaintenanceFlag
 	AdminMiddleware  func(http.Handler) http.Handler
 	FrontendOrigin   string
 }
@@ -68,6 +69,8 @@ func NewRouter(d Deps) http.Handler {
 
 	r.Route("/api/keys", func(r chi.Router) {
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
+		// Non-admins can't use their dashboard while maintenance mode is on.
+		r.Use(mw.MaintenanceGate(d.Maintenance, d.Queries))
 		r.Get("/current", d.Keys.Current)
 		r.With(mw.CSRF, d.Limiter.PerIP("rl:keys:rotate:ip", 5, time.Hour, true)).Post("/rotate", d.Keys.Rotate)
 		r.With(mw.CSRF).Patch("/reasoning", d.Keys.SetReasoning)
@@ -80,6 +83,10 @@ func NewRouter(d Deps) http.Handler {
 
 	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:slots:ip", 30, time.Minute, false)).
 		Get("/api/slots", d.Slots.Get)
+
+	// Public on/off read so the website can show its maintenance page.
+	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:maintenance:ip", 60, time.Minute, false)).
+		Get("/api/maintenance", d.AdminMaintenance.Status)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)

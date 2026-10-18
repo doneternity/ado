@@ -108,3 +108,24 @@ export function fetchFlashKeyOnce(qc: ReturnType<typeof useQueryClient>) {
     }
   });
 }
+
+// Whether maintenance mode is on. Polled so visitors see the site come back
+// without reloading; a failed check counts as "off" so an outage of this
+// endpoint never locks people out.
+export function useMaintenance() {
+  return useQuery({
+    queryKey: ["maintenance"],
+    queryFn: async () => {
+      try {
+        const r = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/maintenance");
+        if (!r.ok) return false;
+        const d = (await r.json()) as { enabled?: boolean };
+        return d.enabled === true;
+      } catch {
+        return false;
+      }
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}

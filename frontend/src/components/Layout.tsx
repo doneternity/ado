@@ -1,22 +1,27 @@
 import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useMe } from "../api/queries";
+import { useMe, useMaintenance } from "../api/queries";
 import { useLogout } from "../api/mutations";
 import { Toast } from "./Toast";
 import { Footer } from "./Footer";
 import { BetaModal } from "./BetaModal";
 import { useDialog } from "./useDialog";
 import { ScrollProgress } from "./ScrollProgress";
+import { MaintenanceScreen, MaintenanceBanner } from "./MaintenanceScreen";
+import { PageLoader } from "./PageLoader";
 import styles from "./Layout.module.scss";
 import betaStyles from "./BetaModal.module.scss";
 
 const DARK_PAGES = new Set(["/dashboard", "/playground", "/admin"]);
 const HERO_PAGES = new Set(["/"]);
 const LONG_PAGES = new Set(["/docs", "/models", "/privacy", "/terms"]);
+// Pages non-admins can still open during maintenance, so an admin can sign in.
+const MAINTENANCE_ALLOWED = new Set(["/login"]);
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { data: me } = useMe();
+  const { data: me, isLoading: meLoading } = useMe();
+  const { data: maintenance = false } = useMaintenance();
   const logout = useLogout();
   const { pathname } = useLocation();
   const isDark = DARK_PAGES.has(pathname) || pathname.startsWith("/admin");
@@ -44,6 +49,12 @@ export function Layout({ children }: { children: ReactNode }) {
       .catch(() => {});
     return () => ctrl.abort();
   }, [me]);
+
+  const isAdmin = me?.user.role === "admin";
+  if (maintenance && !isAdmin && !MAINTENANCE_ALLOWED.has(pathname)) {
+    // Wait for the session before deciding, so admins never see the screen flash.
+    return meLoading ? <PageLoader /> : <MaintenanceScreen />;
+  }
 
   return (
     <div className={styles.frame}>
@@ -104,6 +115,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </nav>
 
       {!isDark && <Footer />}
+      {maintenance && isAdmin && <MaintenanceBanner />}
       <BetaModal />
       <Toast />
       {showSlotsModal && (

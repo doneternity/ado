@@ -141,6 +141,7 @@ func main() {
 		Registry:    reg,
 		Maintenance: maint,
 		Quota:       quotaSvc,
+		Queries:     queries,
 	})
 
 	slotsH := handlers.NewSlots(queries)
@@ -294,6 +295,7 @@ func main() {
 		AdminMaintenance: adminMaintH,
 		AdminPlans:       adminPlansH,
 		AdminMiddleware:  adminMW,
+		Maintenance:      maint,
 		FrontendOrigin:   cfg.FrontendOrigin,
 	})
 

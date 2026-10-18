@@ -110,6 +110,7 @@ type fixture struct {
 	sessions   *auth.Sessions
 	keys       *keys.Service
 	rpmCfg     *proxy.RpmConfig
+	maint      *proxy.MaintenanceFlag
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -178,7 +179,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 	reg.Swap([]*proxy.Forwarder{proxy.New(fakeGemini.URL, "test-upstream-key")})
 	maint := &proxy.MaintenanceFlag{}
 	quotaSvc := quota.NewService(q)
-	proxyH := handlers.NewProxy(handlers.ProxyDeps{Registry: reg, Maintenance: maint, Quota: quotaSvc})
+	proxyH := handlers.NewProxy(handlers.ProxyDeps{Registry: reg, Maintenance: maint, Quota: quotaSvc, Queries: q})
 
 	var adminMW func(http.Handler) http.Handler
 	if adminMWFactory != nil {
@@ -204,6 +205,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		AdminProviders: adminProvH, AdminUsers: adminUsersH,
 		AdminStats: adminStatsH, AdminQuotas: adminQuotasH, AdminErrors: adminErrorsH,
 		AdminMaintenance: adminMaintH, AdminPlans: adminPlansH, AdminMiddleware: adminMW,
+		Maintenance: maint,
 	})
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
@@ -217,6 +219,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		sessions:   sessions,
 		keys:       keysSvc,
 		rpmCfg:     rpmCfg,
+		maint:      maint,
 	}
 }
 

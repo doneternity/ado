@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,12 +49,21 @@ func (h *AdminRequestInfo) Get(w http.ResponseWriter, r *http.Request) {
 		limiter["firstAllowed"], limiter["secondAllowed"] = first, second
 	}
 
+	// Every header name that arrived (names only: no cookies or tokens), to spot
+	// anything a proxy adds that could be trusted.
+	names := make([]string, 0, len(r.Header))
+	for k := range r.Header {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"clientIP":   mw.ClientIP(r),
-		"remoteAddr": r.RemoteAddr,
-		"headers":    headers,
-		"limiter":    limiter,
+		"clientIP":    mw.ClientIP(r),
+		"remoteAddr":  r.RemoteAddr,
+		"headers":     headers,
+		"headerNames": names,
+		"limiter":     limiter,
 	})
 }

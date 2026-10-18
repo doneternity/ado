@@ -63,6 +63,21 @@ type Provider struct {
 	Priority  int32
 }
 
+type RequestLog struct {
+	ID               int64
+	CreatedAt        pgtype.Timestamptz
+	UserID           uuid.UUID
+	KeyID            pgtype.UUID
+	Endpoint         string
+	Model            *string
+	Status           int32
+	DurationMs       int32
+	Stream           bool
+	Provider         *string
+	PromptTokens     *int32
+	CompletionTokens *int32
+}
+
 type Session struct {
 	ID         []byte
 	UserID     uuid.UUID

@@ -173,6 +173,7 @@ type ForwardResult struct {
 	Status   int    // http status served (0 if none)
 	Provider string // base url of the provider that served (empty if none)
 	Attempts int    // providers tried
+	Usage    Usage  // token counts, when the provider reported them
 }
 
 // Forward streams the first non-failover provider response to the client.
@@ -217,8 +218,10 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 			continue
 		}
 		f.resetBreaker()
-		serr := streamResponse(w, resp, cancel)
-		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts}, serr
+		// Keep the end of the response to read its token usage; content is not kept.
+		tail := newTailBuffer(16 << 10)
+		serr := streamResponse(w, resp, cancel, tail)
+		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, Usage: parseUsage(tail.Bytes())}, serr
 	}
 	return ForwardResult{Attempts: attempts}, lastErr
 }
@@ -359,7 +362,8 @@ const streamIdleTimeout = 120 * time.Second
 
 // streamResponse relays the upstream response, flushing each chunk. cancel
 // cancels the upstream request; it fires on idle (watchdog) and on return.
-func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc) error {
+// tail, if non-nil, receives a copy of what is streamed (it keeps only the end).
+func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer) error {
 	defer resp.Body.Close()
 	defer cancel()
 	for k, vs := range resp.Header {
@@ -381,6 +385,9 @@ func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.C
 		n, rerr := resp.Body.Read(buf)
 		if n > 0 {
 			idle.Reset(streamIdleTimeout)
+			if tail != nil {
+				tail.Write(buf[:n])
+			}
 			if _, werr := w.Write(buf[:n]); werr != nil {
 				return werr
 			}

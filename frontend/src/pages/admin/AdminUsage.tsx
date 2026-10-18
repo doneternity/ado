@@ -1,12 +1,19 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { BarChart2 } from "lucide-react";
-import { useAdminStats } from "../../api/admin";
+import { useAdminStats, useAdminUsageByModel, useAdminRecentRequests } from "../../api/admin";
+import { compact } from "../../data/format";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
 export function AdminUsage() {
   const { data: stats } = useAdminStats();
+  const [period, setPeriod] = useState(7);
+  const [emailInput, setEmailInput] = useState("");
+  const [email, setEmail] = useState(""); // applied on Enter, not per keystroke
+  const { data: byModel = [] } = useAdminUsageByModel(period);
+  const { data: recent = [] } = useAdminRecentRequests(email);
 
   // The API only returns days that had traffic. Zero-fill a fixed 30-day window
   // so the chart shows a continuous axis instead of a few uneven bars.
@@ -24,7 +31,7 @@ export function AdminUsage() {
     <motion.div {...fade}>
       <div className={styles.pageHeader}>
         <h1 className={styles.title}><BarChart2 size={18} className={styles.titleIcon} /> Usage</h1>
-        <p className={styles.subtitle}>Aggregate request counts, last 30 days</p>
+        <p className={styles.subtitle}>Requests per day, per model, and the latest individual requests</p>
       </div>
 
       <div className={styles.chartWrap}>
@@ -60,6 +67,83 @@ export function AdminUsage() {
                 <td style={{ fontWeight: 700 }}>{u.total}</td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.sectionLabel} style={{ margin: "32px 0 12px", display: "flex", alignItems: "center", gap: 12 }}>
+        By model
+        <select
+          className={`${styles.input} ${styles.inputSm}`}
+          value={period}
+          onChange={(e) => setPeriod(Number(e.target.value))}
+          aria-label="Period"
+        >
+          <option value={1}>last 24 hours</option>
+          <option value={7}>last 7 days</option>
+          <option value={30}>last 30 days</option>
+          <option value={90}>last 90 days</option>
+        </select>
+      </div>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr><th>Model</th><th>Requests</th><th>Success</th><th>Prompt tokens</th><th>Completion tokens</th><th>Avg time</th></tr>
+          </thead>
+          <tbody>
+            {byModel.map((m) => (
+              <tr key={m.model || "unknown"}>
+                <td className={styles.cellMono}>{m.model || "unknown"}</td>
+                <td style={{ fontWeight: 700 }}>{compact(m.requests)}</td>
+                <td>{m.requests ? `${Math.round((m.ok / m.requests) * 100)}%` : "-"}</td>
+                <td>{compact(m.promptTokens)}</td>
+                <td>{compact(m.completionTokens)}</td>
+                <td className={styles.cellSubtle}>{m.avgMs != null ? `${(m.avgMs / 1000).toFixed(1)}s` : "-"}</td>
+              </tr>
+            ))}
+            {byModel.length === 0 && (
+              <tr><td colSpan={6} style={{ color: "var(--silver)", textAlign: "center", padding: 20 }}>No requests in this period</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.sectionLabel} style={{ margin: "32px 0 12px" }}>Recent requests</div>
+      <input
+        className={`${styles.input} ${styles.searchInput}`}
+        placeholder="Filter by exact email, then press Enter"
+        value={emailInput}
+        onChange={(e) => setEmailInput(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") setEmail(emailInput); }}
+        onBlur={() => setEmail(emailInput)}
+      />
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr><th>Time</th><th>User</th><th>Endpoint</th><th>Model</th><th>Status</th><th>Tokens (in / out)</th><th>Took</th><th>Provider</th></tr>
+          </thead>
+          <tbody>
+            {recent.map((r) => (
+              <tr key={r.id}>
+                <td className={styles.cellSubtle}>{new Date(r.createdAt).toLocaleString()}</td>
+                <td className={styles.cellMono}>{r.email}</td>
+                <td className={styles.cellMono}>{r.endpoint}{r.stream ? " (stream)" : ""}</td>
+                <td className={styles.cellMono}>{r.model ?? "-"}</td>
+                <td>
+                  <span className={`${styles.badge} ${r.status < 400 ? styles.badgeGreen : styles.badgeError}`}>{r.status}</span>
+                </td>
+                <td>
+                  {r.promptTokens != null || r.completionTokens != null
+                    ? `${r.promptTokens ?? 0} / ${r.completionTokens ?? 0}`
+                    : "-"}
+                </td>
+                <td className={styles.cellSubtle}>{(r.durationMs / 1000).toFixed(1)}s</td>
+                <td className={styles.cellSubtle}>{r.provider ?? "-"}</td>
+              </tr>
+            ))}
+            {recent.length === 0 && (
+              <tr><td colSpan={8} style={{ color: "var(--silver)", textAlign: "center", padding: 20 }}>No requests yet</td></tr>
+            )}
           </tbody>
         </table>
       </div>

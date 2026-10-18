@@ -82,7 +82,7 @@ func TestRateLimit_WindowDoesNotSlide(t *testing.T) {
 
 func TestRateLimit_Admin_IP(t *testing.T) {
 	fx := newFixture(t)
-	seedRL(t, fx, "rl:admin:ip:127.0.0.1", 60, time.Hour)
+	seedRL(t, fx, "rl:admin:ip:127.0.0.1", 600, time.Hour)
 	resp := getReq(t, fx, "/api/admin/maintenance", "")
 	assert429(t, resp)
 }

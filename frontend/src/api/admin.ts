@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
+import type { ModelUsage } from "./queries";
 import type {
   AdminProvider, AdminUser, AdminStats, AdminQuotas,
   AdminErrorsResponse, MaintenanceStatus, AdminPlan,
@@ -236,5 +237,35 @@ export function useSetUserPlan() {
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
       qc.invalidateQueries({ queryKey: ["admin", "plans"] });
     },
+  });
+}
+
+// ── Request log ────────────────────────────────────────────
+export type AdminRequest = {
+  id: number;
+  createdAt: string;
+  email: string;
+  endpoint: string;
+  model: string | null;
+  status: number;
+  durationMs: number;
+  stream: boolean;
+  provider: string | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+};
+
+export function useAdminRecentRequests(email: string) {
+  const q = email.trim();
+  return useQuery({
+    queryKey: ["admin", "requests", q],
+    queryFn: () => apiFetch<AdminRequest[]>(`/api/admin/requests?limit=100${q ? `&email=${encodeURIComponent(q)}` : ""}`),
+  });
+}
+
+export function useAdminUsageByModel(days: number) {
+  return useQuery({
+    queryKey: ["admin", "usage", "models", days],
+    queryFn: () => apiFetch<ModelUsage[]>(`/api/admin/usage/models?days=${days}`),
   });
 }

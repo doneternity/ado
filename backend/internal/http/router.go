@@ -34,6 +34,7 @@ type Deps struct {
 	AdminMaintenance *handlers.AdminMaintenance
 	AdminPlans       *handlers.AdminPlans
 	AdminRequestInfo *handlers.AdminRequestInfo
+	UsageLog         *handlers.UsageLog
 	Maintenance      *proxy.MaintenanceFlag
 	AdminMiddleware  func(http.Handler) http.Handler
 	FrontendOrigin   string
@@ -77,9 +78,10 @@ func NewRouter(d Deps) http.Handler {
 		r.With(mw.CSRF).Patch("/reasoning", d.Keys.SetReasoning)
 		r.Get("/flash", d.Keys.Flash)
 		r.Get("/usage", d.Keys.Usage)
+		r.Get("/usage/models", d.UsageLog.MineByModel)
 	})
 
-	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:models:ip", 10, time.Minute, false)).
+	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:models:ip", 30, time.Minute, false)).
 		Get("/api/models", d.Proxy.PublicModels)
 
 	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:slots:ip", 30, time.Minute, false)).
@@ -92,6 +94,8 @@ func NewRouter(d Deps) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)
 		r.Use(mw.Bearer(d.Queries))
+		// One request_log row per keyed API call (metadata only, see the middleware).
+		r.Use(mw.RequestLog(d.Queries, "/api/v1"))
 		r.With(d.Limiter.PerKey("rl:v1:models:key", 30, time.Minute, false)).
 			Get("/models", d.Proxy.Models)
 		r.With(d.Limiter.PerKeyDynamic("rl:v1:chat:key", d.RpmCfg.Get, time.Minute, false)).
@@ -120,7 +124,8 @@ func NewRouter(d Deps) http.Handler {
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {
-		r.Use(d.Limiter.PerIP("rl:admin:ip", 60, time.Hour, false))
+		// Generous: each admin page makes a few calls. Admin routes also need an admin session.
+		r.Use(d.Limiter.PerIP("rl:admin:ip", 600, time.Hour, false))
 		r.Use(d.AdminMiddleware)
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Use(mw.CSRF)
@@ -154,6 +159,8 @@ func NewRouter(d Deps) http.Handler {
 		r.Delete("/errors", d.AdminErrors.BulkDelete)
 
 		r.Get("/request-info", d.AdminRequestInfo.Get)
+		r.Get("/requests", d.UsageLog.AdminRecent)
+		r.Get("/usage/models", d.UsageLog.AdminByModel)
 		r.Get("/maintenance", d.AdminMaintenance.Get)
 		r.Post("/maintenance/toggle", d.AdminMaintenance.Toggle)
 	})

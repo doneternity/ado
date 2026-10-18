@@ -171,7 +171,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 
 	fakeGemini := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"chatcmpl-test","object":"chat.completion","model":"gemini-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}]}`))
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-test","object":"chat.completion","model":"gemini-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}`))
 	}))
 	t.Cleanup(fakeGemini.Close)
 
@@ -205,7 +205,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		Health:         handlers.NewHealth(pool.Ping, func(ctx context.Context) error { return rdb.Ping(ctx).Err() }),
 		AdminProviders: adminProvH, AdminUsers: adminUsersH,
 		AdminStats: adminStatsH, AdminQuotas: adminQuotasH, AdminErrors: adminErrorsH,
-		AdminMaintenance: adminMaintH, AdminPlans: adminPlansH, AdminRequestInfo: adminReqInfoH, AdminMiddleware: adminMW,
+		AdminMaintenance: adminMaintH, AdminPlans: adminPlansH, AdminRequestInfo: adminReqInfoH, UsageLog: handlers.NewUsageLog(q), AdminMiddleware: adminMW,
 		Maintenance: maint,
 	})
 	srv := httptest.NewServer(router)

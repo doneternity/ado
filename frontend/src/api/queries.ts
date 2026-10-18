@@ -97,6 +97,23 @@ export function useKeyUsageHistory() {
   });
 }
 
+export type ModelUsage = {
+  model: string;
+  requests: number;
+  ok: number;
+  promptTokens: number;
+  completionTokens: number;
+  avgMs?: number;
+};
+
+// The signed-in user's requests per model over the last `days` days.
+export function useMyUsageByModel(days = 30) {
+  return useQuery({
+    queryKey: ["keys", "usage", "models", days],
+    queryFn: () => apiFetch<ModelUsage[]>(`/api/keys/usage/models?days=${days}`),
+  });
+}
+
 // Reads /api/keys/flash exactly once on dashboard mount; merges into raw cache if present.
 export function fetchFlashKeyOnce(qc: ReturnType<typeof useQueryClient>) {
   return apiFetch<FlashKeyResponse>("/api/keys/flash").then((res) => {

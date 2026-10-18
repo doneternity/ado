@@ -22,7 +22,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Information We Collect",
-    body: "When you sign in with Discord we receive and store your Discord user ID, username, email address, and avatar URL. At sign-in we also check, without storing it, whether you are a member of the ADO Discord server and hold the required role. For your API key we store only a hash and a short prefix, plus per-day request counts and when the key was last used. A newly issued key is held for up to 5 minutes so it can be shown to you once. For each login session we store a session token, your IP address, and your browser's user agent. To enforce rate limits we keep short-lived counters keyed by IP address or API key. When a request fails we log its method, path, and status code, without your IP address or request content.",
+    body: "When you sign in with Discord we receive and store your Discord user ID, username, email address, and avatar URL. At sign-in we also check, without storing it, whether you are a member of the ADO Discord server and hold the required role. For your API key we store only a hash and a short prefix, plus per-day request counts and when the key was last used. A newly issued key is held for up to 5 minutes so it can be shown to you once. For each login session we store a session token, your IP address, and your browser's user agent. To enforce rate limits we keep short-lived counters keyed by IP address or API key. For each API request made with your key we record the time, the endpoint and model, the status, how long it took, which provider served it, and the token counts the provider reports. This request log never contains your prompts, the responses, or your IP address. When a request fails we also log its method, path, and status code.",
   },
   {
     title: "Your Prompts and Responses",
@@ -30,7 +30,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "How We Use Information and Why",
-    body: "We use this data to run your account, issue and check API keys, route requests, enforce quotas and rate limits, prevent abuse, and fix problems. We process it because it is necessary to provide the service you signed up for, and for our legitimate interest in keeping the service secure and working. We also look at aggregate usage statistics to operate the service. We do not send marketing email, and we do not use analytics or advertising trackers.",
+    body: "We use this data to run your account, issue and check API keys, route requests, enforce quotas and rate limits, show you your usage, prevent abuse, and fix problems. We process it because it is necessary to provide the service you signed up for, and for our legitimate interest in keeping the service secure and working. We also look at aggregate usage statistics to operate the service. We do not send marketing email, and we do not use analytics or advertising trackers.",
   },
   {
     title: "Who We Share It With",
@@ -42,7 +42,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Data Retention",
-    body: "Account data is kept until you delete your account, which removes your account, keys, usage history, and sessions. Daily request counts are deleted after 90 days and error logs after 30 days. Session data is deleted when the session expires: after 7 days of inactivity, or 30 days at most. Rate-limit counters and sign-in state expire within an hour. API keys that go unused for 14 days are automatically revoked.",
+    body: "Account data is kept until you delete your account, which removes your account, keys, usage history, and sessions. Daily request counts and the request log are deleted after 90 days, and error logs after 30 days. Session data is deleted when the session expires: after 7 days of inactivity, or 30 days at most. Rate-limit counters and sign-in state expire within an hour. API keys that go unused for 14 days are automatically revoked.",
   },
   {
     title: "Your Rights",

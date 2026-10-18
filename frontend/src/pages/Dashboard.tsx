@@ -7,7 +7,8 @@ import {
   Activity, Shield, BookOpen, Zap, Terminal,
   Lock, ChevronRight, Code, Brain,
 } from "lucide-react";
-import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels } from "../api/queries";
+import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels, useMyUsageByModel } from "../api/queries";
+import { compact } from "../data/format";
 import { useRotateKey, useDeleteAccount, useSetReasoningMode } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import { API_BASE_URL } from "../config";
@@ -31,7 +32,7 @@ function BetaBanner() {
         onClick={() => { localStorage.setItem(BANNER_KEY, "1"); setVisible(false); }}
         aria-label="Dismiss"
       >
-        ✕
+        â
       </button>
     </div>
   );
@@ -141,7 +142,7 @@ function KeyCard() {
 
   if (isLoading || !current) return null;
 
-  const display = revealed && raw ? raw.key : current.keyPrefix + "…";
+  const display = revealed && raw ? raw.key : current.keyPrefix + "â¦";
 
   function copy() {
     if (!raw) { showToast("Rotate your key to reveal it first."); return; }
@@ -180,8 +181,8 @@ function KeyCard() {
               <div className={styles.keyCardTitle}>Your API Key</div>
               <div className={styles.keyCardSub}>
                 Created {new Date(current.createdAt).toLocaleDateString()}
-                {current.lastUsedAt && ` · Last used ${new Date(current.lastUsedAt).toLocaleDateString()}`}
-                {current.plan && ` · ${current.plan.name} plan`}
+                {current.lastUsedAt && ` Â· Last used ${new Date(current.lastUsedAt).toLocaleDateString()}`}
+                {current.plan && ` Â· ${current.plan.name} plan`}
               </div>
             </div>
           </div>
@@ -224,7 +225,7 @@ function KeyCard() {
             <div className={styles.rotateConfirmBtns}>
               <button className={styles.rotateBtnConfirm} onClick={doRotate} disabled={rotate.isPending}>
                 <RefreshCw size={11} />
-                {rotate.isPending ? "Rotating…" : "Confirm rotate"}
+                {rotate.isPending ? "Rotatingâ¦" : "Confirm rotate"}
               </button>
               <button className={styles.rotateBtnCancel} onClick={() => setConfirming(false)}>
                 Cancel
@@ -317,7 +318,7 @@ function UsageChart() {
       <motion.div className={styles.usageCard} variants={fade}>
         <div className={styles.usageCardHead}>
           <Activity size={12} className={styles.usageCardIcon} />
-          <span className={styles.usageCardTitle}>Usage — Last 30 Days</span>
+          <span className={styles.usageCardTitle}>Usage â Last 30 Days</span>
         </div>
         <div className={styles.usageEmpty}>No usage yet</div>
       </motion.div>
@@ -341,7 +342,7 @@ function UsageChart() {
     <motion.div className={styles.usageCard} variants={fade}>
       <div className={styles.usageCardHead}>
         <Activity size={12} className={styles.usageCardIcon} />
-        <span className={styles.usageCardTitle}>Usage — Last 30 Days</span>
+        <span className={styles.usageCardTitle}>Usage â Last 30 Days</span>
       </div>
       <div className={styles.usageChartBars}>
         {days.map((d) => (
@@ -357,7 +358,30 @@ function UsageChart() {
         ))}
       </div>
       <div className={styles.usageChartDate}>{days.at(-1)?.day ?? ""}</div>
+      <ModelBreakdown />
     </motion.div>
+  );
+}
+
+// Requests and tokens per model, last 30 days, under the usage chart.
+function ModelBreakdown() {
+  const { data } = useMyUsageByModel(30);
+  if (!data || data.length === 0) return null;
+  const max = Math.max(...data.map((m) => m.requests), 1);
+  return (
+    <div className={styles.modelRows}>
+      {data.slice(0, 6).map((m) => {
+        const tokens = m.promptTokens + m.completionTokens;
+        return (
+          <div key={m.model || "unknown"} className={styles.modelRow}>
+            <span className={styles.modelRowName}>{m.model || "unknown"}</span>
+            <span className={styles.modelRowBar}><span style={{ width: `${(m.requests / max) * 100}%` }} /></span>
+            <span className={styles.modelRowNum}>{compact(m.requests)} req</span>
+            <span className={styles.modelRowNum}>{tokens > 0 ? `${compact(tokens)} tok` : "-"}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -382,7 +406,7 @@ function DeleteAccount() {
             onClick={handleConfirm}
             disabled={deleteAccount.isPending}
           >
-            {deleteAccount.isPending ? "Deleting…" : "Delete"}
+            {deleteAccount.isPending ? "Deletingâ¦" : "Delete"}
           </button>
           <button className={styles.deleteCancelBtn} onClick={() => setConfirming(false)}>
             Cancel
@@ -419,7 +443,7 @@ export function Dashboard() {
 
         <BetaBanner />
 
-        {/* ── Header ── */}
+        {/* ââ Header ââ */}
         <motion.div className={styles.header} variants={fade}>
           <div className={styles.headerLeft}>
             <div className={styles.devConsoleBadge}>
@@ -444,13 +468,13 @@ export function Dashboard() {
           </div>
         </motion.div>
 
-        {/* ── Stats row ── */}
+        {/* ââ Stats row ââ */}
         <StatCards />
 
-        {/* ── Usage chart ── */}
+        {/* ââ Usage chart ââ */}
         <UsageChart />
 
-        {/* ── Main grid ── */}
+        {/* ââ Main grid ââ */}
         <div className={styles.mainGrid}>
           {/* Left column */}
           <div className={styles.leftCol}>
@@ -523,7 +547,7 @@ export function Dashboard() {
 
           </div>
         </div>
-        {/* ── Delete account ── */}
+        {/* ââ Delete account ââ */}
         <DeleteAccount />
 
       </motion.div>

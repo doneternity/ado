@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
@@ -31,8 +30,9 @@ import (
 
 // Retention periods stated in the privacy policy (frontend/src/pages/Privacy.tsx).
 const (
-	errorLogRetentionDays = 30
-	usageRetentionDays    = 90
+	errorLogRetentionDays   = 30
+	usageRetentionDays      = 90
+	requestLogRetentionDays = 90
 )
 
 func main() {
@@ -164,57 +164,31 @@ func main() {
 	adminMaintH := handlers.NewAdminMaintenance(queries, maint)
 	adminPlansH := handlers.NewAdminPlans(queries)
 	adminReqInfoH := handlers.NewAdminRequestInfo(limiter)
+	usageLogH := handlers.NewUsageLog(queries)
 
-	go func() {
-		t := time.NewTicker(time.Hour)
-		defer t.Stop()
-		for {
-			select {
-			case <-t.C:
-				if err := queries.DeleteExpiredSessions(ctx); err != nil {
-					slog.Warn("delete expired sessions", "err", err)
-				}
-			case <-ctx.Done():
-				return
-			}
+	// Hourly housekeeping. Each job also runs once at startup, so frequent
+	// deploys (which restart the timers) can't keep postponing it.
+	every(ctx, time.Hour, func(ctx context.Context) {
+		if err := queries.DeleteExpiredSessions(ctx); err != nil {
+			slog.Warn("delete expired sessions", "err", err)
 		}
-	}()
-
-	go func() {
-		t := time.NewTicker(time.Hour)
-		defer t.Stop()
-		for {
-			select {
-			case <-t.C:
-				cutoff := pgtype.Timestamptz{Time: time.Now().Add(-14 * 24 * time.Hour), Valid: true}
-				if err := queries.RevokeInactiveKeys(ctx, cutoff); err != nil {
-					slog.Warn("revoke inactive keys", "err", err)
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
+	})
+	every(ctx, time.Hour, func(ctx context.Context) {
+		handlers.ReapInactiveKeys(ctx, queries, maint)
+	})
 	// Retention cleanup, matching what the privacy policy promises: error logs
-	// 30 days, daily usage counters 90 days.
-	go func() {
-		t := time.NewTicker(time.Hour)
-		defer t.Stop()
-		for {
-			select {
-			case <-t.C:
-				if err := queries.DeleteOldErrorLogs(ctx, int32(errorLogRetentionDays)); err != nil {
-					slog.Warn("delete old error logs", "err", err)
-				}
-				if err := queries.DeleteOldUsage(ctx, usageRetentionDays); err != nil {
-					slog.Warn("delete old usage", "err", err)
-				}
-			case <-ctx.Done():
-				return
-			}
+	// 30 days, daily usage counters and request logs 90 days.
+	every(ctx, time.Hour, func(ctx context.Context) {
+		if err := queries.DeleteOldErrorLogs(ctx, int32(errorLogRetentionDays)); err != nil {
+			slog.Warn("delete old error logs", "err", err)
 		}
-	}()
+		if err := queries.DeleteOldUsage(ctx, usageRetentionDays); err != nil {
+			slog.Warn("delete old usage", "err", err)
+		}
+		if err := queries.DeleteOldRequestLogs(ctx, requestLogRetentionDays); err != nil {
+			slog.Warn("delete old request logs", "err", err)
+		}
+	})
 
 	// Background model health prober: cycles through the live model list a few at
 	// a time so /models reports real chat availability, not just "listed".
@@ -297,6 +271,7 @@ func main() {
 		AdminMaintenance: adminMaintH,
 		AdminPlans:       adminPlansH,
 		AdminRequestInfo: adminReqInfoH,
+		UsageLog:         usageLogH,
 		AdminMiddleware:  adminMW,
 		Maintenance:      maint,
 		FrontendOrigin:   cfg.FrontendOrigin,
@@ -324,4 +299,21 @@ func main() {
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutCancel()
 	_ = srv.Shutdown(shutCtx)
+}
+
+// every runs fn now and then once per interval until ctx is cancelled.
+func every(ctx context.Context, interval time.Duration, fn func(context.Context)) {
+	go func() {
+		fn(ctx)
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				fn(ctx)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }

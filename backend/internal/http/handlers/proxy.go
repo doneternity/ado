@@ -84,9 +84,14 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var meta struct {
-		Model string `json:"model"`
+		Model  string `json:"model"`
+		Stream bool   `json:"stream"`
 	}
 	_ = json.Unmarshal(data, &meta)
+	note := mw.RequestNoteFrom(r.Context())
+	if note != nil {
+		note.Model, note.Stream = meta.Model, meta.Stream
+	}
 
 	// When the key has reasoning mode on, ask the model to show its step-by-step
 	// thinking. Injection failures fall back to the original body.
@@ -105,6 +110,7 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	start := time.Now()
 	res, ferr := p.d.Registry.Forward(w, r, "/chat/completions", data)
+	noteResult(note, res)
 	if !res.Started {
 		// No provider served the request, so it never reached a model — refund
 		// and mark the model unhealthy.
@@ -218,6 +224,18 @@ func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 			return
 		}
 
+		// JSON bodies (embeddings, images, responses...) usually name the model;
+		// multipart uploads (audio) are left unparsed.
+		note := mw.RequestNoteFrom(r.Context())
+		if note != nil && json.Valid(data) {
+			var meta struct {
+				Model  string `json:"model"`
+				Stream bool   `json:"stream"`
+			}
+			_ = json.Unmarshal(data, &meta)
+			note.Model, note.Stream = meta.Model, meta.Stream
+		}
+
 		if _, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit); err != nil {
 			if errors.Is(err, quota.ErrExceeded) {
 				apperr.Write(w, apperr.TooMany("QUOTA_EXCEEDED", "daily quota exceeded").
@@ -230,6 +248,7 @@ func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 
 		start := time.Now()
 		res, ferr := p.d.Registry.Forward(w, r, upstreamPath, data)
+		noteResult(note, res)
 		if !res.Started {
 			if rerr := p.d.Quota.Refund(r.Context(), bk.KeyID); rerr != nil {
 				slog.Warn("quota refund failed", "err", rerr)
@@ -287,4 +306,16 @@ func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	rp.ServeHTTP(w, r)
+}
+
+// noteResult copies what Forward learned (serving provider, token counts) into
+// the request log note.
+func noteResult(note *mw.RequestNote, res proxy.ForwardResult) {
+	if note == nil {
+		return
+	}
+	if u, err := url.Parse(res.Provider); err == nil {
+		note.Provider = u.Host
+	}
+	note.PromptTokens, note.CompletionTokens = res.Usage.PromptTokens, res.Usage.CompletionTokens
 }

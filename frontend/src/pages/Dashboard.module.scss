@@ -893,3 +893,39 @@
   transition: color var(--t-fast);
   &:hover { color: rgba(255, 255, 255, 0.55); }
 }
+
+/* Per-model breakdown under the usage chart */
+.modelRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.modelRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+}
+.modelRowName {
+  color: rgba(255,255,255,0.75);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.modelRowBar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.05);
+  overflow: hidden;
+  span { display: block; height: 100%; background: rgba(236,168,214,0.7); border-radius: 2px; }
+}
+.modelRowNum {
+  color: rgba(255,255,255,0.4);
+  text-align: right;
+  min-width: 56px;
+}

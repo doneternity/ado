@@ -1,0 +1,89 @@
+name: Database backup
+on:
+  schedule:
+    - cron: '23 3 * * *' # nightly, 03:23 UTC
+  workflow_dispatch:
+
+# Nightly pg_dump of the app's tables (public schema), encrypted with age before
+# it touches disk outside the runner, kept as a workflow artifact for 30 days.
+# The repo is public, so anyone signed in to GitHub can download artifacts:
+# only the encrypted file is ever uploaded, and only the holder of the private
+# key can read it. Restore steps are in README.md ("Backups").
+#
+# Needs: BACKUP_DATABASE_URL secret (the Supabase session-pooler URL, the same
+# value as DATABASE_URL on Koyeb) and BACKUP_AGE_RECIPIENT variable (the age
+# public key, age1...). Failures post to Discord via ALERT_WEBHOOK_URL.
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+    steps:
+      - name: Check settings
+        run: |
+          missing=""
+          [ -n "$DATABASE_URL" ] || missing="$missing BACKUP_DATABASE_URL (Settings > Secrets and variables > Actions > Secrets tab)"
+          case "$RECIPIENT" in
+            age1*) ;;
+            *) missing="$missing BACKUP_AGE_RECIPIENT (same page > Variables tab, an age1... public key)" ;;
+          esac
+          if [ -n "$missing" ]; then
+            echo "::error::No backup taken. Missing:$missing"
+            exit 1
+          fi
+
+      # pg_dump must be at least the server's major version. The runner's
+      # preinstalled psql is enough to ask the server which one that is.
+      - name: Install pg_dump for the server's version
+        run: |
+          major=$(psql "$DATABASE_URL" -Atc 'SHOW server_version_num' | cut -c1-2)
+          echo "Server is PostgreSQL $major"
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq "postgresql-client-$major" age > /dev/null
+          echo "PGBIN=/usr/lib/postgresql/$major/bin" >> "$GITHUB_ENV"
+
+      - name: Dump, check and encrypt
+        run: |
+          umask 077
+          stamp=$(date -u +%Y-%m-%d)
+          mkdir -p out
+          "$PGBIN/pg_dump" "$DATABASE_URL" --format=custom --schema=public --file=ado.dump
+
+          # A readable archive with the app's tables in it, not an empty or truncated file.
+          tables=$("$PGBIN/pg_restore" --list ado.dump | grep -c ' TABLE DATA public ' || true)
+          echo "Dump holds data for $tables tables ($(du -h ado.dump | cut -f1))"
+          if [ "$tables" -lt 5 ]; then
+            echo "::error::Dump looks incomplete ($tables tables)"
+            exit 1
+          fi
+
+          age --recipient "$RECIPIENT" --output "out/ado-$stamp.dump.age" ado.dump
+          rm -f ado.dump
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ado-db-${{ env.STAMP }}
+          path: out/
+          retention-days: 30
+          compression-level: 0 # already compressed and encrypted
+          if-no-files-found: error
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.ALERT_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$WEBHOOK" ] || exit 0
+          jq -n --arg c "**[BACKUP FAILED] ADO's nightly database backup did not complete.**
+          Details: $RUN_URL" '{content: $c}' | curl -fsS -H 'Content-Type: application/json' -d @- "$WEBHOOK"

@@ -81,9 +81,13 @@ jobs:
           [ "$state" = up ]
 
       # GitHub disables scheduled workflows after 60 days without repo activity.
-      # Re-enabling through the API resets that timer, so the monitor keeps itself on.
-      - name: Keep this workflow enabled
+      # Re-enabling through the API resets that timer, so the monitor keeps itself
+      # (and the nightly backup) on.
+      - name: Keep scheduled workflows enabled
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/monitor.yml/enable"
+        run: |
+          for wf in monitor.yml backup.yml; do
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/enable"
+          done

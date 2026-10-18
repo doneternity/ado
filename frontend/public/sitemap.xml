@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Public pages only. Keep in sync with PAGE_META in src/components/PageMeta.tsx. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://adoai.space/</loc></url>
+  <url><loc>https://adoai.space/models</loc></url>
+  <url><loc>https://adoai.space/docs</loc></url>
+  <url><loc>https://adoai.space/pricing</loc></url>
+  <url><loc>https://adoai.space/status</loc></url>
+  <url><loc>https://adoai.space/sign-up</loc></url>
+  <url><loc>https://adoai.space/privacy</loc></url>
+  <url><loc>https://adoai.space/terms</loc></url>
+</urlset>

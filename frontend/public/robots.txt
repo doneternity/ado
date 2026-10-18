@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /api/
+Disallow: /v1/
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /playground
+Disallow: /login
+Disallow: /join-required
+
+Sitemap: https://adoai.space/sitemap.xml

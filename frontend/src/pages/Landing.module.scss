@@ -192,6 +192,35 @@
   @media (max-width: 600px) { white-space: normal; }
 }
 
+/* Hero calls to action: one primary, one quiet secondary */
+.heroCtas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  margin-top: 40px;
+}
+.heroCtaPrimary {
+  background: #ffffff;
+  color: #050508;
+  padding: 14px 28px;
+  border-radius: var(--r-pill);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity var(--t-fast);
+  &:hover { opacity: 0.85; }
+}
+.heroCtaSecondary {
+  color: rgba(255,255,255,0.75);
+  font-size: 1rem;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: rgba(255,255,255,0.3);
+  transition: color var(--t-fast);
+  &:hover { color: #ffffff; }
+}
+
 .heroWord {
   display: inline-block;
   transition: opacity 0.3s ease, transform 0.3s ease;

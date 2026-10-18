@@ -11,6 +11,7 @@ import { Login } from "./pages/Login";
 import { SignUp } from "./pages/SignUp";
 import { JoinRequired } from "./pages/JoinRequired";
 import { NotFound } from "./pages/NotFound";
+import { PageMeta } from "./components/PageMeta";
 import { Landing } from "./pages/Landing";
 import { Models } from "./pages/Models";
 import { Pricing } from "./pages/Pricing";
@@ -34,6 +35,7 @@ const AdminMaintenance = lazy(() => named(import("./pages/admin/AdminMaintenance
 function Root() {
   return (
     <Layout>
+      <PageMeta />
       <ScrollRestoration />
       <Suspense fallback={<PageLoader />}>
         <Outlet />
@@ -45,6 +47,7 @@ function Root() {
 function AdminRoot() {
   return (
     <AdminLayout>
+      <PageMeta />
       <ScrollRestoration />
       <Suspense fallback={<PageLoader />}>
         <Outlet />

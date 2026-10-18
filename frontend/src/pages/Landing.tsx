@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useSampleModel } from "../api/queries";
+import { useMe, useSampleModel } from "../api/queries";
 import styles from "./Landing.module.scss";
 
 const WORDS = ["build", "ship", "connect", "deploy", "create"];
@@ -52,6 +52,7 @@ const stagger10 = { hidden: {}, show: { transition: { staggerChildren: 0.07, del
 const MotionLink = motion.create(Link);
 
 export function Landing() {
+  const { data: me } = useMe();
   const sampleModel = useSampleModel();
   const [mounted, setMounted] = useState(false);
   const [wordIdx, setWordIdx] = useState(0);
@@ -59,6 +60,10 @@ export function Landing() {
   const [activeStep, setActiveStep] = useState(0);
   const [stepKey, setStepKey] = useState(0);
   const [activeRegion, setActiveRegion] = useState(1);
+  // With reduced motion the hero video doesn't autoplay; its poster shows instead.
+  const [reducedMotion] = useState(
+    () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -99,7 +104,7 @@ export function Landing() {
       {/* ─── HERO ──────────────────────────────────────── */}
       <section className={styles.hero}>
         <div className={styles.heroBg} aria-hidden="true">
-          <video className={styles.heroBgVideo} autoPlay muted loop playsInline>
+          <video className={styles.heroBgVideo} autoPlay={!reducedMotion} muted loop playsInline poster="/hero-poster.webp">
             <source src="/hero-bg.mp4" type="video/mp4" />
           </video>
           <div className={styles.heroBgOverlayH} />
@@ -130,6 +135,12 @@ export function Landing() {
                 {" "}anywhere
               </span>
             </h1>
+            <div className={styles.heroCtas}>
+              <Link to={me ? "/dashboard" : "/sign-up"} className={styles.heroCtaPrimary}>
+                {me ? "Go to your dashboard" : "Get your free key"}
+              </Link>
+              <Link to="/docs" className={styles.heroCtaSecondary}>Read the docs</Link>
+            </div>
           </div>
         </div>
 
@@ -137,8 +148,8 @@ export function Landing() {
           <div className={styles.heroStatsInner}>
             {[
               { value: "20+",    label: "models available" },
-              { value: "2.4B+",  label: "requests routed" },
-              { value: "99.99%", label: "uptime" },
+              { value: "1",      label: "key for all of them" },
+              { value: "Free",   label: "no credit card" },
             ].map(({ value, label }) => (
               <div key={label} className={styles.heroStat}>
                 <span className={styles.heroStatValue}>{value}</span>
@@ -210,7 +221,7 @@ const res = await client.chat.completions.create({
       {/* ─── HOW IT WORKS ──────────────────────────────── */}
       <section className={styles.howSection} id="how-it-works">
         <div className={styles.howImgPanel} aria-hidden="true">
-          <img src="/img-how.jpg" alt="" />
+          <img src="/img-how.webp" alt="" width={1920} height={1080} loading="lazy" decoding="async" />
         </div>
         <div className={styles.howAmbient} aria-hidden="true" />
         <div className={styles.container}>
@@ -344,17 +355,17 @@ const res = await client.chat.completions.create({
                 <span className={styles.infraBigValue}>20</span>
                 <span className={styles.infraBigSuffix}>+ models</span>
               </div>
-              <p className={styles.infraBigLabel}>Routing nodes across all major providers.</p>
+              <p className={styles.infraBigLabel}>Claude, Gemini, DeepSeek and more, behind one key.</p>
             </motion.div>
 
             <motion.div className={styles.infraSmallCards} variants={stagger14}>
               <motion.div className={styles.infraSmallCard} variants={fadeUp}>
-                <span className={styles.infraSmallValue}>99.99%</span>
-                <span className={styles.infraSmallLabel}>Uptime SLA</span>
+                <span className={styles.infraSmallValue}>Failover</span>
+                <span className={styles.infraSmallLabel}>Across providers</span>
               </motion.div>
               <motion.div className={styles.infraSmallCard} variants={fadeUp}>
-                <span className={styles.infraSmallValue}>&lt;50ms</span>
-                <span className={styles.infraSmallLabel}>Time to first token</span>
+                <span className={styles.infraSmallValue}>SSE</span>
+                <span className={styles.infraSmallLabel}>Streaming responses</span>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -389,7 +400,7 @@ const res = await client.chat.completions.create({
       {/* ─── DEVELOPERS ────────────────────────────────── */}
       <section className={styles.devSection} id="developers">
         <div className={styles.devImgPanel} aria-hidden="true">
-          <img src="/img-dev.jpg" alt="" />
+          <img src="/img-dev.webp" alt="" width={1920} height={1080} loading="lazy" decoding="async" />
         </div>
         <div className={styles.container}>
           <motion.div

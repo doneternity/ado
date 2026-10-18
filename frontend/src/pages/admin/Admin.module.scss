@@ -806,3 +806,21 @@
   resize: vertical;
   min-height: 64px;
 }
+
+/* ── Inactive account cleanup ── */
+.cleanup {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+
+  .tableWrap { width: 100%; }
+}
+.cleanupText {
+  font-size: .78rem;
+  line-height: 1.6;
+  color: var(--silver);
+  max-width: 720px;
+  margin: 0;
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAdminUsers, useSetUserRole, useSetUserBanned, useAdminPlans, useSetUserPlan } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
+import { InactiveCleanup } from "./InactiveCleanup";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -110,6 +111,8 @@ export function AdminUsers() {
           </tbody>
         </table>
       </div>
+
+      <InactiveCleanup />
     </motion.div>
   );
 }

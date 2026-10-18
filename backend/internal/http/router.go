@@ -164,6 +164,8 @@ func NewRouter(d Deps) http.Handler {
 		r.Patch("/users/{id}/role", d.AdminUsers.SetRole)
 		r.Patch("/users/{id}/banned", d.AdminUsers.SetBanned)
 		r.Put("/users/{id}/plan", d.AdminPlans.SetUserPlan)
+		r.Get("/users/inactive", d.AdminUsers.Inactive)
+		r.Post("/users/inactive/delete", d.AdminUsers.DeleteInactive)
 
 		r.Get("/plans", d.AdminPlans.List)
 		r.Put("/plans/{id}", d.AdminPlans.Upsert)

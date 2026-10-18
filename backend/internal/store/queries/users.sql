@@ -52,3 +52,38 @@ UPDATE email_verification_tokens SET consumed_at = now() WHERE token_hash = $1;
 
 -- name: DeleteEmailVerificationTokensForUser :exec
 DELETE FROM email_verification_tokens WHERE user_id = $1;
+
+-- name: TouchUserLogin :exec
+UPDATE users SET last_login_at = now() WHERE id = $1;
+
+-- name: ListInactiveUsers :many
+-- Accounts with no sign-in, session or API activity since the cutoff. Admins,
+-- banned users (deleting them would lift the ban) and anyone on a plan other
+-- than free are never included.
+SELECT u.id, u.email, u.created_at, a.last_active::timestamptz AS last_active
+FROM users u
+CROSS JOIN LATERAL (
+  SELECT GREATEST(
+    u.created_at,
+    u.last_login_at,
+    (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id),
+    (SELECT MAX(GREATEST(k.created_at, k.last_used_at)) FROM ado_keys k WHERE k.user_id = u.id)
+  ) AS last_active
+) a
+WHERE u.role <> 'admin' AND NOT u.banned AND u.plan_id = 'free'
+  AND a.last_active < sqlc.arg(cutoff)::timestamptz
+ORDER BY a.last_active ASC;
+
+-- name: DeleteInactiveUsers :execrows
+-- Deletes only the listed users, and only if they are still inactive by the
+-- same rules, so someone who signed in after the preview is kept. Keys,
+-- sessions, usage and request logs go with them (ON DELETE CASCADE).
+DELETE FROM users u
+WHERE u.id = ANY(sqlc.arg(ids)::uuid[])
+  AND u.role <> 'admin' AND NOT u.banned AND u.plan_id = 'free'
+  AND GREATEST(
+    u.created_at,
+    u.last_login_at,
+    (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id),
+    (SELECT MAX(GREATEST(k.created_at, k.last_used_at)) FROM ado_keys k WHERE k.user_id = u.id)
+  ) < sqlc.arg(cutoff)::timestamptz;

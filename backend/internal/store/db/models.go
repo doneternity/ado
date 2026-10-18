@@ -118,4 +118,5 @@ type User struct {
 	DailyQuotaOverride *int32
 	DiscordID          *string
 	PlanID             string
+	LastLoginAt        pgtype.Timestamptz
 }

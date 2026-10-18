@@ -88,6 +88,28 @@ export function useDeleteProvider() {
 }
 
 // ── Users ──────────────────────────────────────────────────
+export type InactiveUser = { id: string; email: string; createdAt: string; lastActive: string };
+
+// Accounts with no sign-in, session or API activity for `days` days (preview only).
+export function useInactiveUsers(days: number | null) {
+  return useQuery({
+    queryKey: ["admin", "users", "inactive", days],
+    queryFn: () => apiFetch<{ days: number; users: InactiveUser[] }>(`/api/admin/users/inactive?days=${days}`),
+    enabled: days !== null,
+  });
+}
+
+export function useDeleteInactiveUsers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { days: number; ids: string[] }) =>
+      apiFetch<{ deleted: number }>("/api/admin/users/inactive/delete", {
+        method: "POST", body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
 export function useAdminUsers() {
   return useQuery({
     queryKey: ["admin", "users"],

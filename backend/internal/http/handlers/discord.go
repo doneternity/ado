@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -128,6 +129,9 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.d.Sessions.SetCookie(w, cookie)
+	if err := h.d.Q.TouchUserLogin(r.Context(), user.ID); err != nil {
+		slog.Warn("record last login", "err", err)
+	}
 	if issued, _ := h.d.Keys.EnsureForUser(r.Context(), user.ID); issued.Raw != "" {
 		_ = h.d.Keys.StashFlash(r.Context(), hex.EncodeToString(sess.ID), issued.Raw, issued.Prefix, issued.DailyLimit)
 	}

@@ -40,7 +40,7 @@ func (q *Queries) CreateEmailVerificationToken(ctx context.Context, arg CreateEm
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, email_verified, password_hash, google_sub, discord_id, display_name, photo_url, role)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id
+RETURNING id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id, last_login_at
 `
 
 type CreateUserParams struct {
@@ -81,6 +81,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.DailyQuotaOverride,
 		&i.DiscordID,
 		&i.PlanID,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
@@ -92,6 +93,34 @@ DELETE FROM email_verification_tokens WHERE user_id = $1
 func (q *Queries) DeleteEmailVerificationTokensForUser(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteEmailVerificationTokensForUser, userID)
 	return err
+}
+
+const deleteInactiveUsers = `-- name: DeleteInactiveUsers :execrows
+DELETE FROM users u
+WHERE u.id = ANY($1::uuid[])
+  AND u.role <> 'admin' AND NOT u.banned AND u.plan_id = 'free'
+  AND GREATEST(
+    u.created_at,
+    u.last_login_at,
+    (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id),
+    (SELECT MAX(GREATEST(k.created_at, k.last_used_at)) FROM ado_keys k WHERE k.user_id = u.id)
+  ) < $2::timestamptz
+`
+
+type DeleteInactiveUsersParams struct {
+	Ids    []uuid.UUID
+	Cutoff pgtype.Timestamptz
+}
+
+// Deletes only the listed users, and only if they are still inactive by the
+// same rules, so someone who signed in after the preview is kept. Keys,
+// sessions, usage and request logs go with them (ON DELETE CASCADE).
+func (q *Queries) DeleteInactiveUsers(ctx context.Context, arg DeleteInactiveUsersParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteInactiveUsers, arg.Ids, arg.Cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteUser = `-- name: DeleteUser :exec
@@ -120,7 +149,7 @@ func (q *Queries) GetEmailVerificationToken(ctx context.Context, tokenHash []byt
 }
 
 const getUserByDiscordID = `-- name: GetUserByDiscordID :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id FROM users WHERE discord_id = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id, last_login_at FROM users WHERE discord_id = $1
 `
 
 func (q *Queries) GetUserByDiscordID(ctx context.Context, discordID *string) (User, error) {
@@ -141,12 +170,13 @@ func (q *Queries) GetUserByDiscordID(ctx context.Context, discordID *string) (Us
 		&i.DailyQuotaOverride,
 		&i.DiscordID,
 		&i.PlanID,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id FROM users WHERE email = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id, last_login_at FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -167,12 +197,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.DailyQuotaOverride,
 		&i.DiscordID,
 		&i.PlanID,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
 
 const getUserByGoogleSub = `-- name: GetUserByGoogleSub :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id FROM users WHERE google_sub = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id, last_login_at FROM users WHERE google_sub = $1
 `
 
 func (q *Queries) GetUserByGoogleSub(ctx context.Context, googleSub *string) (User, error) {
@@ -193,12 +224,13 @@ func (q *Queries) GetUserByGoogleSub(ctx context.Context, googleSub *string) (Us
 		&i.DailyQuotaOverride,
 		&i.DiscordID,
 		&i.PlanID,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id FROM users WHERE id = $1
+SELECT id, email, email_verified, password_hash, google_sub, display_name, photo_url, banned, role, created_at, updated_at, daily_quota_override, discord_id, plan_id, last_login_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -219,6 +251,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.DailyQuotaOverride,
 		&i.DiscordID,
 		&i.PlanID,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
@@ -286,11 +319,71 @@ func (q *Queries) LinkGoogleSub(ctx context.Context, arg LinkGoogleSubParams) er
 	return err
 }
 
+const listInactiveUsers = `-- name: ListInactiveUsers :many
+SELECT u.id, u.email, u.created_at, a.last_active::timestamptz AS last_active
+FROM users u
+CROSS JOIN LATERAL (
+  SELECT GREATEST(
+    u.created_at,
+    u.last_login_at,
+    (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id),
+    (SELECT MAX(GREATEST(k.created_at, k.last_used_at)) FROM ado_keys k WHERE k.user_id = u.id)
+  ) AS last_active
+) a
+WHERE u.role <> 'admin' AND NOT u.banned AND u.plan_id = 'free'
+  AND a.last_active < $1::timestamptz
+ORDER BY a.last_active ASC
+`
+
+type ListInactiveUsersRow struct {
+	ID         uuid.UUID
+	Email      string
+	CreatedAt  pgtype.Timestamptz
+	LastActive pgtype.Timestamptz
+}
+
+// Accounts with no sign-in, session or API activity since the cutoff. Admins,
+// banned users (deleting them would lift the ban) and anyone on a plan other
+// than free are never included.
+func (q *Queries) ListInactiveUsers(ctx context.Context, cutoff pgtype.Timestamptz) ([]ListInactiveUsersRow, error) {
+	rows, err := q.db.Query(ctx, listInactiveUsers, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInactiveUsersRow
+	for rows.Next() {
+		var i ListInactiveUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.CreatedAt,
+			&i.LastActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setEmailVerified = `-- name: SetEmailVerified :exec
 UPDATE users SET email_verified = TRUE, updated_at = now() WHERE id = $1
 `
 
 func (q *Queries) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setEmailVerified, id)
+	return err
+}
+
+const touchUserLogin = `-- name: TouchUserLogin :exec
+UPDATE users SET last_login_at = now() WHERE id = $1
+`
+
+func (q *Queries) TouchUserLogin(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, touchUserLogin, id)
 	return err
 }

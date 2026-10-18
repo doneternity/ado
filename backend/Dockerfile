@@ -9,5 +9,7 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /app/server .
+# main runs goose migrations from ./migrations at startup.
+COPY --from=builder /app/migrations ./migrations
 EXPOSE 8080
 CMD ["./server"]

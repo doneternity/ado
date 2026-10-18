@@ -25,6 +25,7 @@ type Deps struct {
 	Queries          *db.Queries
 	RpmCfg           *proxy.RpmConfig
 	Slots            *handlers.SlotsHandler
+	Health           *handlers.Health
 	AdminProviders   *handlers.AdminProviders
 	AdminUsers       *handlers.AdminUsers
 	AdminStats       *handlers.AdminStats
@@ -47,6 +48,10 @@ func NewRouter(d Deps) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
+	// Deep check touches Postgres + Redis. Kept separate so the platform health
+	// check stays cheap and a DB blip doesn't restart the instance.
+	r.With(d.Limiter.PerIP("rl:health:deep:ip", 10, time.Minute, false)).
+		Get("/api/health/deep", d.Health.Deep)
 
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))

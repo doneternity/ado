@@ -15,6 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"github.com/ado/ado/backend/internal/alert"
 	"github.com/ado/ado/backend/internal/auth"
 	"github.com/ado/ado/backend/internal/auth/oauth"
 	"github.com/ado/ado/backend/internal/config"
@@ -137,6 +138,14 @@ func main() {
 	})
 
 	slotsH := handlers.NewSlots(queries)
+	healthH := handlers.NewHealth(
+		func(ctx context.Context) error {
+			// a real query, not just a connection ping, so it counts as activity.
+			_, err := pool.Exec(ctx, "SELECT 1 FROM system_settings LIMIT 1")
+			return err
+		},
+		func(ctx context.Context) error { return rdb.Ping(ctx).Err() },
+	)
 
 	adminMW := mw.RequireAdmin(queries)
 	adminProvH := handlers.NewAdminProviders(handlers.AdminProvidersDeps{Q: queries, Registry: reg, ProviderKeySecret: cfg.ProviderKeySecret})
@@ -209,6 +218,35 @@ func main() {
 		}()
 	}
 
+	// Provider monitor: alerts (Discord webhook, if configured) when providers go
+	// down or recover, so a dead upstream key doesn't go unnoticed for months.
+	if cfg.ProviderCheckInterval > 0 {
+		notifier := alert.NewDiscord(cfg.AlertWebhookURL)
+		if !notifier.Enabled() {
+			slog.Info("ALERT_WEBHOOK_URL not set; provider alerts are log-only")
+		}
+		monitor := proxy.NewProviderMonitor(reg, func(msg string) {
+			slog.Warn("provider alert", "msg", msg)
+			sctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			if err := notifier.Send(sctx, "**ADO:** "+msg); err != nil {
+				slog.Warn("send alert", "err", err)
+			}
+		})
+		go func() {
+			t := time.NewTicker(time.Duration(cfg.ProviderCheckInterval) * time.Second)
+			defer t.Stop()
+			for {
+				monitor.Check(ctx)
+				select {
+				case <-t.C:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions:         sessions,
 		Auth:             authH,
@@ -220,6 +258,7 @@ func main() {
 		Queries:          queries,
 		RpmCfg:           rpmCfg,
 		Slots:            slotsH,
+		Health:           healthH,
 		AdminProviders:   adminProvH,
 		AdminUsers:       adminUsersH,
 		AdminStats:       adminStatsH,

@@ -43,6 +43,21 @@ func TestLoad_ProviderKeySecretTooShort(t *testing.T) {
 	}
 }
 
+func TestLoad_AlertWebhookMustBeHTTPS(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("DATABASE_URL", "postgres://x")
+	os.Setenv("REDIS_URL", "redis://y")
+	os.Setenv("PROVIDER_KEY_SECRET", "12345678901234567890123456789012")
+	os.Setenv("ALERT_WEBHOOK_URL", "http://discord.com/api/webhooks/1/x")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for non-https ALERT_WEBHOOK_URL, got nil")
+	}
+	os.Setenv("ALERT_WEBHOOK_URL", "https://discord.com/api/webhooks/1/x")
+	if _, err := Load(); err != nil {
+		t.Fatalf("expected https webhook to load, got %v", err)
+	}
+}
+
 func TestLoad_ProviderKeySecretExactly32(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("DATABASE_URL", "postgres://x")

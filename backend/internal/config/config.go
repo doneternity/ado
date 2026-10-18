@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/caarlos0/env/v10"
 )
@@ -35,6 +36,11 @@ type Config struct {
 	// (passive tracking from real traffic still runs).
 	ModelProbeInterval int `env:"MODEL_PROBE_INTERVAL_SECONDS" envDefault:"90"`
 	ModelProbeBatch    int `env:"MODEL_PROBE_BATCH"           envDefault:"2"`
+
+	// Discord webhook for operator alerts (providers down/recovered). Empty
+	// disables alerts; state changes are still logged.
+	AlertWebhookURL       string `env:"ALERT_WEBHOOK_URL"`
+	ProviderCheckInterval int    `env:"PROVIDER_CHECK_INTERVAL_SECONDS" envDefault:"300"`
 }
 
 func Load() (*Config, error) {
@@ -49,6 +55,9 @@ func Load() (*Config, error) {
 		if cfg.DiscordRedirectURL == "" {
 			return nil, fmt.Errorf("config: DISCORD_CLIENT_ID set but DISCORD_REDIRECT_URL is empty")
 		}
+	}
+	if cfg.AlertWebhookURL != "" && !strings.HasPrefix(cfg.AlertWebhookURL, "https://") {
+		return nil, fmt.Errorf("config: ALERT_WEBHOOK_URL must be an https URL")
 	}
 	if len(cfg.ProviderKeySecret) < 32 {
 		return nil, fmt.Errorf("config: PROVIDER_KEY_SECRET must be at least 32 bytes")

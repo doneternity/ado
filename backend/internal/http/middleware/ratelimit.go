@@ -86,14 +86,19 @@ func (l *Limiter) PerKey(prefix string, limit int, window time.Duration, failClo
 }
 
 // PerKeyDynamic is like PerKey but reads the limit dynamically on each request.
+// A key on a plan with its own RPM uses that instead of getLimit.
 func (l *Limiter) PerKeyDynamic(prefix string, getLimit func() int, window time.Duration, failClosed bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			redisKey := prefix + ":ip:" + ClientIP(r)
+			limit := getLimit()
 			if bk, ok := BearerFromContext(r.Context()); ok {
 				redisKey = prefix + ":" + bk.KeyID.String()
+				if bk.PlanRPM > 0 {
+					limit = int(bk.PlanRPM)
+				}
 			}
-			l.enforce(w, r, next, prefix, redisKey, getLimit(), window, failClosed)
+			l.enforce(w, r, next, prefix, redisKey, limit, window, failClosed)
 		})
 	}
 }

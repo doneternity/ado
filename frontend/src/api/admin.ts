@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 import type {
   AdminProvider, AdminUser, AdminStats, AdminQuotas,
-  AdminErrorsResponse, MaintenanceStatus,
+  AdminErrorsResponse, MaintenanceStatus, AdminPlan,
 } from "../types/api";
 
 // ── Providers ──────────────────────────────────────────────
@@ -199,5 +199,42 @@ export function useToggleMaintenance() {
         body: JSON.stringify({ enabled }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "maintenance"] }),
+  });
+}
+
+// ── Plans ──────────────────────────────────────────────────
+export function useAdminPlans() {
+  return useQuery({
+    queryKey: ["admin", "plans"],
+    queryFn: () => apiFetch<AdminPlan[]>("/api/admin/plans"),
+  });
+}
+
+export function useUpsertPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name: string; dailyQuota: number | null; rpm: number | null }) =>
+      apiFetch<AdminPlan>(`/api/admin/plans/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "plans"] }),
+  });
+}
+
+export function useDeletePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/api/admin/plans/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "plans"] }),
+  });
+}
+
+export function useSetUserPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, planId }: { id: string; planId: string }) =>
+      apiFetch<void>(`/api/admin/users/${id}/plan`, { method: "PUT", body: JSON.stringify({ planId }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "plans"] });
+    },
   });
 }

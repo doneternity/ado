@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { SlidersHorizontal } from "lucide-react";
-import { useAdminQuotas, useSetGlobalQuota, useSetGlobalRpm, useSetFreeTierSlots, useSetUserQuota, useRemoveUserQuota } from "../../api/admin";
+import {
+  useAdminQuotas, useSetGlobalQuota, useSetGlobalRpm, useSetFreeTierSlots, useSetUserQuota, useRemoveUserQuota,
+  useAdminPlans, useUpsertPlan, useDeletePlan,
+} from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
 import styles from "./Admin.module.scss";
 
@@ -142,6 +145,103 @@ export function AdminQuotas() {
           Save override
         </button>
       </div>
+
+      <PlansSection />
     </motion.div>
+  );
+}
+
+// Plans set shared limits for groups of users. Empty limits follow the global
+// values above, which is how the free plan works.
+function PlansSection() {
+  const { data: plans = [] } = useAdminPlans();
+  const upsert = useUpsertPlan();
+  const del = useDeletePlan();
+  const showToast = useUiStore((s) => s.showToast);
+  const [form, setForm] = useState({ id: "", name: "", dailyQuota: "", rpm: "" });
+
+  const onErr = (fallback: string) => (err: unknown) =>
+    showToast(err instanceof Error ? err.message : fallback);
+  const num = (v: string) => (v.trim() === "" ? null : Number(v));
+
+  function save() {
+    upsert.mutate(
+      { id: form.id.trim(), name: form.name.trim(), dailyQuota: num(form.dailyQuota), rpm: num(form.rpm) },
+      {
+        onSuccess: () => { showToast(`Plan "${form.name}" saved`); setForm({ id: "", name: "", dailyQuota: "", rpm: "" }); },
+        onError: onErr("Could not save plan"),
+      },
+    );
+  }
+
+  return (
+    <>
+      <div className={styles.sectionLabel} style={{ margin: "32px 0 12px" }}>Plans</div>
+      <div className={styles.tableWrap} style={{ marginBottom: 16 }}>
+        <table className={styles.table}>
+          <thead><tr><th>ID</th><th>Name</th><th>Daily limit</th><th>RPM</th><th>Users</th><th>Actions</th></tr></thead>
+          <tbody>
+            {plans.map((p) => (
+              <tr key={p.id}>
+                <td className={styles.cellMono}>{p.id}</td>
+                <td>{p.name}</td>
+                <td>{p.dailyQuota ?? <span className={styles.cellSubtle}>global</span>}</td>
+                <td>{p.rpm ?? <span className={styles.cellSubtle}>global</span>}</td>
+                <td>{p.userCount}</td>
+                <td>
+                  <div className={styles.btnRow}>
+                    <button
+                      className={`${styles.btnSecondary} ${styles.btnXs}`}
+                      onClick={() => setForm({ id: p.id, name: p.name, dailyQuota: p.dailyQuota?.toString() ?? "", rpm: p.rpm?.toString() ?? "" })}
+                    >
+                      Edit
+                    </button>
+                    {p.id !== "free" && (
+                      <button
+                        className={`${styles.btnDanger} ${styles.btnXs}`}
+                        disabled={p.userCount > 0}
+                        title={p.userCount > 0 ? "Move its users to another plan first" : undefined}
+                        onClick={() => del.mutate(p.id, { onError: onErr("Could not delete plan") })}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.inlineForm}>
+        <div className={styles.inlineFormTitle}>Add or edit a plan</div>
+        <div className={styles.formRow}>
+          <div className={styles.field}>
+            <label className={styles.label}>ID</label>
+            <input className={styles.input} placeholder="pro" value={form.id}
+              onChange={(e) => setForm({ ...form, id: e.target.value.toLowerCase() })} />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Name</label>
+            <input className={styles.input} placeholder="Pro" value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Daily limit</label>
+            <input className={styles.input} type="number" min={1} placeholder="global" value={form.dailyQuota}
+              onChange={(e) => setForm({ ...form, dailyQuota: e.target.value })} />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>RPM</label>
+            <input className={styles.input} type="number" min={1} placeholder="global" value={form.rpm}
+              onChange={(e) => setForm({ ...form, rpm: e.target.value })} />
+          </div>
+        </div>
+        <button className={styles.btnPrimary} onClick={save} disabled={!form.id || !form.name || upsert.isPending}>
+          Save plan
+        </button>
+      </div>
+    </>
   );
 }

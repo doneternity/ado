@@ -207,7 +207,12 @@ type UpdateProviderMetaParams struct {
 }
 
 func (q *Queries) UpdateProviderMeta(ctx context.Context, arg UpdateProviderMetaParams) (Provider, error) {
-	row := q.db.QueryRow(ctx, updateProviderMeta, arg.ID, arg.Name, arg.BaseUrl, arg.Priority)
+	row := q.db.QueryRow(ctx, updateProviderMeta,
+		arg.ID,
+		arg.Name,
+		arg.BaseUrl,
+		arg.Priority,
+	)
 	var i Provider
 	err := row.Scan(
 		&i.ID,

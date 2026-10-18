@@ -39,6 +39,7 @@ export type CurrentKeyResponse = {
   rpmLimit?: number;
   rpmUsed?: number;
   reasoningMode?: boolean;
+  plan?: { id: string; name: string };
 };
 
 export type FlashKeyResponse =
@@ -67,7 +68,18 @@ export type AdminUser = {
   banned: boolean;
   createdAt: string;
   dailyQuotaOverride: number | null;
+  planId: string;
   requestsToday: number;
+};
+
+// null limits mean "use the global setting".
+export type AdminPlan = {
+  id: string;
+  name: string;
+  dailyQuota: number | null;
+  rpm: number | null;
+  userCount: number;
+  createdAt: string;
 };
 
 export type AdminStats = {

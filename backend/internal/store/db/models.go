@@ -12,14 +12,15 @@ import (
 )
 
 type AdoKey struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	KeyPrefix  string
-	KeyHash    []byte
-	DailyLimit int32
-	RevokedAt  pgtype.Timestamptz
-	CreatedAt  pgtype.Timestamptz
-	LastUsedAt pgtype.Timestamptz
+	ID            uuid.UUID
+	UserID        uuid.UUID
+	KeyPrefix     string
+	KeyHash       []byte
+	DailyLimit    int32
+	RevokedAt     pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
+	LastUsedAt    pgtype.Timestamptz
+	ReasoningMode bool
 }
 
 type DailyUsage struct {
@@ -41,6 +42,14 @@ type ErrorLog struct {
 	Message   string
 	Context   []byte
 	CreatedAt pgtype.Timestamptz
+}
+
+type Plan struct {
+	ID         string
+	Name       string
+	DailyQuota *int32
+	Rpm        *int32
+	CreatedAt  pgtype.Timestamptz
 }
 
 type Provider struct {
@@ -84,4 +93,5 @@ type User struct {
 	UpdatedAt          pgtype.Timestamptz
 	DailyQuotaOverride *int32
 	DiscordID          *string
+	PlanID             string
 }

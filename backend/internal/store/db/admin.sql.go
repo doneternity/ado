@@ -12,6 +12,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countFreeTierUsers = `-- name: CountFreeTierUsers :one
+SELECT COUNT(DISTINCT k.user_id)::int4 AS count
+FROM ado_keys k
+JOIN users u ON u.id = k.user_id
+WHERE k.revoked_at IS NULL
+  AND u.role = 'user'
+  AND u.plan_id = 'free'
+`
+
+func (q *Queries) CountFreeTierUsers(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countFreeTierUsers)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT COUNT(*) FROM users
 `
@@ -57,7 +73,7 @@ func (q *Queries) DailyRequestCounts(ctx context.Context) ([]DailyRequestCountsR
 }
 
 const listUsersAdmin = `-- name: ListUsersAdmin :many
-SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override,
+SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override, u.plan_id,
        COALESCE(SUM(du.used), 0)::int4 AS requests_today
 FROM users u
 LEFT JOIN ado_keys k ON k.user_id = u.id
@@ -74,6 +90,7 @@ type ListUsersAdminRow struct {
 	Banned             bool
 	CreatedAt          pgtype.Timestamptz
 	DailyQuotaOverride *int32
+	PlanID             string
 	RequestsToday      int32
 }
 
@@ -94,6 +111,7 @@ func (q *Queries) ListUsersAdmin(ctx context.Context) ([]ListUsersAdminRow, erro
 			&i.Banned,
 			&i.CreatedAt,
 			&i.DailyQuotaOverride,
+			&i.PlanID,
 			&i.RequestsToday,
 		); err != nil {
 			return nil, err
@@ -115,6 +133,34 @@ func (q *Queries) RemoveUserQuotaOverride(ctx context.Context, id uuid.UUID) err
 	return err
 }
 
+const revokeInactiveKeys = `-- name: RevokeInactiveKeys :exec
+UPDATE ado_keys
+SET revoked_at = NOW()
+WHERE revoked_at IS NULL
+  -- only free-plan users; paid keys are never reaped for inactivity
+  AND user_id IN (SELECT id FROM users WHERE role = 'user' AND plan_id = 'free')
+  AND (
+    last_used_at < $1
+    OR (last_used_at IS NULL AND created_at < $1)
+  )
+`
+
+func (q *Queries) RevokeInactiveKeys(ctx context.Context, lastUsedAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, revokeInactiveKeys, lastUsedAt)
+	return err
+}
+
+const setAllKeyDailyLimits = `-- name: SetAllKeyDailyLimits :exec
+UPDATE ado_keys SET daily_limit = $1
+WHERE revoked_at IS NULL
+  AND user_id IN (SELECT id FROM users WHERE daily_quota_override IS NULL)
+`
+
+func (q *Queries) SetAllKeyDailyLimits(ctx context.Context, dailyLimit int32) error {
+	_, err := q.db.Exec(ctx, setAllKeyDailyLimits, dailyLimit)
+	return err
+}
+
 const setUserBanned = `-- name: SetUserBanned :exec
 UPDATE users SET banned = $2, updated_at = NOW() WHERE id = $1
 `
@@ -126,6 +172,21 @@ type SetUserBannedParams struct {
 
 func (q *Queries) SetUserBanned(ctx context.Context, arg SetUserBannedParams) error {
 	_, err := q.db.Exec(ctx, setUserBanned, arg.ID, arg.Banned)
+	return err
+}
+
+const setUserKeyDailyLimit = `-- name: SetUserKeyDailyLimit :exec
+UPDATE ado_keys SET daily_limit = $2
+WHERE revoked_at IS NULL AND user_id = $1
+`
+
+type SetUserKeyDailyLimitParams struct {
+	UserID     uuid.UUID
+	DailyLimit int32
+}
+
+func (q *Queries) SetUserKeyDailyLimit(ctx context.Context, arg SetUserKeyDailyLimitParams) error {
+	_, err := q.db.Exec(ctx, setUserKeyDailyLimit, arg.UserID, arg.DailyLimit)
 	return err
 }
 
@@ -191,61 +252,4 @@ func (q *Queries) TopUsersByUsageThisMonth(ctx context.Context) ([]TopUsersByUsa
 		return nil, err
 	}
 	return items, nil
-}
-
-const setAllKeyDailyLimits = `-- name: SetAllKeyDailyLimits :exec
-UPDATE ado_keys SET daily_limit = $1
-WHERE revoked_at IS NULL
-  AND user_id IN (SELECT id FROM users WHERE daily_quota_override IS NULL)
-`
-
-func (q *Queries) SetAllKeyDailyLimits(ctx context.Context, dailyLimit int32) error {
-	_, err := q.db.Exec(ctx, setAllKeyDailyLimits, dailyLimit)
-	return err
-}
-
-const setUserKeyDailyLimit = `-- name: SetUserKeyDailyLimit :exec
-UPDATE ado_keys SET daily_limit = $2
-WHERE revoked_at IS NULL AND user_id = $1
-`
-
-type SetUserKeyDailyLimitParams struct {
-	UserID     uuid.UUID
-	DailyLimit int32
-}
-
-func (q *Queries) SetUserKeyDailyLimit(ctx context.Context, arg SetUserKeyDailyLimitParams) error {
-	_, err := q.db.Exec(ctx, setUserKeyDailyLimit, arg.UserID, arg.DailyLimit)
-	return err
-}
-
-const countFreeTierUsers = `-- name: CountFreeTierUsers :one
-SELECT COUNT(DISTINCT k.user_id)::int4 AS count
-FROM ado_keys k
-JOIN users u ON u.id = k.user_id
-WHERE k.revoked_at IS NULL
-  AND u.role = 'user'
-`
-
-func (q *Queries) CountFreeTierUsers(ctx context.Context) (int32, error) {
-	row := q.db.QueryRow(ctx, countFreeTierUsers)
-	var count int32
-	err := row.Scan(&count)
-	return count, err
-}
-
-const revokeInactiveKeys = `-- name: RevokeInactiveKeys :exec
-UPDATE ado_keys
-SET revoked_at = NOW()
-WHERE revoked_at IS NULL
-  AND user_id IN (SELECT id FROM users WHERE role = 'user')
-  AND (
-    last_used_at < $1
-    OR (last_used_at IS NULL AND created_at < $1)
-  )
-`
-
-func (q *Queries) RevokeInactiveKeys(ctx context.Context, before pgtype.Timestamptz) error {
-	_, err := q.db.Exec(ctx, revokeInactiveKeys, before)
-	return err
 }

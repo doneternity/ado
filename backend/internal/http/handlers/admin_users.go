@@ -26,6 +26,7 @@ type adminUserDTO struct {
 	Banned             bool      `json:"banned"`
 	CreatedAt          time.Time `json:"createdAt"`
 	DailyQuotaOverride *int32    `json:"dailyQuotaOverride"`
+	PlanID             string    `json:"planId"`
 	RequestsToday      int32     `json:"requestsToday"`
 }
 
@@ -45,6 +46,7 @@ func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
 			Banned:             u.Banned,
 			CreatedAt:          u.CreatedAt.Time,
 			DailyQuotaOverride: u.DailyQuotaOverride,
+			PlanID:             u.PlanID,
 			RequestsToday:      u.RequestsToday,
 		}
 	}

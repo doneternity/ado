@@ -15,7 +15,7 @@ import (
 const createAdoKey = `-- name: CreateAdoKey :one
 INSERT INTO ado_keys (user_id, key_prefix, key_hash, daily_limit)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, key_prefix, key_hash, daily_limit, revoked_at, created_at, last_used_at
+RETURNING id, user_id, key_prefix, key_hash, daily_limit, revoked_at, created_at, last_used_at, reasoning_mode
 `
 
 type CreateAdoKeyParams struct {
@@ -42,16 +42,19 @@ func (q *Queries) CreateAdoKey(ctx context.Context, arg CreateAdoKeyParams) (Ado
 		&i.RevokedAt,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+		&i.ReasoningMode,
 	)
 	return i, err
 }
 
 const getActiveKeyByHash = `-- name: GetActiveKeyByHash :one
 SELECT k.id, k.user_id, k.reasoning_mode,
-       COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit,
+       COALESCE(u.daily_quota_override, p.daily_quota, k.daily_limit)::int4 AS daily_limit,
+       COALESCE(p.rpm, 0)::int4 AS plan_rpm,
        u.banned
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
+JOIN plans p ON p.id = u.plan_id
 WHERE k.key_hash = $1 AND k.revoked_at IS NULL
 `
 
@@ -60,9 +63,12 @@ type GetActiveKeyByHashRow struct {
 	UserID        uuid.UUID
 	ReasoningMode bool
 	DailyLimit    int32
+	PlanRpm       int32
 	Banned        bool
 }
 
+// Effective limits: a per-user override beats the plan, which beats the key's
+// own (global) daily limit. plan_rpm 0 means "use the global RPM".
 func (q *Queries) GetActiveKeyByHash(ctx context.Context, keyHash []byte) (GetActiveKeyByHashRow, error) {
 	row := q.db.QueryRow(ctx, getActiveKeyByHash, keyHash)
 	var i GetActiveKeyByHashRow
@@ -71,13 +77,14 @@ func (q *Queries) GetActiveKeyByHash(ctx context.Context, keyHash []byte) (GetAc
 		&i.UserID,
 		&i.ReasoningMode,
 		&i.DailyLimit,
+		&i.PlanRpm,
 		&i.Banned,
 	)
 	return i, err
 }
 
 const getActiveKeyByUser = `-- name: GetActiveKeyByUser :one
-SELECT id, user_id, key_prefix, key_hash, daily_limit, revoked_at, created_at, last_used_at FROM ado_keys WHERE user_id = $1 AND revoked_at IS NULL
+SELECT id, user_id, key_prefix, key_hash, daily_limit, revoked_at, created_at, last_used_at, reasoning_mode FROM ado_keys WHERE user_id = $1 AND revoked_at IS NULL
 `
 
 func (q *Queries) GetActiveKeyByUser(ctx context.Context, userID uuid.UUID) (AdoKey, error) {
@@ -92,16 +99,21 @@ func (q *Queries) GetActiveKeyByUser(ctx context.Context, userID uuid.UUID) (Ado
 		&i.RevokedAt,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+		&i.ReasoningMode,
 	)
 	return i, err
 }
 
 const getActiveKeyWithQuotaByUser = `-- name: GetActiveKeyWithQuotaByUser :one
 SELECT k.id, k.key_prefix, k.created_at, k.last_used_at, k.reasoning_mode,
-       COALESCE(u.daily_quota_override, k.daily_limit)::int4 AS daily_limit
+       COALESCE(u.daily_quota_override, p.daily_quota, k.daily_limit)::int4 AS daily_limit,
+       COALESCE(p.rpm, 0)::int4 AS plan_rpm,
+       p.id AS plan_id, p.name AS plan_name
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
-WHERE k.user_id = $1 AND k.revoked_at IS NULL`
+JOIN plans p ON p.id = u.plan_id
+WHERE k.user_id = $1 AND k.revoked_at IS NULL
+`
 
 type GetActiveKeyWithQuotaByUserRow struct {
 	ID            uuid.UUID
@@ -110,6 +122,9 @@ type GetActiveKeyWithQuotaByUserRow struct {
 	LastUsedAt    pgtype.Timestamptz
 	ReasoningMode bool
 	DailyLimit    int32
+	PlanRpm       int32
+	PlanID        string
+	PlanName      string
 }
 
 func (q *Queries) GetActiveKeyWithQuotaByUser(ctx context.Context, userID uuid.UUID) (GetActiveKeyWithQuotaByUserRow, error) {
@@ -122,21 +137,11 @@ func (q *Queries) GetActiveKeyWithQuotaByUser(ctx context.Context, userID uuid.U
 		&i.LastUsedAt,
 		&i.ReasoningMode,
 		&i.DailyLimit,
+		&i.PlanRpm,
+		&i.PlanID,
+		&i.PlanName,
 	)
 	return i, err
-}
-
-const getUsageForToday = `-- name: GetUsageForToday :one
-SELECT COALESCE(used, 0)::int4 AS used
-FROM daily_usage
-WHERE key_id = $1 AND day = CURRENT_DATE
-`
-
-func (q *Queries) GetUsageForToday(ctx context.Context, keyID uuid.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, getUsageForToday, keyID)
-	var used int32
-	err := row.Scan(&used)
-	return used, err
 }
 
 const getKeyUsageHistory = `-- name: GetKeyUsageHistory :many
@@ -166,7 +171,23 @@ func (q *Queries) GetKeyUsageHistory(ctx context.Context, keyID uuid.UUID) ([]Ge
 		}
 		items = append(items, i)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUsageForToday = `-- name: GetUsageForToday :one
+SELECT COALESCE(used, 0)::int4 AS used
+FROM daily_usage
+WHERE key_id = $1 AND day = CURRENT_DATE
+`
+
+func (q *Queries) GetUsageForToday(ctx context.Context, keyID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, getUsageForToday, keyID)
+	var used int32
+	err := row.Scan(&used)
+	return used, err
 }
 
 const revokeActiveKeyForUser = `-- name: RevokeActiveKeyForUser :exec

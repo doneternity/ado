@@ -32,6 +32,7 @@ type Deps struct {
 	AdminQuotas      *handlers.AdminQuotas
 	AdminErrors      *handlers.AdminErrors
 	AdminMaintenance *handlers.AdminMaintenance
+	AdminPlans       *handlers.AdminPlans
 	AdminMiddleware  func(http.Handler) http.Handler
 	FrontendOrigin   string
 }
@@ -125,6 +126,11 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/users", d.AdminUsers.List)
 		r.Patch("/users/{id}/role", d.AdminUsers.SetRole)
 		r.Patch("/users/{id}/banned", d.AdminUsers.SetBanned)
+		r.Put("/users/{id}/plan", d.AdminPlans.SetUserPlan)
+
+		r.Get("/plans", d.AdminPlans.List)
+		r.Put("/plans/{id}", d.AdminPlans.Upsert)
+		r.Delete("/plans/{id}", d.AdminPlans.Delete)
 
 		r.Get("/stats", d.AdminStats.Get)
 

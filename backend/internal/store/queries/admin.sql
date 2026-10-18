@@ -1,5 +1,5 @@
 -- name: ListUsersAdmin :many
-SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override,
+SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override, u.plan_id,
        COALESCE(SUM(du.used), 0)::int4 AS requests_today
 FROM users u
 LEFT JOIN ado_keys k ON k.user_id = u.id
@@ -53,13 +53,15 @@ SELECT COUNT(DISTINCT k.user_id)::int4 AS count
 FROM ado_keys k
 JOIN users u ON u.id = k.user_id
 WHERE k.revoked_at IS NULL
-  AND u.role = 'user';
+  AND u.role = 'user'
+  AND u.plan_id = 'free';
 
 -- name: RevokeInactiveKeys :exec
 UPDATE ado_keys
 SET revoked_at = NOW()
 WHERE revoked_at IS NULL
-  AND user_id IN (SELECT id FROM users WHERE role = 'user')
+  -- only free-plan users; paid keys are never reaped for inactivity
+  AND user_id IN (SELECT id FROM users WHERE role = 'user' AND plan_id = 'free')
   AND (
     last_used_at < $1
     OR (last_used_at IS NULL AND created_at < $1)

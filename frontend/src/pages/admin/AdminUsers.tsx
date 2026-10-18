@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useAdminUsers, useSetUserRole, useSetUserBanned } from "../../api/admin";
+import { useAdminUsers, useSetUserRole, useSetUserBanned, useAdminPlans, useSetUserPlan } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
 import styles from "./Admin.module.scss";
 
@@ -10,6 +10,8 @@ export function AdminUsers() {
   const { data: users = [] } = useAdminUsers();
   const setRole = useSetUserRole();
   const setBanned = useSetUserBanned();
+  const { data: plans = [] } = useAdminPlans();
+  const setPlan = useSetUserPlan();
   const showToast = useUiStore((s) => s.showToast);
   const [search, setSearch] = useState("");
 
@@ -44,6 +46,7 @@ export function AdminUsers() {
               <th>Username</th>
               <th>Role</th>
               <th>Status</th>
+              <th>Plan</th>
               <th>Requests today</th>
               <th>Joined</th>
               <th>Actions</th>
@@ -65,6 +68,17 @@ export function AdminUsers() {
                     ? <span className={`${styles.badge} ${styles.badgeError}`}>banned</span>
                     : <span className={`${styles.badge} ${styles.badgeGreen}`}>active</span>
                   }
+                </td>
+                <td>
+                  <select
+                    className={`${styles.input} ${styles.inputSm}`}
+                    value={u.planId}
+                    aria-label={`Plan for ${u.email}`}
+                    onChange={(e) => setPlan.mutate({ id: u.id, planId: e.target.value }, { onError: onErr("Could not change plan") })}
+                  >
+                    {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {!plans.some((p) => p.id === u.planId) && <option value={u.planId}>{u.planId}</option>}
+                  </select>
                 </td>
                 <td>{u.requestsToday}</td>
                 <td className={styles.cellSubtle}>
@@ -89,7 +103,7 @@ export function AdminUsers() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ color: "var(--silver)", textAlign: "center", padding: 24 }}>
+              <tr><td colSpan={8} style={{ color: "var(--silver)", textAlign: "center", padding: 24 }}>
                 {users.length === 0 ? "No users yet" : "No users match your search"}
               </td></tr>
             )}

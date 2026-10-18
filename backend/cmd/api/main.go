@@ -160,6 +160,7 @@ func main() {
 	adminQuotasH := handlers.NewAdminQuotas(queries, rpmCfg)
 	adminErrorsH := handlers.NewAdminErrors(queries)
 	adminMaintH := handlers.NewAdminMaintenance(queries, maint)
+	adminPlansH := handlers.NewAdminPlans(queries)
 
 	go func() {
 		t := time.NewTicker(time.Hour)
@@ -291,6 +292,7 @@ func main() {
 		AdminQuotas:      adminQuotasH,
 		AdminErrors:      adminErrorsH,
 		AdminMaintenance: adminMaintH,
+		AdminPlans:       adminPlansH,
 		AdminMiddleware:  adminMW,
 		FrontendOrigin:   cfg.FrontendOrigin,
 	})

@@ -18,9 +18,11 @@ import (
 const bearerKey ctxKey = "bearerKey"
 
 type BearerKeyContext struct {
-	KeyID         uuid.UUID
-	UserID        uuid.UUID
-	DailyLimit    int32
+	KeyID      uuid.UUID
+	UserID     uuid.UUID
+	DailyLimit int32
+	// PlanRPM is the plan's per-minute limit; 0 means use the global RPM.
+	PlanRPM       int32
 	ReasoningMode bool
 }
 
@@ -62,6 +64,7 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 				KeyID:         row.ID,
 				UserID:        row.UserID,
 				DailyLimit:    row.DailyLimit,
+				PlanRPM:       row.PlanRpm,
 				ReasoningMode: row.ReasoningMode,
 			})
 			next.ServeHTTP(w, r.WithContext(ctx))

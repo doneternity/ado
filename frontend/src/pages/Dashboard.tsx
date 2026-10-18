@@ -181,6 +181,7 @@ function KeyCard() {
               <div className={styles.keyCardSub}>
                 Created {new Date(current.createdAt).toLocaleDateString()}
                 {current.lastUsedAt && ` · Last used ${new Date(current.lastUsedAt).toLocaleDateString()}`}
+                {current.plan && ` · ${current.plan.name} plan`}
               </div>
             </div>
           </div>

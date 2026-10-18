@@ -56,6 +56,9 @@ func (k *Keys) Current(w http.ResponseWriter, r *http.Request) {
 	if k.d.RpmCfg != nil {
 		rpmLimit = k.d.RpmCfg.Get()
 	}
+	if row.PlanRpm > 0 {
+		rpmLimit = int(row.PlanRpm)
+	}
 	rpmUsed := int64(0)
 	if k.d.Limiter != nil {
 		rpmUsed = k.d.Limiter.RPMUsed(r.Context(), row.ID.String())
@@ -70,6 +73,7 @@ func (k *Keys) Current(w http.ResponseWriter, r *http.Request) {
 		"rpmLimit":      rpmLimit,
 		"rpmUsed":       rpmUsed,
 		"reasoningMode": row.ReasoningMode,
+		"plan":          map[string]string{"id": row.PlanID, "name": row.PlanName},
 	}
 	if row.LastUsedAt.Valid {
 		out["lastUsedAt"] = row.LastUsedAt.Time.Format(time.RFC3339)

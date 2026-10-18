@@ -39,6 +39,10 @@ type Config struct {
 
 	// Discord webhook for operator alerts (providers down/recovered). Empty
 	// disables alerts; state changes are still logged.
+	// How to find the visitor's IP behind the proxies (see middleware/clientip.go).
+	ClientIPHeader   string `env:"CLIENT_IP_HEADER"`
+	TrustedProxyHops int    `env:"TRUSTED_PROXY_HOPS" envDefault:"1"`
+
 	AlertWebhookURL       string `env:"ALERT_WEBHOOK_URL"`
 	ProviderCheckInterval int    `env:"PROVIDER_CHECK_INTERVAL_SECONDS" envDefault:"300"`
 }

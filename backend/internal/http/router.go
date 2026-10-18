@@ -33,6 +33,7 @@ type Deps struct {
 	AdminErrors      *handlers.AdminErrors
 	AdminMaintenance *handlers.AdminMaintenance
 	AdminPlans       *handlers.AdminPlans
+	AdminRequestInfo *handlers.AdminRequestInfo
 	Maintenance      *proxy.MaintenanceFlag
 	AdminMiddleware  func(http.Handler) http.Handler
 	FrontendOrigin   string
@@ -152,6 +153,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Delete("/errors/{id}", d.AdminErrors.Delete)
 		r.Delete("/errors", d.AdminErrors.BulkDelete)
 
+		r.Get("/request-info", d.AdminRequestInfo.Get)
 		r.Get("/maintenance", d.AdminMaintenance.Get)
 		r.Post("/maintenance/toggle", d.AdminMaintenance.Toggle)
 	})

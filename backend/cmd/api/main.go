@@ -55,6 +55,7 @@ func main() {
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	slog.SetDefault(logger)
+	mw.ConfigureClientIP(cfg.ClientIPHeader, cfg.TrustedProxyHops)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -162,6 +163,7 @@ func main() {
 	adminErrorsH := handlers.NewAdminErrors(queries)
 	adminMaintH := handlers.NewAdminMaintenance(queries, maint)
 	adminPlansH := handlers.NewAdminPlans(queries)
+	adminReqInfoH := handlers.NewAdminRequestInfo(limiter)
 
 	go func() {
 		t := time.NewTicker(time.Hour)
@@ -294,6 +296,7 @@ func main() {
 		AdminErrors:      adminErrorsH,
 		AdminMaintenance: adminMaintH,
 		AdminPlans:       adminPlansH,
+		AdminRequestInfo: adminReqInfoH,
 		AdminMiddleware:  adminMW,
 		Maintenance:      maint,
 		FrontendOrigin:   cfg.FrontendOrigin,

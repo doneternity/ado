@@ -2,10 +2,11 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -17,24 +18,33 @@ type Limiter struct{ rdb *redis.Client }
 
 func NewLimiter(rdb *redis.Client) *Limiter { return &Limiter{rdb: rdb} }
 
+// fixedWindow increments the counter and starts its window on first use, in
+// one atomic round trip. The expiry is only set when the key has none: setting
+// it on every request would keep pushing the reset back, so a busy key would
+// stay blocked forever. Plain INCR/PEXPIRE/PTTL work on every Redis version.
+// Returns {count, ms until the window resets}.
+var fixedWindow = redis.NewScript(`
+local n = redis.call("INCR", KEYS[1])
+local ttl = redis.call("PTTL", KEYS[1])
+if ttl < 0 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {n, ttl}
+`)
+
 // Check increments the counter at `key`. Returns true if under `limit`,
-// false (with retry-after seconds) if over. Window is fixed-size.
+// false (with retry-after) if over. Window is fixed-size.
 func (l *Limiter) Check(ctx context.Context, key string, limit int, window time.Duration) (allowed bool, retryAfter time.Duration, err error) {
-	pipe := l.rdb.TxPipeline()
-	incr := pipe.Incr(ctx, key)
-	// ExpireNX sets the TTL only on the first increment (when the key has no
-	// expiry yet). Using plain Expire here would reset the TTL on every request,
-	// so a continuously-active key would never reset and stay blocked forever.
-	pipe.ExpireNX(ctx, key, window)
-	if _, err := pipe.Exec(ctx); err != nil {
+	res, err := fixedWindow.Run(ctx, l.rdb, []string{key}, window.Milliseconds()).Int64Slice()
+	if err != nil {
 		return false, 0, err
 	}
-	if incr.Val() > int64(limit) {
-		ttl, _ := l.rdb.TTL(ctx, key).Result()
-		if ttl < 0 {
-			ttl = window
-		}
-		return false, ttl, nil
+	if len(res) != 2 {
+		return false, 0, fmt.Errorf("rate limit script: unexpected reply %v", res)
+	}
+	if res[0] > int64(limit) {
+		return false, time.Duration(res[1]) * time.Millisecond, nil
 	}
 	return true, 0, nil
 }
@@ -55,7 +65,7 @@ func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Hand
 		return
 	}
 	if !allowed {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())))
+		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retry.Seconds()))))
 		apperr.Write(w, apperr.TooMany("RATE_LIMITED", "too many requests"))
 		return
 	}
@@ -107,17 +117,4 @@ func (l *Limiter) PerKeyDynamic(prefix string, getLimit func() int, window time.
 func (l *Limiter) RPMUsed(ctx context.Context, keyID string) int64 {
 	v, _ := l.rdb.Get(ctx, "rl:v1:chat:key:"+keyID).Int64()
 	return v
-}
-
-func ClientIP(r *http.Request) string {
-	// koyeb appends the real client ip as the rightmost x-forwarded-for entry;
-	// earlier entries are client-supplied and spoofable
-	if xf := r.Header.Get("X-Forwarded-For"); xf != "" {
-		parts := strings.Split(xf, ",")
-		return strings.TrimSpace(parts[len(parts)-1])
-	}
-	if i := strings.LastIndex(r.RemoteAddr, ":"); i >= 0 {
-		return r.RemoteAddr[:i]
-	}
-	return r.RemoteAddr
 }

@@ -197,6 +197,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 	adminErrorsH := handlers.NewAdminErrors(q)
 	adminMaintH := handlers.NewAdminMaintenance(q, maint)
 	adminPlansH := handlers.NewAdminPlans(q)
+	adminReqInfoH := handlers.NewAdminRequestInfo(limiter)
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Sessions: sessions, Auth: authH, Limiter: limiter, Rdb: rdb, Keys: keysH,
@@ -204,7 +205,7 @@ func buildFixture(t *testing.T, adminMWFactory func(*db.Queries) func(http.Handl
 		Health:         handlers.NewHealth(pool.Ping, func(ctx context.Context) error { return rdb.Ping(ctx).Err() }),
 		AdminProviders: adminProvH, AdminUsers: adminUsersH,
 		AdminStats: adminStatsH, AdminQuotas: adminQuotasH, AdminErrors: adminErrorsH,
-		AdminMaintenance: adminMaintH, AdminPlans: adminPlansH, AdminMiddleware: adminMW,
+		AdminMaintenance: adminMaintH, AdminPlans: adminPlansH, AdminRequestInfo: adminReqInfoH, AdminMiddleware: adminMW,
 		Maintenance: maint,
 	})
 	srv := httptest.NewServer(router)

@@ -84,16 +84,6 @@
   p + h3 { margin-top: 28px; }
 }
 
-.eyebrow { @include eyebrow; margin-bottom: 10px; }
-
-.eyebrowDash {
-  display: block;
-  width: 32px;
-  height: 1px;
-  background: rgba(255,255,255,0.2);
-  flex-shrink: 0;
-}
-
 .pageTitle {
   font-family: var(--font-display);
   font-size: clamp(2.5rem, 5vw, 4.5rem);

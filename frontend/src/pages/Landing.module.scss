@@ -11,25 +11,6 @@
 }
 
 /* Eyebrow: —— Label */
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  font-size: .8rem;
-  font-weight: 400;
-  font-family: var(--font-mono);
-  color: rgba(255,255,255,0.4);
-  letter-spacing: .04em;
-  margin-bottom: 32px;
-}
-.eyebrowDash {
-  display: block;
-  width: 48px;
-  height: 1px;
-  background: rgba(255,255,255,0.2);
-  flex-shrink: 0;
-}
-
 /* Display headings — Instrument Serif */
 .displayHeadline {
   font-family: var(--font-display);
@@ -678,10 +659,19 @@
   height: 100%;
   pointer-events: none;
 
-  @keyframes pulse {
-    0%, 100% { opacity: 0.4; r: 3; }
-    50%       { opacity: 1;   r: 4.5; }
-  }
+}
+
+// CSS modules rename keyframes, so the animation has to be named here, in the
+// same file, not in an inline style (which would look for an unrenamed "pulse").
+.infraDot {
+  animation: pulse 2s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; r: 3px; }
+  50%      { opacity: 1;   r: 4.5px; }
 }
 
 .infraBigNum {
@@ -934,6 +924,11 @@
   @media (max-width: 900px) { grid-template-columns: 1fr; }
 }
 
+.portCell {
+  display: flex;
+  > * { flex: 1; }
+}
+
 .portCard {
   position: relative;
   @include edge-sweep;
@@ -1021,8 +1016,6 @@
   text-align: center;
   min-height: 320px;
   border-style: dashed;
-  cursor: default;
-  &:hover { background: rgba(255,255,255,0.015) !important; border-color: rgba(255,255,255,0.1) !important; }
 }
 .comingSoonLabel {
   font-family: var(--font-mono);

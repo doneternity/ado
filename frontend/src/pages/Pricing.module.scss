@@ -9,26 +9,6 @@
 /* ── hero ── */
 .hero { max-width: 680px; margin-bottom: 64px; }
 
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  font-size: .8rem;
-  font-weight: 400;
-  font-family: var(--font-mono);
-  color: rgba(255,255,255,0.4);
-  letter-spacing: .04em;
-  margin-bottom: 24px;
-}
-
-.eyebrowDash {
-  display: block;
-  width: 32px;
-  height: 1px;
-  background: rgba(255,255,255,0.2);
-  flex-shrink: 0;
-}
-
 .headline {
   font-family: var(--font-display);
   font-size: clamp(3.5rem, 8vw, 7.5rem);

@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { DiscordButton } from "../components/DiscordButton";
-import { useSampleModel } from "../api/queries";
+import { useCatalog, useSampleModel } from "../api/queries";
 import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
 
@@ -30,6 +30,7 @@ export function Login() {
   const [searchParams] = useSearchParams();
   const planFull = searchParams.get("plan_full") === "1";
   const CODE_SNIPPET = codeSnippet(useSampleModel());
+  const providerChips = useCatalog().providers.map((c) => c.name);
   const errorMsg = ERROR_MESSAGES[searchParams.get("error") ?? ""];
 
   return (
@@ -80,7 +81,7 @@ export function Login() {
           </div>
           <pre className={styles.codeCardBody}><code>{CODE_SNIPPET}</code></pre>
           <div className={styles.codeCardFooter}>
-            {["Anthropic", "Google", "DeepSeek", "+ more"].map((p) => (
+            {(providerChips.length ? providerChips : ["OpenAI-compatible"]).map((p) => (
               <span key={p} className={styles.providerChip}>{p}</span>
             ))}
           </div>

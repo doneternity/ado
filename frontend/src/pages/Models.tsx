@@ -265,7 +265,6 @@ export function Models() {
       )}
 
       <section className={styles.ctaStrip}>
-        <span className={styles.ctaEyebrow}><span className={styles.eyebrowDash} />FREE ACCESS</span>
         <h2 className={styles.ctaHeadline}>one key for all of them.</h2>
         <Link to="/login" className={styles.ctaBtn}>Get your free key</Link>
       </section>

@@ -155,10 +155,9 @@ export function Docs() {
 
         {/* Quick Start */}
         <section id="quick-start" className={styles.section}>
-          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Getting Started</span>
           <h1 className={styles.pageTitle}>Quick start</h1>
           <p className={styles.lead}>
-            ADO exposes an OpenAI-compatible API that routes to Claude, Gemini, DeepSeek, and more.
+            ADO exposes an OpenAI-compatible API that routes to every model on the models page.
             Any client that works with the OpenAI API works with ADO. Swap the base URL and key, nothing else.
           </p>
           <div className={styles.steps}>
@@ -221,7 +220,6 @@ export function Docs() {
 
         {/* Chat Completions */}
         <section id="chat-completions" className={styles.section}>
-          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />API Reference</span>
           <h2 className={styles.sectionTitle}>
             <Badge method="POST" />{" /chat/completions"}
           </h2>
@@ -461,7 +459,6 @@ const ws = new WebSocket("${PROXY_BASE.replace(/^http/, "ws")}/realtime", {
 
         {/* Rate Limits */}
         <section id="rate-limits" className={styles.section}>
-          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Usage</span>
           <h2 className={styles.sectionTitle}>Rate limits</h2>
 
           <div className={styles.limitCards}>
@@ -527,7 +524,6 @@ const ws = new WebSocket("${PROXY_BASE.replace(/^http/, "ws")}/realtime", {
 
         {/* cURL */}
         <section id="example-curl" className={styles.section}>
-          <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Examples</span>
           <h2 className={styles.sectionTitle}>cURL</h2>
           <Code lang="bash">{`# Non-streaming
 curl ${PROXY_BASE}/chat/completions \\

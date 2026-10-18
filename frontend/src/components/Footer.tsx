@@ -37,8 +37,8 @@ export function Footer() {
           <div className={styles.brandCol}>
             <Link to="/" className={styles.brandName}>ADO</Link>
             <p className={styles.brandDesc}>
-              The AI API gateway. One OpenAI-compatible key that routes to Claude,
-              Gemini, DeepSeek, and more. No card, no waitlist.
+              The AI API gateway. One OpenAI-compatible key for every model we
+              serve. No card, no waitlist.
             </p>
           </div>
 

@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 
 const SITE = "https://adoai.space";
 const DEFAULT_DESCRIPTION =
-  "ADO — one API key for Claude, Gemini, DeepSeek, and more. OpenAI-compatible proxy, no credit card required.";
+  "ADO: one OpenAI-compatible API key for every model we serve. Free, no credit card required.";
 
 type Meta = { title: string; description?: string; noindex?: boolean };
 

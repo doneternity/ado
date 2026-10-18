@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { DiscordButton } from "../components/DiscordButton";
-import { useSampleModel } from "../api/queries";
+import { useCatalog, useSampleModel } from "../api/queries";
 import { API_BASE_URL } from "../config";
 import styles from "./Login.module.scss";
 
@@ -22,6 +22,7 @@ console.log(msg.choices[0].message.content);`;
 export function SignUp() {
   const [searchParams] = useSearchParams();
   const CODE_SNIPPET = codeSnippet(useSampleModel());
+  const providerChips = useCatalog().providers.map((c) => c.name);
   const [slotsFull, setSlotsFull] = useState<boolean | null>(
     searchParams.get("plan_full") === "1" ? true : null
   );
@@ -79,7 +80,7 @@ export function SignUp() {
           </div>
           <pre className={styles.codeCardBody}><code>{CODE_SNIPPET}</code></pre>
           <div className={styles.codeCardFooter}>
-            {["Anthropic", "Google", "DeepSeek", "+ more"].map((p) => (
+            {(providerChips.length ? providerChips : ["OpenAI-compatible"]).map((p) => (
               <span key={p} className={styles.providerChip}>{p}</span>
             ))}
           </div>

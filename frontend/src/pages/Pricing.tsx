@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Check, Zap, Clock, Cpu } from "lucide-react";
 import { DISCORD_INVITE_URL } from "../config";
+import { useCatalog } from "../api/queries";
 import styles from "./Pricing.module.scss";
 
 const fade = {
@@ -33,7 +34,7 @@ const PLANS: Plan[] = [
     status: "available",
     badge: "Current",
     features: [
-      "Gemini, DeepSeek, OpenAI, and more",
+      "Every model on the models page",
       "OpenAI-compatible API",
       "Streaming via SSE",
       "Instant key generation",
@@ -54,7 +55,6 @@ const PLANS: Plan[] = [
 ];
 
 const STATS = [
-  { icon: Cpu,   value: "20+",       label: "models available" },
   { icon: Clock, value: "UTC 00:00", label: "daily reset" },
   { icon: Zap,   value: "<30s",      label: "to first request" },
 ];
@@ -62,7 +62,7 @@ const STATS = [
 const FAQ = [
   {
     q: "What models can I access?",
-    a: "Gemini 3.1 Pro, Gemini 3 Flash, DeepSeek V4 Pro, GPT-5, Kimi K2, and more. See the models page for the full current list. We add new models as providers expand.",
+    a: "Every model on the models page. That list comes live from the providers we connect to, so it always shows exactly what you can call right now.",
   },
   {
     q: "How does the rate limiting work?",
@@ -110,12 +110,17 @@ function PlanCard({ plan }: { plan: Plan }) {
 }
 
 export function Pricing() {
+  // The model count is live; it is left out until the list loads.
+  const { count } = useCatalog();
+  const stats = count > 0
+    ? [{ icon: Cpu, value: String(count), label: count === 1 ? "model available" : "models available" }, ...STATS]
+    : STATS;
+
   return (
     <motion.div className={styles.page} {...fade}>
 
       {/* Hero */}
       <div className={styles.hero}>
-        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Pricing</span>
         <h1 className={styles.headline}>simple<br />and honest.</h1>
         <p className={styles.lead}>
           No credit card. No waitlist. No tricks. Sign up and your key is ready in under 30 seconds.
@@ -124,7 +129,7 @@ export function Pricing() {
 
       {/* Stats bar */}
       <div className={styles.statsRow}>
-        {STATS.map(({ icon: Icon, value, label }) => (
+        {stats.map(({ icon: Icon, value, label }) => (
           <div key={label} className={styles.stat}>
             <Icon size={18} className={styles.statIcon} />
             <span className={styles.statValue}>{value}</span>

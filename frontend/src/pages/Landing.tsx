@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useMe, useSampleModel } from "../api/queries";
+import { useCatalog, useMe, useSampleModel } from "../api/queries";
 import { HeroTerminal } from "../components/HeroTerminal";
 import { RoutingCanvas } from "../components/RoutingCanvas";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
@@ -23,7 +23,7 @@ const STEPS = [
     number: "02",
     title: "Route",
     subtitle: "your requests",
-    description: "Set your OpenAI base URL to the ADO endpoint. Every model: Claude, Gemini, DeepSeek, through one key.",
+    description: "Set your OpenAI base URL to the ADO endpoint. Every model we serve works through that one key.",
   },
   {
     number: "03",
@@ -33,12 +33,15 @@ const STEPS = [
   },
 ];
 
-const REGIONS = [
-  { name: "Google",     nodes: 2, status: "operational" },
-  { name: "DeepSeek",   nodes: 4, status: "operational" },
-  { name: "OpenAI",     nodes: 1, status: "operational" },
-  { name: "Anthropic",  nodes: 0, status: "coming soon" },
-];
+// Short, true-of-the-provider descriptions for the "What we route" cards. The
+// cards themselves only appear for providers the live model list includes.
+const PROVIDER_BLURB: Partial<Record<string, { tagline: string; tags: string[] }>> = {
+  DeepSeek:  { tagline: "Open-weight reasoning and code", tags: ["Reasoning", "Code", "Open weights"] },
+  Google:    { tagline: "Long context and multimodal",    tags: ["Multimodal", "Long context"] },
+  OpenAI:    { tagline: "General-purpose flagship models", tags: ["General", "Tool use"] },
+  Anthropic: { tagline: "Careful reasoning and writing",  tags: ["Reasoning", "Writing"] },
+  xAI:       { tagline: "Grok models",                    tags: ["General"] },
+};
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const VP   = { once: true, margin: "-5% 0px" } as const;
@@ -55,17 +58,19 @@ const fadeIn = {
 const stagger14 = { hidden: {}, show: { transition: { staggerChildren: 0.11, delayChildren: 0.04 } } };
 const stagger10 = { hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } } };
 
-const MotionLink = motion.create(Link);
-
 export function Landing() {
   const { data: me } = useMe();
   const sampleModel = useSampleModel();
+  const catalog = useCatalog();
+  // Provider-neutral wording until the live list is in (or when it can't be read).
+  const routesTo = catalog.providerNames ? `ADO routes your requests to ${catalog.providerNames}` : "ADO routes your requests to the right upstream";
   const [mounted, setMounted] = useState(false);
   const [wordIdx, setWordIdx] = useState(0);
   const [wordVisible, setWordVisible] = useState(true);
   const [activeStep, setActiveStep] = useState(0);
   const [stepKey, setStepKey] = useState(0);
-  const [activeRegion, setActiveRegion] = useState(1);
+  const [activeRegion, setActiveRegion] = useState(0);
+  const regionCount = catalog.providers.length;
   const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => { setMounted(true); }, []);
@@ -105,11 +110,12 @@ export function Landing() {
   }, []);
 
   useEffect(() => {
+    if (regionCount < 2) return;
     const timer = setInterval(() => {
-      setActiveRegion(r => (r + 1) % REGIONS.length);
+      setActiveRegion(r => (r + 1) % regionCount);
     }, 3000);
     return () => clearInterval(timer);
-  }, []);
+  }, [regionCount]);
 
   function selectStep(i: number) {
     setActiveStep(i);
@@ -168,7 +174,9 @@ export function Landing() {
         <div className={`${styles.heroStats} ${mounted ? styles.heroStatsIn : ""}`}>
           <div className={styles.heroStatsInner}>
             {[
-              { value: "20+",    label: "models available" },
+              catalog.count > 0
+                ? { value: String(catalog.count), label: catalog.count === 1 ? "model available" : "models available" }
+                : { value: "/v1", label: "OpenAI-compatible API" },
               { value: "1",      label: "key for all of them" },
               { value: "Free",   label: "no credit card" },
             ].map(({ value, label }) => (
@@ -213,13 +221,15 @@ export function Landing() {
               <span className={styles.cardNum}>01</span>
               <h3 className={styles.featCardTitle}>Unified Routing</h3>
               <p className={styles.featCardDesc}>
-                One key. Every model. ADO routes your requests to Claude, Gemini,
-                DeepSeek, and more. Transparently. No client-side changes needed.
+                One key. Every model. {routesTo}. Transparently.
+                No client-side changes needed.
               </p>
-              <div>
-                <span className={styles.bigStat}>20+</span>
-                <span className={styles.bigStatLabel}>models on one key</span>
-              </div>
+              {catalog.count > 0 && (
+                <div>
+                  <span className={styles.bigStat}>{catalog.count}</span>
+                  <span className={styles.bigStatLabel}>{catalog.count === 1 ? "model" : "models"} on one key</span>
+                </div>
+              )}
             </div>
             <div className={styles.featCardRight}>
               <pre className={styles.codeBlock}>{`import OpenAI from "openai";
@@ -311,8 +321,8 @@ const res = await client.chat.completions.create({
             >
               <WordReveal className={styles.displayHeadline} lines={[{ text: "One endpoint," }, { text: "everywhere.", className: styles.dim }]} />
               <motion.p className={styles.infraDesc} variants={fadeUp}>
-                ADO runs a redundant routing layer across multiple providers, engineered
-                so one provider going down never takes your app with it.
+                One endpoint for every model. When a model is served by more than one
+                upstream, ADO fails over automatically if one of them goes down.
               </motion.p>
             </motion.div>
           </div>
@@ -363,16 +373,19 @@ const res = await client.chat.completions.create({
                       cx={`${10 + (r % 5) * 20}%`}
                       cy={`${10 + 25 * Math.floor(r / 5)}%`}
                       r="3" fill="#eca8d6"
-                      style={{ animation: `pulse 2s ease-in-out ${0.1 * r}s infinite` }}
+                      className={styles.infraDot}
+                      style={{ animationDelay: `${0.1 * r}s` }}
                     />
                   ))}
                 </svg>
               </div>
               <div className={styles.infraBigNum}>
-                <span className={styles.infraBigValue}>20</span>
-                <span className={styles.infraBigSuffix}>+ models</span>
+                <span className={styles.infraBigValue}>{catalog.count > 0 ? catalog.count : 1}</span>
+                <span className={styles.infraBigSuffix}>{catalog.count > 0 ? (catalog.count === 1 ? "model" : "models") : "key"}</span>
               </div>
-              <p className={styles.infraBigLabel}>Claude, Gemini, DeepSeek and more, behind one key.</p>
+              <p className={styles.infraBigLabel}>
+                {catalog.providerNames ? `From ${catalog.providerNames}, behind one key.` : "Every model we serve, behind one key."}
+              </p>
             </motion.div>
 
             <motion.div className={styles.infraSmallCards} variants={stagger14}>
@@ -387,30 +400,32 @@ const res = await client.chat.completions.create({
             </motion.div>
           </motion.div>
 
-          <motion.div
-            className={styles.providerGrid}
-            variants={stagger10}
-            initial="hidden"
-            whileInView="show"
-            viewport={VP}
-          >
-            {REGIONS.map((r, i) => (
-              <motion.div
-                key={r.name}
-                className={`${styles.providerCard} ${activeRegion === i ? styles.providerCardActive : ""}`}
-                variants={fadeIn}
-              >
-                <div className={styles.providerCardTop}>
-                  <span className={`${styles.providerDot} ${activeRegion === i ? styles.providerDotActive : ""}`} />
-                  <span className={styles.providerStatus}>{r.status}</span>
-                </div>
-                <span className={styles.providerName}>{r.name}</span>
-                <span className={styles.providerNodes}>
-                  {r.nodes > 0 ? `${r.nodes} model${r.nodes === 1 ? "" : "s"}` : "Not yet available"}
-                </span>
-              </motion.div>
-            ))}
-          </motion.div>
+          {regionCount > 0 && (
+            <motion.div
+              className={styles.providerGrid}
+              variants={stagger10}
+              initial="hidden"
+              whileInView="show"
+              viewport={VP}
+            >
+              {catalog.providers.map((p, i) => (
+                <motion.div
+                  key={p.provider}
+                  className={`${styles.providerCard} ${activeRegion === i ? styles.providerCardActive : ""}`}
+                  variants={fadeIn}
+                >
+                  <div className={styles.providerCardTop}>
+                    <span className={`${styles.providerDot} ${activeRegion === i ? styles.providerDotActive : ""}`} />
+                    <span className={styles.providerStatus}>{p.status}</span>
+                  </div>
+                  <span className={styles.providerName}>{p.name}</span>
+                  <span className={styles.providerNodes}>
+                    {p.models.length} model{p.models.length === 1 ? "" : "s"}
+                  </span>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -439,7 +454,7 @@ const res = await client.chat.completions.create({
               viewport={VP}
             >
               Two config lines. Every existing OpenAI call routes through ADO
-              to any model you choose, with streaming, tool use, and vision.
+              to any model you choose, with streaming, and tool use where the model supports it.
             </motion.p>
             <motion.div
               className={styles.devFeatures}
@@ -451,7 +466,7 @@ const res = await client.chat.completions.create({
               {[
                 { title: "OpenAI-compatible", desc: "Drop-in replacement. No SDK changes needed." },
                 { title: "Streaming",          desc: "Real-time token streaming out of the box." },
-                { title: "All major models",   desc: "Claude, Gemini, DeepSeek, and more." },
+                { title: "Switch in one line", desc: "Change the model name. Same key, same code." },
                 { title: "Works everywhere",   desc: "JanitorAI, SillyTavern, your own app." },
               ].map((f) => (
                 <motion.div key={f.title} className={styles.devFeature} variants={fadeUp}>
@@ -484,58 +499,40 @@ const res = await client.chat.completions.create({
             whileInView="show"
             viewport={VP}
           >
-            {[
-              {
-                id: "01",
-                name: "Google Gemini",
-                tagline: "Long context and multimodal AI",
-                desc: "gemini-3.1-pro and gemini-2.5-flash: Google's most capable models with built-in web search and a 1M-token context window.",
-                tags: ["Multimodal", "Long context", "Fast"],
-                href: "/models",
-              },
-              {
-                id: "02",
-                name: "DeepSeek",
-                tagline: "High-performance open reasoning",
-                desc: "deepseek-v4-pro and deepseek-flash: strong reasoning and code generation, with 1M-token context.",
-                tags: ["Reasoning", "Code", "Open weights"],
-                href: "/models",
-              },
-              {
-                id: "03",
-                name: "OpenAI",
-                tagline: "Flagship general-purpose AI",
-                desc: "GPT-5: OpenAI's most capable model with vision, tool use, and strong instruction following.",
-                tags: ["Reasoning", "Vision", "Tool use"],
-                href: "/models",
-              },
-            ].map((p) => (
-              <MotionLink
-                key={p.id}
-                to={p.href}
-                className={styles.portCard}
-                variants={fadeUp}
-              >
-                <div className={styles.portCardTop}>
-                  <span className={styles.portCardId}>{p.id}</span>
-                  <svg className={styles.portArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M7 7h10v10" /><path d="M7 17 17 7" />
-                  </svg>
-                </div>
-                <h3 className={styles.portCardName}>{p.name}</h3>
-                <p className={styles.portCardTagline}>{p.tagline}</p>
-                <p className={styles.portCardDesc}>{p.desc}</p>
-                <div className={styles.portTags}>
-                  {p.tags.map(t => <span key={t} className={styles.portTag}>{t}</span>)}
-                </div>
-              </MotionLink>
-            ))}
-            <motion.div
-              className={`${styles.portCard} ${styles.portCardComingSoon}`}
-              variants={fadeUp}
-            >
-              <span className={styles.comingSoonLabel}>More coming</span>
-              <p className={styles.comingSoonDesc}>New providers added regularly. Free, no waitlist.</p>
+            {catalog.providers.map((p, i) => {
+              const blurb = PROVIDER_BLURB[p.name];
+              const shown = p.models.slice(0, 3);
+              const more = p.models.length - shown.length;
+              return (
+                // A plain motion.div around the Link: motion.create(Link) cards could get
+                // stuck invisible mid-animation, leaving this section looking empty.
+                <motion.div key={p.provider} className={styles.portCell} variants={fadeUp}>
+                  <Link to="/models" className={styles.portCard}>
+                    <div className={styles.portCardTop}>
+                      <span className={styles.portCardId}>{String(i + 1).padStart(2, "0")}</span>
+                      <svg className={styles.portArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M7 7h10v10" /><path d="M7 17 17 7" />
+                      </svg>
+                    </div>
+                    <h3 className={styles.portCardName}>{p.name}</h3>
+                    {blurb && <p className={styles.portCardTagline}>{blurb.tagline}</p>}
+                    <p className={styles.portCardDesc}>
+                      {shown.join(", ")}{more > 0 ? `, and ${more} more` : ""}.
+                    </p>
+                    {blurb && (
+                      <div className={styles.portTags}>
+                        {blurb.tags.map(t => <span key={t} className={styles.portTag}>{t}</span>)}
+                      </div>
+                    )}
+                  </Link>
+                </motion.div>
+              );
+            })}
+            <motion.div className={styles.portCell} variants={fadeUp}>
+              <Link to="/models" className={`${styles.portCard} ${styles.portCardComingSoon}`}>
+                <span className={styles.comingSoonLabel}>{catalog.count > 0 ? `All ${catalog.count} models` : "Every model"}</span>
+                <p className={styles.comingSoonDesc}>Context sizes, capabilities and live status on the models page.</p>
+              </Link>
             </motion.div>
           </motion.div>
         </div>

@@ -3,6 +3,7 @@ import type { CurrentKeyResponse, FlashKeyResponse, KeyJustIssued, MeResponse } 
 import { apiFetch, ApiError, setCsrfToken } from "./client";
 import { clearRawKey, loadRawKey, saveRawKey } from "./raw-key-storage";
 import { pickSampleModel } from "../data/sample-model";
+import { joinNames, summarizeProviders } from "../data/catalog";
 
 export const meKey = ["me"] as const;
 export const currentKeyKey = ["keys", "current"] as const;
@@ -28,6 +29,16 @@ export function usePublicModels() {
   return useQuery({ ...publicModelsQuery, select: (ms: PublicModel[]) => ms.map((m) => m.id) });
 }
 
+// The live catalogue as marketing copy needs it: how many models, from which
+// providers. Empty (count 0) while loading or when the list can't be read, so
+// pages show provider-neutral wording instead of a guess.
+export function useCatalog() {
+  const { data } = usePublicModelStatuses();
+  const models = data ?? [];
+  const providers = summarizeProviders(models);
+  return { count: models.length, providers, providerNames: joinNames(providers.map((p) => p.name)) };
+}
+
 export function usePublicModelStatuses() {
   return useQuery(publicModelsQuery);
 }
@@ -47,7 +58,7 @@ export function useMe(opts?: { refetchInterval?: number }) {
         const me = await apiFetch<MeResponse>("/api/auth/me");
         setCsrfToken(me.csrfToken);
         // Restore the raw key from localStorage on first /me success so the
-        // Playground stays pre-filled after a page reload.
+        // dashboard keeps showing it after a page reload.
         if (!qc.getQueryData(rawKeyKey)) {
           const stored = loadRawKey(me.user.id);
           if (stored) qc.setQueryData(rawKeyKey, stored);

@@ -79,7 +79,6 @@ export function Terms() {
   return (
     <motion.div className={styles.page} {...fade}>
       <div className={styles.content}>
-        <span className={styles.eyebrow}><span className={styles.eyebrowDash} />Legal</span>
         <h1 className={styles.headline}>Terms of Service</h1>
         <p className={styles.meta}>Last updated: {LAST_UPDATED}</p>
 

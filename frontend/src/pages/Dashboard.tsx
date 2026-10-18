@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels, useMyUsageByModel } from "../api/queries";
 import { compact } from "../data/format";
+import { MODELS } from "../data/models";
+import { prettyName } from "../data/model-meta";
 import { useRotateKey, useDeleteAccount, useSetReasoningMode } from "../api/mutations";
 import { useUiStore } from "../stores/ui-store";
 import { API_BASE_URL } from "../config";
@@ -37,12 +39,6 @@ function BetaBanner() {
     </div>
   );
 }
-
-const FEATURED_MODELS = [
-  { id: "gemini-3.1-pro",   name: "Gemini 3.1 Pro",  cap: "Reasoning" },
-  { id: "claude-opus-4-7",  name: "Claude Opus 4.7", cap: "Coding"    },
-  { id: "gpt-5.5",          name: "GPT-5.5",         cap: "General"   },
-];
 
 const stagger = {
   hidden: {},
@@ -431,11 +427,12 @@ export function Dashboard() {
   const { data: liveModels } = usePublicModels();
   useEffect(() => { void fetchFlashKeyOnce(qc); }, [qc]);
 
-  // Hide any featured model the provider no longer serves so we never show a
-  // dead ID; before the live list loads, show the curated defaults.
-  const featuredModels = liveModels
-    ? FEATURED_MODELS.filter(m => liveModels.includes(m.id))
-    : FEATURED_MODELS;
+  // A few models the upstream actually serves right now, with curated names
+  // and tags where we have them.
+  const featuredModels = (liveModels ?? []).slice(0, 3).map((id) => {
+    const curated = MODELS.find((m) => m.id === id);
+    return { id, name: curated?.name ?? prettyName(id), cap: curated?.tag ?? "" };
+  });
 
   return (
     <div className={styles.page}>
@@ -498,7 +495,7 @@ export function Dashboard() {
                       <div className={styles.modelName}>{m.name}</div>
                       <code className={styles.modelId}>{m.id}</code>
                     </div>
-                    <span className={styles.modelCap}>{m.cap}</span>
+                    {m.cap && <span className={styles.modelCap}>{m.cap}</span>}
                   </div>
                 ))}
                 <Link to="/models" className={styles.modelsSeeAll}>

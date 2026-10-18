@@ -8,16 +8,6 @@
   animation: viewIn .28s ease both;
 }
 
-.eyebrow { @include eyebrow; margin-bottom: 20px; }
-
-.eyebrowDash {
-  display: block;
-  width: 32px;
-  height: 1px;
-  background: rgba(255,255,255,0.2);
-  flex-shrink: 0;
-}
-
 .headline {
   font-family: var(--font-display);
   font-size: clamp(3rem, 7vw, 7rem);
@@ -361,11 +351,6 @@
   text-align: center;
   gap: 20px;
   border-top: 1px solid rgba(255,255,255,.07);
-}
-
-.ctaEyebrow {
-  @include eyebrow;
-  margin-bottom: 16px;
 }
 
 .ctaHeadline {

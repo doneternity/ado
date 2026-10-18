@@ -94,14 +94,15 @@ docker-compose.yml    local dev stack
 
 ## Deployment
 
-Pushes to `main` trigger GitHub Actions (`.github/workflows/`):
+Pushes to `main` run CI. Only when CI passes does `deploy.yml` ship that exact commit:
 
 | Target | Method |
 |--------|--------|
-| Go backend | Koyeb auto-deploys via GitHub App — no CI job needed |
-| Frontend | CI deploys via Vercel CLI |
+| Go backend | Koyeb redeploy API (`KOYEB_TOKEN` secret, `KOYEB_SERVICE_ID` variable). Koyeb's own autodeploy must be **off**, or it ships untested commits. |
+| Frontend | Vercel CLI |
 
-**Required GitHub secrets:** `VERCEL_TOKEN` `VERCEL_ORG_ID` `VERCEL_PROJECT_ID`
+**GitHub secrets:** `VERCEL_TOKEN` `VERCEL_ORG_ID` `VERCEL_PROJECT_ID` `KOYEB_TOKEN` `ALERT_WEBHOOK_URL`<br>
+**GitHub variables:** `KOYEB_SERVICE_ID`
 
 The backend reads config from environment variables set in the Koyeb dashboard — see `.env.example` for the full list. `DATABASE_URL` must use the Supabase **Session pooler** (port 5432), not the direct connection (IPv6-only) or the transaction pooler (breaks prepared statements). Copy it from Supabase → Connect → Direct → Session pooler; the pooler host can change after a project is paused and restored.
 
@@ -111,5 +112,6 @@ The backend reads config from environment variables set in the Koyeb dashboard �
 |------|-----|
 | `/api/health` | Cheap liveness check for Koyeb. Touches nothing. |
 | `/api/health/deep` | Runs a query on Postgres and pings Redis; 503 if either fails. |
-| `keepalive.yml` | Daily GitHub Action that calls `/api/health/deep`, so Supabase (pauses after ~7 idle days) and Upstash (deletes inactive DBs) see activity. It re-enables itself so GitHub's 60-day schedule shutoff doesn't apply. |
+| `monitor.yml` | GitHub Action every 10 minutes: checks the site and `/api/health/deep`, posts to Discord (`ALERT_WEBHOOK_URL` secret) when it goes down or recovers. Also keeps Supabase (pauses after ~7 idle days) and Upstash (deletes inactive DBs) active, and re-enables itself so GitHub's 60-day schedule shutoff doesn't apply. |
+| `/api/admin/request-info` | Admin-only: how the backend sees your request (client IP, proxy headers) and a live rate-limiter test. Use it to set `CLIENT_IP_HEADER` / `TRUSTED_PROXY_HOPS`. |
 | Provider monitor | Pings every provider's `/models` every `PROVIDER_CHECK_INTERVAL_SECONDS`; posts to `ALERT_WEBHOOK_URL` (Discord) when one goes down or recovers. |

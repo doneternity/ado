@@ -1,0 +1,89 @@
+name: Uptime monitor
+on:
+  schedule:
+    - cron: '*/10 * * * *' # GitHub may run scheduled jobs a few minutes late
+  workflow_dispatch:
+
+# Checks the site every 10 minutes and posts to Discord (ALERT_WEBHOOK_URL
+# secret) only when the state changes: up -> down, or down -> up. A failing run
+# also turns red in GitHub, which emails the repo owner.
+#
+# The deep health check runs a real database query and Redis command, which
+# also keeps the free Supabase and Upstash tiers from going idle.
+permissions:
+  actions: write   # re-enable this workflow (see last step)
+  contents: read
+
+concurrency:
+  group: uptime-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check website and API
+        id: check
+        run: |
+          failures=""
+          check() { # $1 = label, $2 = url
+            code=$(curl -s -o /tmp/body -w '%{http_code}' --retry 2 --retry-delay 15 --retry-all-errors --max-time 30 "$2") || code="000"
+            if [ "$code" != "200" ]; then
+              failures="${failures}
+          - $1 ($2): HTTP $code $(head -c 160 /tmp/body 2>/dev/null | tr '\n' ' ')"
+            fi
+          }
+          check "Website" "https://adoai.space/"
+          check "API, database and Redis" "https://adoai.space/api/health/deep"
+
+          note=""
+          if curl -s --max-time 20 https://adoai.space/api/maintenance | grep -q '"enabled":true'; then
+            note="(maintenance mode is on)"
+          fi
+
+          {
+            echo "failures<<EOF"
+            echo "$failures"
+            echo "EOF"
+            echo "note=$note"
+          } >> "$GITHUB_OUTPUT"
+          if [ -n "$failures" ]; then echo "Down:$failures"; else echo "Up $note"; fi
+
+      - name: Alert on state change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.ALERT_WEBHOOK_URL }}
+          FAILURES: ${{ steps.check.outputs.failures }}
+          NOTE: ${{ steps.check.outputs.note }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # The latest *completed* run is the previous check (this one is still running).
+          prev=$(gh run list -R "$GITHUB_REPOSITORY" --workflow monitor.yml --status completed --limit 1 \
+            --json conclusion -q '.[0].conclusion' 2>/dev/null || echo unknown)
+          if [ -n "$(echo "$FAILURES" | tr -d '[:space:]')" ]; then state=down; else state=up; fi
+          echo "previous=$prev now=$state"
+
+          msg=""
+          if [ "$state" = down ] && [ "$prev" != failure ]; then
+            msg="**[DOWN] ADO is not responding** $NOTE${FAILURES}
+          Details: $RUN_URL"
+          elif [ "$state" = up ] && [ "$prev" = failure ]; then
+            msg="**[RECOVERED] ADO is back up** $NOTE"
+          fi
+          if [ -n "$msg" ]; then
+            if [ -n "$WEBHOOK" ]; then
+              jq -n --arg c "$msg" '{content: $c}' | curl -fsS -H 'Content-Type: application/json' -d @- "$WEBHOOK"
+            else
+              echo "::warning::ALERT_WEBHOOK_URL secret not set; alert not sent: $msg"
+            fi
+          fi
+          [ "$state" = up ]
+
+      # GitHub disables scheduled workflows after 60 days without repo activity.
+      # Re-enabling through the API resets that timer, so the monitor keeps itself on.
+      - name: Keep this workflow enabled
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/monitor.yml/enable"

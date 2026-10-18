@@ -5,16 +5,20 @@ on:
     types: [completed]
     branches: [main]
 
-jobs:
-  # The Go backend is hosted on Koyeb, which auto-deploys on every push to main
-  # via its GitHub app — no job needed here. Vercel rewrites /v1 and /api to it
-  # (see frontend/vercel.json), so the Go service is the only live request path.
+# Deploy one commit at a time, in order; never cancel a deploy halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
+# Both jobs deploy exactly the commit CI tested (workflow_run.head_sha), not
+# whatever main points at by the time this runs.
+jobs:
   deploy-frontend:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { ref: '${{ github.event.workflow_run.head_sha }}' }
       - uses: actions/setup-node@v4
         with: { node-version: '24' }
       - run: npm install -g vercel
@@ -28,3 +32,26 @@ jobs:
           cd frontend && npm ci && cd ..
           vercel build --prod --token=$VERCEL_TOKEN
           vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+  # The Go backend runs on Koyeb. With Koyeb's own autodeploy turned off, this
+  # is the only thing that deploys it, so a commit that fails CI never ships.
+  # Koyeb health-checks the new deployment and keeps the old one if it fails.
+  deploy-backend:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy the tested commit to Koyeb
+        env:
+          KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
+          KOYEB_SERVICE_ID: ${{ vars.KOYEB_SERVICE_ID }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -z "$KOYEB_TOKEN" ] || [ -z "$KOYEB_SERVICE_ID" ]; then
+            echo "::warning::KOYEB_TOKEN secret or KOYEB_SERVICE_ID variable not set; backend not deployed by CI."
+            exit 0
+          fi
+          curl -fsS -X POST "https://app.koyeb.com/v1/services/$KOYEB_SERVICE_ID/redeploy" \
+            -H "Authorization: Bearer $KOYEB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"sha\": \"$SHA\"}" > /dev/null
+          echo "Requested Koyeb deploy of $SHA"

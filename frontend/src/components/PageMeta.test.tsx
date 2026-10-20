@@ -16,7 +16,7 @@ const canonical = () => document.head.querySelector('link[rel="canonical"]')?.ge
 describe("PageMeta", () => {
   it("sets title, description and canonical for a public page", () => {
     renderAt("/pricing");
-    expect(document.title).toBe("Pricing — ADO");
+    expect(document.title).toBe("Pricing · ADO");
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute("content")).toMatch(/free/i);
     expect(canonical()).toBe("https://adoai.space/pricing");
     expect(robots()).toBeUndefined();
@@ -28,7 +28,7 @@ describe("PageMeta", () => {
     expect(canonical()).toBeUndefined();
 
     renderAt("/nope");
-    expect(document.title).toBe("Page not found — ADO");
+    expect(document.title).toBe("Page not found · ADO");
     expect(robots()).toBe("noindex");
   });
 });

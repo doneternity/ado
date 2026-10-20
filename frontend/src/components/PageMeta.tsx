@@ -10,21 +10,21 @@ type Meta = { title: string; description?: string; noindex?: boolean };
 // Per-route <title> and description. Keep in sync with public/sitemap.xml.
 // Social crawlers don't run JS; their preview comes from index.html.
 export const PAGE_META: Record<string, Meta> = {
-  "/":              { title: "ADO — one key, every model" },
-  "/models":        { title: "Models — ADO", description: "Every model available through ADO, with live status." },
-  "/docs":          { title: "Docs — ADO", description: "How to call ADO's OpenAI-compatible API: base URL, auth, streaming, and examples." },
-  "/pricing":       { title: "Pricing — ADO", description: "ADO is free while in early access. See daily limits and what's coming in Pro." },
-  "/status":        { title: "Status — ADO", description: "Live status of the ADO API and the models behind it." },
-  "/privacy":       { title: "Privacy Policy — ADO", description: "What data ADO collects, how it's used, and your choices." },
-  "/terms":         { title: "Terms of Service — ADO", description: "The terms for using ADO." },
-  "/login":         { title: "Sign in — ADO", noindex: true },
-  "/sign-up":       { title: "Sign up — ADO", description: "Get a free ADO API key with your Discord account." },
-  "/join-required": { title: "Join our Discord — ADO", noindex: true },
-  "/dashboard":     { title: "Dashboard — ADO", noindex: true },
-  "/playground":    { title: "Playground — ADO", noindex: true },
+  "/":              { title: "ADO: one key, every model" },
+  "/models":        { title: "Models · ADO", description: "Every model available through ADO, with live status." },
+  "/docs":          { title: "Docs · ADO", description: "How to call ADO's OpenAI-compatible API: base URL, auth, streaming, and examples." },
+  "/pricing":       { title: "Pricing · ADO", description: "ADO is free while in early access. See daily limits and what's coming in Pro." },
+  "/status":        { title: "Status · ADO", description: "Live status of the ADO API and the models behind it." },
+  "/privacy":       { title: "Privacy Policy · ADO", description: "What data ADO collects, how it's used, and your choices." },
+  "/terms":         { title: "Terms of Service · ADO", description: "The terms for using ADO." },
+  "/login":         { title: "Sign in · ADO", noindex: true },
+  "/sign-up":       { title: "Sign up · ADO", description: "Get a free ADO API key with your Discord account." },
+  "/join-required": { title: "Join our Discord · ADO", noindex: true },
+  "/dashboard":     { title: "Dashboard · ADO", noindex: true },
+  "/playground":    { title: "Playground · ADO", noindex: true },
 };
-const NOT_FOUND: Meta = { title: "Page not found — ADO", noindex: true };
-const ADMIN: Meta = { title: "Admin — ADO", noindex: true };
+const NOT_FOUND: Meta = { title: "Page not found · ADO", noindex: true };
+const ADMIN: Meta = { title: "Admin · ADO", noindex: true };
 
 function setMeta(selector: string, attr: "name" | "rel", key: string, value: string | null) {
   let el = document.head.querySelector<HTMLElement>(selector);

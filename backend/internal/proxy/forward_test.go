@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -249,5 +250,101 @@ func TestForward_SpreadsAndFailsOverAcrossKeys(t *testing.T) {
 		if err != nil || res.Status != http.StatusOK {
 			t.Fatalf("request %d: status %d err %v, want failover to key-two", i, res.Status, err)
 		}
+	}
+}
+
+// modelServer is a provider that lists `models` and, like real providers,
+// answers 400 for a chat request naming any other model. chats counts the
+// chat requests it received.
+func modelServer(t *testing.T, chats *atomic.Int32, models ...string) *httptest.Server {
+	t.Helper()
+	owns := map[string]bool{}
+	var list []string
+	for _, m := range models {
+		owns[m] = true
+		list = append(list, `{"id":"`+m+`"}`)
+	}
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet && r.URL.Path == "/models" {
+			_, _ = w.Write([]byte(`{"data":[` + strings.Join(list, ",") + `]}`))
+			return
+		}
+		chats.Add(1)
+		var body struct{ Model string }
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if !owns[body.Model] {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"unknown model"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"served":"` + body.Model + `"}`))
+	}))
+	t.Cleanup(s.Close)
+	return s
+}
+
+// A request for the second provider's model goes straight to it, even before
+// anyone has loaded the model list, instead of getting the first provider's
+// "unknown model" 400 (a 400 doesn't fail over).
+func TestForward_RoutesByModel(t *testing.T) {
+	var deepseekChats, zaiChats atomic.Int32
+	deepseek := modelServer(t, &deepseekChats, "deepseek-flash", "deepseek-v4-pro")
+	zai := modelServer(t, &zaiChats, "glm-5.3")
+
+	reg := NewRegistry()
+	ds := New(deepseek.URL, "k1")
+	ds.Group = 1
+	z := New(zai.URL, "k2")
+	z.Group = 2
+	reg.Swap([]*Forwarder{ds, z})
+
+	send := func(model string) (ForwardResult, string) {
+		t.Helper()
+		body := []byte(`{"model":"` + model + `","messages":[]}`)
+		req := httptest.NewRequest("POST", "/chat/completions", bytes.NewReader(body))
+		rr := httptest.NewRecorder()
+		res, err := reg.Forward(rr, req, "/chat/completions", body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res, rr.Body.String()
+	}
+
+	res, out := send("glm-5.3")
+	if res.Status != http.StatusOK || res.Provider != zai.URL || !strings.Contains(out, "glm-5.3") {
+		t.Fatalf("glm-5.3: status=%d provider=%q body=%q", res.Status, res.Provider, out)
+	}
+	if res, _ := send("deepseek-flash"); res.Status != http.StatusOK || res.Provider != deepseek.URL {
+		t.Fatalf("deepseek-flash: status=%d provider=%q", res.Status, res.Provider)
+	}
+	if deepseekChats.Load() != 1 || zaiChats.Load() != 1 {
+		t.Fatalf("each provider should get only its own model: deepseek=%d zai=%d", deepseekChats.Load(), zaiChats.Load())
+	}
+
+	// A model nobody lists still goes to the chain in order, so the client sees
+	// the provider's own error, as before.
+	if res, _ := send("made-up"); res.Status != http.StatusBadRequest || res.Provider != deepseek.URL {
+		t.Fatalf("made-up: status=%d provider=%q", res.Status, res.Provider)
+	}
+}
+
+// A provider whose model list can't be read is kept as a last resort, after
+// the ones that list the model.
+func TestForModel_UnreadableListIsLastResort(t *testing.T) {
+	broken := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer broken.Close()
+	var chats atomic.Int32
+	good := modelServer(t, &chats, "m1")
+
+	reg := NewRegistry()
+	b, g := New(broken.URL, "k1"), New(good.URL, "k2")
+	reg.Swap([]*Forwarder{b, g})
+
+	got := reg.forModel(context.Background(), reg.Get(), "m1")
+	if len(got) != 2 || got[0] != g || got[1] != b {
+		t.Fatalf("want [good, broken], got %v", got)
 	}
 }

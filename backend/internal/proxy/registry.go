@@ -14,11 +14,14 @@ type cachedModels struct {
 }
 
 type Registry struct {
-	chain  atomic.Pointer[[]*Forwarder]
-	rr     atomic.Uint64 // round-robin counter for rotateGroups
-	mcMu   sync.Mutex
-	mc     *cachedModels
-	health *ModelHealth
+	chain atomic.Pointer[[]*Forwarder]
+	rr    atomic.Uint64 // round-robin counter for rotateGroups
+	// lastRefresh is when the model lists were last fetched (unix nanos);
+	// 0 after a Swap, so the next unlisted model fetches them right away.
+	lastRefresh atomic.Int64
+	mcMu        sync.Mutex
+	mc          *cachedModels
+	health      *ModelHealth
 }
 
 func NewRegistry() *Registry {
@@ -51,6 +54,7 @@ func (r *Registry) Get() []*Forwarder {
 // the next /models request fetches fresh data from the new chain.
 func (r *Registry) Swap(chain []*Forwarder) {
 	r.chain.Store(&chain)
+	r.lastRefresh.Store(0)
 	r.mcMu.Lock()
 	r.mc = nil
 	r.mcMu.Unlock()

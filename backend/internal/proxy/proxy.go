@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,6 +38,11 @@ type Forwarder struct {
 	// Group ties together the keys of one provider: requests take turns across
 	// a group's keys. 0 means not part of a group (never rotated).
 	Group int
+
+	// models holds the model IDs this provider listed on its last successful
+	// /models fetch; nil until one succeeds. Forward uses it to send each
+	// request only to providers that serve the requested model.
+	models atomic.Pointer[map[string]bool]
 
 	mu        sync.Mutex
 	fails     int
@@ -155,7 +161,7 @@ func (r *Registry) Probe(ctx context.Context, model string) {
 		return
 	}
 	ok := false
-	for _, f := range chain {
+	for _, f := range r.forModel(ctx, chain, model) {
 		if f.probe(ctx, model) {
 			ok = true
 			break
@@ -201,6 +207,7 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 
 	var lastErr error
 	attempts := 0
+	chain = r.forModel(req.Context(), chain, modelOf(body))
 	for _, f := range failoverOrder(rotateGroups(chain, r.rr.Add(1))) {
 		if cerr := req.Context().Err(); cerr != nil {
 			return ForwardResult{Attempts: attempts}, cerr
@@ -262,6 +269,58 @@ func rotateGroups(chain []*Forwarder, n uint64) []*Forwarder {
 	return out
 }
 
+// modelOf reads the "model" field of a JSON body ("" for anything else, such
+// as a multipart upload).
+func modelOf(body []byte) string {
+	var meta struct {
+		Model string `json:"model"`
+	}
+	if json.Unmarshal(body, &meta) != nil {
+		return ""
+	}
+	return meta.Model
+}
+
+// modelRefreshEvery limits how often an unlisted model makes Forward re-fetch
+// the providers' model lists, so a burst of requests for a made-up name can't
+// hammer /models.
+const modelRefreshEvery = 30 * time.Second
+
+// forModel narrows the chain to the providers that list the model, so a
+// request for one provider's model never lands on another (which would answer
+// 400 "unknown model", and a 400 doesn't fail over). Providers whose list
+// couldn't be read stay as a last resort. A model nobody lists keeps the whole
+// chain, as before, after one fresh look at the lists.
+func (r *Registry) forModel(ctx context.Context, chain []*Forwarder, model string) []*Forwarder {
+	if model == "" {
+		return chain
+	}
+	serving, unknown := splitByModel(chain, model)
+	if len(serving) == 0 && time.Since(time.Unix(0, r.lastRefresh.Load())) > modelRefreshEvery {
+		rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		r.refreshModels(rctx)
+		cancel()
+		serving, unknown = splitByModel(chain, model)
+	}
+	if len(serving) == 0 {
+		return chain
+	}
+	return append(serving, unknown...)
+}
+
+func splitByModel(chain []*Forwarder, model string) (serving, unknown []*Forwarder) {
+	for _, f := range chain {
+		m := f.models.Load()
+		switch {
+		case m == nil:
+			unknown = append(unknown, f)
+		case (*m)[model]:
+			serving = append(serving, f)
+		}
+	}
+	return serving, unknown
+}
+
 // failoverOrder puts closed-breaker providers first (priority order), tripped
 // ones last as a fallback.
 func failoverOrder(chain []*Forwarder) []*Forwarder {
@@ -296,6 +355,19 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 	}
 	r.mcMu.Unlock()
 
+	all := r.refreshModels(req.Context())
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": r.withStatus(all)})
+}
+
+// refreshModels fetches every provider's model list concurrently, records
+// which models each one serves (for forModel), and caches the merged,
+// deduplicated list. Providers that fail are skipped (their previous list is
+// kept), so a partial list is returned rather than an error.
+func (r *Registry) refreshModels(ctx context.Context) []map[string]any {
+	r.lastRefresh.Store(time.Now().UnixNano())
+	chain := r.Get()
+
 	type modelItem = map[string]any
 	results := make([][]modelItem, len(chain))
 	var wg sync.WaitGroup
@@ -304,8 +376,12 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 		go func(idx int, fwd *Forwarder) {
 			defer wg.Done()
 			// bound each fetch so one slow upstream can't stall the aggregation.
-			ctx, cancel := context.WithTimeout(req.Context(), 15*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			defer cancel()
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/models", nil)
+			if err != nil {
+				return
+			}
 			resp, err := fwd.do(ctx, req, "/models", nil)
 			if err != nil {
 				slog.Warn("aggregate models: request failed", "url", fwd.BaseURL+"/models", "err", err)
@@ -328,6 +404,7 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 			if json.Unmarshal(raw, &envelope) == nil && len(envelope.Data) > 0 {
 				slog.Info("aggregate models: ok", "url", fwd.BaseURL+"/models", "count", len(envelope.Data))
 				results[idx] = envelope.Data
+				fwd.setModels(envelope.Data)
 				return
 			}
 			// some providers return a bare array
@@ -335,6 +412,7 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 			if json.Unmarshal(raw, &arr) == nil && len(arr) > 0 {
 				slog.Info("aggregate models: ok (bare array)", "url", fwd.BaseURL+"/models", "count", len(arr))
 				results[idx] = arr
+				fwd.setModels(arr)
 				return
 			}
 			slog.Warn("aggregate models: unparseable response", "url", fwd.BaseURL+"/models", "body", string(raw[:min(len(raw), 300)]))
@@ -358,9 +436,18 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 	r.mcMu.Lock()
 	r.mc = &cachedModels{data: all, fetchedAt: time.Now()}
 	r.mcMu.Unlock()
+	return all
+}
 
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": r.withStatus(all)})
+// setModels records the model IDs from this provider's /models response.
+func (f *Forwarder) setModels(list []map[string]any) {
+	ids := make(map[string]bool, len(list))
+	for _, m := range list {
+		if id, _ := m["id"].(string); id != "" {
+			ids[id] = true
+		}
+	}
+	f.models.Store(&ids)
 }
 
 // withStatus returns a copy of the model list with each item's ado_status set

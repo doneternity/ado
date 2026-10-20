@@ -169,7 +169,7 @@
 
 .statSub {
   font-size: .7rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.6);
   margin-top: 4px;
   font-family: var(--font-mono);
 }
@@ -342,8 +342,8 @@
   outline: none;
   transition: border-color var(--t-fast);
 
-  &:focus { border-color: rgba(255,255,255,0.25); }
-  &::placeholder { color: rgba(255, 255, 255, 0.2); }
+  &:focus { border-color: rgba(236,168,214,0.55); }
+  &::placeholder { color: rgba(255, 255, 255, 0.45); }
 
   &[type="number"] {
     -moz-appearance: textfield;
@@ -636,7 +636,7 @@
 .previewToggleHint {
   font-size: .65rem;
   font-weight: 400;
-  color: rgba(255,255,255,.2);
+  color: rgba(255,255,255,0.57);
   @media (max-width: 540px) { display: none; }
 }
 
@@ -843,4 +843,26 @@
   gap: 8px;
 
   @media (max-width: 600px) { grid-template-columns: 1fr; }
+}
+
+/* ── Audit log ── */
+.cellMono {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  white-space: nowrap; // emails and names stay whole; the table scrolls instead
+}
+
+.auditDetails {
+  min-width: 240px; // on phones the table scrolls instead of squeezing this to a sliver
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: .74rem;
+  color: rgba(255,255,255,0.7);
+  overflow-wrap: anywhere;
+}
+
+.auditKey {
+  font-family: var(--font-mono);
+  color: rgba(255,255,255,0.5);
 }

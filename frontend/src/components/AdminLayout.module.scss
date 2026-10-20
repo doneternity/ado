@@ -39,7 +39,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.58);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 2px 6px;
@@ -57,7 +57,7 @@
   font-size: .75rem;
   font-weight: 500;
   letter-spacing: .02em;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
   transition: color var(--t-fast), background var(--t-fast);
   text-decoration: none;
@@ -78,17 +78,26 @@
 .backLink {
   margin-left: auto;
   font-size: .75rem;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.57);
   white-space: nowrap;
   flex-shrink: 0;
   text-decoration: none;
   padding: 12px 4px;
 
-  &:hover { color: rgba(255, 255, 255, 0.5); }
+  &:hover { color: rgba(255, 255, 255, 0.9); }
 }
 
 .content {
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px;
+}
+
+// Phones: wrap the tabs onto more rows instead of hiding them off-screen
+// behind a scrollbar nobody can see.
+@media (max-width: 700px) {
+  .tabBar { flex-wrap: wrap; padding: 6px 12px; overflow-x: visible; }
+  .tab { padding: 8px 10px; }
+  .backLink { margin-left: 0; padding: 8px 10px; }
+  .content { padding: 20px 14px; }
 }

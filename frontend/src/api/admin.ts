@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 import type { Announcement, ModelUsage } from "./queries";
 import type {
@@ -17,7 +17,7 @@ export function useAdminProviders() {
 export function useCreateProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; baseUrl: string; apiKeys: string[]; priority?: number }) =>
+    mutationFn: (data: { name: string; baseUrl: string; apiKeys: string[]; priority?: number; modelSuffix?: string }) =>
       apiFetch<AdminProvider>("/api/admin/providers", {
         method: "POST", body: JSON.stringify(data),
       }),
@@ -28,7 +28,7 @@ export function useCreateProvider() {
 export function useUpdateProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name: string; baseUrl: string; priority?: number }) =>
+    mutationFn: ({ id, ...data }: { id: string; name: string; baseUrl: string; priority?: number; modelSuffix?: string }) =>
       apiFetch<void>(`/api/admin/providers/${id}`, {
         method: "PUT", body: JSON.stringify(data),
       }),
@@ -347,5 +347,28 @@ export function useAdminUsageByModel(days: number) {
   return useQuery({
     queryKey: ["admin", "usage", "models", days],
     queryFn: () => apiFetch<ModelUsage[]>(`/api/admin/usage/models?days=${days}`),
+  });
+}
+
+// ── Audit log ──────────────────────────────────────────────
+
+export type AuditEntry = {
+  id: number;
+  createdAt: string;
+  actor: string;
+  action: string; // method and route, e.g. "PUT /providers/{id}"
+  target: string;
+  details: Record<string, unknown>;
+};
+
+const AUDIT_PAGE = 50;
+
+// Newest first, 50 at a time; fetchNextPage loads older entries.
+export function useAdminAudit() {
+  return useInfiniteQuery({
+    queryKey: ["admin", "audit"],
+    queryFn: ({ pageParam }) => apiFetch<AuditEntry[]>(`/api/admin/audit?limit=${AUDIT_PAGE}&before=${pageParam}`),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.length === AUDIT_PAGE ? last[last.length - 1]!.id : undefined),
   });
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Zap, Plug, Users, BarChart2, SlidersHorizontal, AlertTriangle, Wrench } from "lucide-react";
+import { Zap, Plug, Users, BarChart2, SlidersHorizontal, AlertTriangle, Wrench, ScrollText } from "lucide-react";
 import styles from "./AdminLayout.module.scss";
 
 const TABS = [
@@ -11,6 +11,7 @@ const TABS = [
   { label: "Quotas",      path: "/admin/quotas",      Icon: SlidersHorizontal },
   { label: "Errors",      path: "/admin/errors",      Icon: AlertTriangle },
   { label: "Maintenance", path: "/admin/maintenance", Icon: Wrench },
+  { label: "Audit log",   path: "/admin/audit",       Icon: ScrollText },
 ] as const;
 
 export function AdminLayout({ children }: { children: ReactNode }) {

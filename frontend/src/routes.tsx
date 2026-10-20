@@ -32,6 +32,7 @@ const AdminUsage = lazy(() => named(import("./pages/admin/AdminUsage"), "AdminUs
 const AdminQuotas = lazy(() => named(import("./pages/admin/AdminQuotas"), "AdminQuotas"));
 const AdminErrors = lazy(() => named(import("./pages/admin/AdminErrors"), "AdminErrors"));
 const AdminMaintenance = lazy(() => named(import("./pages/admin/AdminMaintenance"), "AdminMaintenance"));
+const AdminAudit = lazy(() => named(import("./pages/admin/AdminAudit"), "AdminAudit"));
 
 function Root() {
   return (
@@ -112,6 +113,7 @@ export const router = createBrowserRouter([
       { path: "quotas",      element: <RequireAdmin><AdminQuotas /></RequireAdmin> },
       { path: "errors",      element: <RequireAdmin><AdminErrors /></RequireAdmin> },
       { path: "maintenance", element: <RequireAdmin><AdminMaintenance /></RequireAdmin> },
+      { path: "audit",       element: <RequireAdmin><AdminAudit /></RequireAdmin> },
     ] }],
   },
 ]);

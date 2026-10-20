@@ -34,7 +34,7 @@ function BetaBanner() {
         onClick={() => { localStorage.setItem(BANNER_KEY, "1"); setVisible(false); }}
         aria-label="Dismiss"
       >
-        â
+        ✕
       </button>
     </div>
   );
@@ -138,7 +138,7 @@ function KeyCard() {
 
   if (isLoading || !current) return null;
 
-  const display = revealed && raw ? raw.key : current.keyPrefix + "â¦";
+  const display = revealed && raw ? raw.key : current.keyPrefix + "…";
 
   function copy() {
     if (!raw) { showToast("Rotate your key to reveal it first."); return; }
@@ -177,8 +177,8 @@ function KeyCard() {
               <div className={styles.keyCardTitle}>Your API Key</div>
               <div className={styles.keyCardSub}>
                 Created {new Date(current.createdAt).toLocaleDateString()}
-                {current.lastUsedAt && ` Â· Last used ${new Date(current.lastUsedAt).toLocaleDateString()}`}
-                {current.plan && ` Â· ${current.plan.name} plan`}
+                {current.lastUsedAt && ` · Last used ${new Date(current.lastUsedAt).toLocaleDateString()}`}
+                {current.plan && ` · ${current.plan.name} plan`}
               </div>
             </div>
           </div>
@@ -221,7 +221,7 @@ function KeyCard() {
             <div className={styles.rotateConfirmBtns}>
               <button className={styles.rotateBtnConfirm} onClick={doRotate} disabled={rotate.isPending}>
                 <RefreshCw size={11} />
-                {rotate.isPending ? "Rotatingâ¦" : "Confirm rotate"}
+                {rotate.isPending ? "Rotating…" : "Confirm rotate"}
               </button>
               <button className={styles.rotateBtnCancel} onClick={() => setConfirming(false)}>
                 Cancel
@@ -314,7 +314,7 @@ function UsageChart() {
       <motion.div className={styles.usageCard} variants={fade}>
         <div className={styles.usageCardHead}>
           <Activity size={12} className={styles.usageCardIcon} />
-          <span className={styles.usageCardTitle}>Usage â Last 30 Days</span>
+          <span className={styles.usageCardTitle}>Usage · Last 30 Days</span>
         </div>
         <div className={styles.usageEmpty}>No usage yet</div>
       </motion.div>
@@ -338,7 +338,7 @@ function UsageChart() {
     <motion.div className={styles.usageCard} variants={fade}>
       <div className={styles.usageCardHead}>
         <Activity size={12} className={styles.usageCardIcon} />
-        <span className={styles.usageCardTitle}>Usage â Last 30 Days</span>
+        <span className={styles.usageCardTitle}>Usage · Last 30 Days</span>
       </div>
       <div className={styles.usageChartBars}>
         {days.map((d) => (
@@ -402,7 +402,7 @@ function DeleteAccount() {
             onClick={handleConfirm}
             disabled={deleteAccount.isPending}
           >
-            {deleteAccount.isPending ? "Deletingâ¦" : "Delete"}
+            {deleteAccount.isPending ? "Deleting…" : "Delete"}
           </button>
           <button className={styles.deleteCancelBtn} onClick={() => setConfirming(false)}>
             Cancel
@@ -440,7 +440,7 @@ export function Dashboard() {
 
         <BetaBanner />
 
-        {/* ââ Header ââ */}
+        {/* ── Header ── */}
         <motion.div className={styles.header} variants={fade}>
           <div className={styles.headerLeft}>
             <div className={styles.devConsoleBadge}>
@@ -465,13 +465,13 @@ export function Dashboard() {
           </div>
         </motion.div>
 
-        {/* ââ Stats row ââ */}
+        {/* ── Stats row ── */}
         <StatCards />
 
-        {/* ââ Usage chart ââ */}
+        {/* ── Usage chart ── */}
         <UsageChart />
 
-        {/* ââ Main grid ââ */}
+        {/* ── Main grid ── */}
         <div className={styles.mainGrid}>
           {/* Left column */}
           <div className={styles.leftCol}>
@@ -544,7 +544,7 @@ export function Dashboard() {
 
           </div>
         </div>
-        {/* ââ Delete account ââ */}
+        {/* ── Delete account ── */}
         <DeleteAccount />
 
       </motion.div>

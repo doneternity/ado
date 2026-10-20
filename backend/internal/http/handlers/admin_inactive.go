@@ -15,9 +15,9 @@ import (
 	"github.com/ado/ado/backend/internal/validate"
 )
 
-// MinInactiveDays is the shortest inactivity the cleanup accepts. The privacy
-// policy (frontend/src/pages/Privacy.tsx) promises accounts are only removed
-// after at least this long without activity; keep the two in step.
+// MinInactiveDays is the shortest inactivity the cleanup accepts, so an
+// account in active use can never be swept up by mistake. The privacy policy
+// only says unused accounts may be removed.
 const MinInactiveDays = 150
 
 type inactiveUserDTO struct {

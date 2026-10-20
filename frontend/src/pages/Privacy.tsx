@@ -7,7 +7,7 @@ const DiscordLink = () => (
   <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Discord server</a>
 );
 
-const LAST_UPDATED = "October 18, 2026";
+const LAST_UPDATED = "October 20, 2026";
 
 const fade = {
   initial: { opacity: 0, y: 14 },
@@ -18,51 +18,47 @@ const fade = {
 const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
     title: "Who We Are",
-    body: <>ADO is an independent, non-commercial project. For any privacy question or request, reach us on our <DiscordLink />.</>,
+    body: <>ADO is an independent, community-run project. For any privacy question or request, reach us on our <DiscordLink />.</>,
   },
   {
-    title: "Information We Collect",
-    body: "When you sign in with Discord we receive and store your Discord user ID, username, email address, and avatar URL. At sign-in we also check, without storing it, whether you are a member of the ADO Discord server and hold the required role. For your API key we store only a hash and a short prefix, plus per-day request counts and when the key was last used. A newly issued key is held for up to 5 minutes so it can be shown to you once. For each login session we store a session token, your IP address, and your browser's user agent, and we record when you last signed in. To enforce rate limits we keep short-lived counters keyed by IP address or API key. For each API request made with your key we record the time, the endpoint and model, the status, how long it took, which provider served it, and the token counts the provider reports. This request log never contains your prompts, the responses, or your IP address. When a request fails we also log its method, path, and status code. If the website crashes in your browser, it reports the error message, where in our code it happened, and the page path (without the rest of the address); this report contains nothing that identifies you.",
+    title: "What We Collect",
+    body: "Your Discord account details when you sign in (such as your username, email and avatar), basic session and security information such as your IP address, and information about how you use your API key, like which models you call and how much. We also keep error logs so we can fix problems.",
   },
   {
     title: "Your Prompts and Responses",
-    body: "The content of your API requests and the AI responses passes through our servers to the AI provider that handles it. We do not store or log that content, and we never use it to train AI models. The AI provider processes it under its own terms and privacy policy, which may include its own retention.",
+    body: "Your requests pass through ADO to the AI provider that serves the model you chose. We don't store your prompts or the responses, and we never use them to train AI models. The provider handles them under its own terms.",
   },
   {
-    title: "How We Use Information and Why",
-    body: "We use this data to run your account, issue and check API keys, route requests, enforce quotas and rate limits, show you your usage, prevent abuse, and fix problems. We process it because it is necessary to provide the service you signed up for, and for our legitimate interest in keeping the service secure and working. We also look at aggregate usage statistics to operate the service. We do not send marketing email, and we do not use analytics or advertising trackers.",
+    title: "How We Use It",
+    body: "To run your account and API key, route your requests, apply usage limits, prevent abuse, and keep the service working. We don't sell your data, send marketing email, or use advertising or analytics trackers.",
   },
   {
-    title: "Who We Share It With",
-    body: "We do not sell personal data. We use these service providers to run ADO: Vercel (website hosting), Koyeb (API hosting), Supabase (database), Upstash (rate-limit store), and Discord (sign-in). Your API requests are sent to the third-party AI providers that serve the model you request. We may also disclose information when required by law.",
+    title: "Who Can See It",
+    body: "We rely on trusted hosting and infrastructure providers to run ADO, and your requests go to the AI providers that serve them. Some of them may process data outside your country. We may also share information if the law requires it.",
   },
   {
     title: "Security",
-    body: "Traffic is encrypted in transit with TLS, and our database host encrypts data at rest. API keys are stored only as hashes, and the AI-provider keys we hold are encrypted with AES-256-GCM. Session cookies are HttpOnly, Secure, and SameSite-restricted. No system is perfectly secure, so rotate your key if you think it has leaked and don't share it publicly.",
+    body: "Your data is encrypted in transit and your API key is stored securely. Keep your key private, and rotate it from your dashboard if you think it has leaked.",
   },
   {
-    title: "Data Retention",
-    body: "Account data is kept until you delete your account, which removes your account, keys, usage history, and sessions. If an account has no sign-in or API activity for at least 5 months, we may delete it the same way. Daily request counts and the request log are deleted after 90 days, and error logs after 30 days. Session data is deleted when the session expires: after 7 days of inactivity, or 30 days at most. Rate-limit counters and sign-in state expire within an hour. API keys that go unused for 14 days are automatically revoked.",
+    title: "How Long We Keep It",
+    body: "Your account stays until you delete it, though we may remove accounts that are no longer used. Usage and error logs are kept only for a limited time.",
   },
   {
-    title: "Your Rights",
-    body: <>You can rotate your API key, view your usage, and delete your account from the dashboard at any time. Depending on where you live, you may also have the right to access, correct, or export your data, and to object to or restrict its processing. Reach us on our <DiscordLink /> to make a request. If you are in the EU or UK, you can also complain to your local data protection authority.</>,
+    title: "Your Choices",
+    body: <>You can rotate your key, see your usage, and delete your account from your dashboard at any time. For anything else about your data, reach us on our <DiscordLink />.</>,
   },
   {
-    title: "Cookies and Local Storage",
-    body: "We set two cookies, both strictly necessary: ado_session keeps you signed in (up to 30 days), and ado_oauth_state protects the Discord sign-in flow (10 minutes). We also use your browser's local storage to keep your API key visible on your dashboard and to remember notices you have dismissed. We don't use analytics, advertising, or third-party cookies, and our fonts are served from our own domain. Because everything we store is needed to provide the service, there is no cookie consent banner.",
+    title: "Cookies",
+    body: "We only use the cookies and browser storage needed to keep you signed in, show your key on your dashboard, and remember your settings. No advertising or tracking cookies.",
   },
   {
-    title: "Children's Privacy",
-    body: <>ADO is not intended for children under 16, and we do not knowingly collect their data. If you believe a child has signed up, tell us on our <DiscordLink /> and we will delete the account.</>,
+    title: "Children",
+    body: <>ADO isn't meant for anyone under 16. If you think a child has signed up, tell us on our <DiscordLink /> and we'll remove the account.</>,
   },
   {
-    title: "International Transfers",
-    body: "Some of our service providers and AI providers process data outside your country, including in the United States. Where they do, transfers rely on the safeguards those providers offer, such as the EU Standard Contractual Clauses.",
-  },
-  {
-    title: "Changes to This Policy",
-    body: "If we change this policy, we will update the date above, and we will announce material changes on the site or our Discord server.",
+    title: "Changes",
+    body: "If we change this policy, we'll update the date above and mention bigger changes on the site or our Discord server.",
   },
 ];
 

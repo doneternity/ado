@@ -3,8 +3,7 @@ import { useInactiveUsers, useDeleteInactiveUsers } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
 import styles from "./Admin.module.scss";
 
-// The backend refuses anything shorter than 150 days (MinInactiveDays), which
-// is also what the privacy policy promises.
+// The backend refuses anything shorter than 150 days (MinInactiveDays).
 export const MIN_INACTIVE_DAYS = 150;
 const PERIODS = [
   { days: 150, label: "5 months" },

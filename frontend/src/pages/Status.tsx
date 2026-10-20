@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { PROVIDER_NAME } from "../data/catalog";
 import { providerOf } from "../data/model-meta";
 import type { ModelProvider } from "../data/models";
+import { UptimeHistory } from "../components/UptimeHistory";
 import styles from "./Status.module.scss";
 
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "") as string;
@@ -48,6 +49,7 @@ function computeProviderStatus(models: LiveModel[]): ProviderStatus {
 }
 
 function computeOverall(rows: ProviderRow[]): OverallStatus {
+  if (rows.length === 0) return "outage"; // reached ADO, but nothing is being served
   if (rows.every(r => r.status === "unknown")) return "unknown";
   if (rows.every(r => r.status === "operational")) return "operational";
   if (rows.some(r => r.status === "down")) return "outage";
@@ -100,13 +102,8 @@ export function Status() {
       setOverall(computeOverall(built));
       setUpdatedAt(new Date());
     } catch {
-      const unknown: ProviderRow[] = PROVIDER_ORDER.slice(0, 5).map(pk => ({
-        key:    pk,
-        label:  PROVIDER_LABELS[pk],
-        status: "unknown" as ProviderStatus,
-        count:  0,
-      }));
-      setRows(unknown);
+      // Don't list providers we can't confirm; say the check failed instead.
+      setRows([]);
       setOverall("unknown");
       setUpdatedAt(new Date());
     } finally {
@@ -159,6 +156,10 @@ export function Status() {
               <div key={i} className={styles.skeletonRow} />
             ))}
           </div>
+        ) : rows.length === 0 ? (
+          <p className={styles.sub}>
+            {overall === "unknown" ? "The status check couldn't reach ADO. Try refreshing in a minute." : "No models are being served right now."}
+          </p>
         ) : (
           <div className={styles.providerList}>
             {rows.map((row, i) => (
@@ -182,6 +183,8 @@ export function Status() {
           </div>
         )}
       </div>
+
+      <UptimeHistory />
 
     </motion.div>
   );

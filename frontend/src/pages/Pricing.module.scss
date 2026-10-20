@@ -22,7 +22,7 @@
 .lead {
   font-size: 1.05rem;
   line-height: 1.65;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   max-width: 520px;
   font-weight: 300;
 }
@@ -72,7 +72,7 @@
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.6);
 }
 
 /* ── tier cards ── */
@@ -146,7 +146,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
   margin-bottom: 12px;
 }
 
@@ -168,7 +168,7 @@
 .pricePeriod {
   font-family: var(--font-mono);
   font-size: .72rem;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.59);
   font-weight: 400;
 }
 
@@ -187,7 +187,7 @@
 
 .badgeSoon {
   background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.57);
   font-family: var(--font-mono);
   font-size: .63rem;
   font-weight: 500;
@@ -230,7 +230,7 @@
 
 .proTeaser {
   font-size: .875rem;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.59);
   line-height: 1.6;
   flex: 1;
   font-weight: 300;
@@ -281,7 +281,7 @@
 .faqA {
   font-size: .875rem;
   line-height: 1.75;
-  color: rgba(255,255,255,0.38);
+  color: rgba(255,255,255,0.63);
   display: block;
   font-weight: 300;
 
@@ -323,7 +323,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.59);
   text-decoration: none;
   transition: color var(--t-fast) ease;
   &:hover { color: var(--accent); }

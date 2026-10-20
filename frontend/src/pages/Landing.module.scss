@@ -41,7 +41,7 @@
 .sectionDesc {
   font-size: 1.1rem;
   line-height: 1.65;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   max-width: 400px;
   padding-bottom: 8px;
   align-self: end;
@@ -280,7 +280,7 @@
 }
 .heroStatLabel {
   font-size: .72rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   font-family: var(--font-mono);
   text-transform: lowercase;
   line-height: 1.4;
@@ -316,7 +316,7 @@
 .cardNum {
   font-family: var(--font-mono);
   font-size: .75rem;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
   letter-spacing: .04em;
   margin-bottom: 20px;
 }
@@ -350,7 +350,7 @@
   display: block;
   font-family: var(--font-mono);
   font-size: .72rem;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.6);
   text-transform: lowercase;
   margin-top: 8px;
   letter-spacing: .04em;
@@ -478,7 +478,7 @@
   gap: 12px;
   font-size: .8rem;
   font-family: var(--font-mono);
-  color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.6);
   letter-spacing: .04em;
   margin-bottom: 32px;
 }
@@ -571,7 +571,7 @@
   display: block;
   font-family: var(--font-display);
   font-size: 1.25rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   margin-bottom: 24px;
 }
 .stepDesc {
@@ -622,7 +622,7 @@
 .infraDesc {
   font-size: 1.1rem;
   line-height: 1.65;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   max-width: 440px;
   padding-bottom: 8px;
   align-self: end;
@@ -693,13 +693,13 @@
 .infraBigSuffix {
   font-family: var(--font-display);
   font-size: 1.5rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
 }
 .infraBigLabel {
   position: relative;
   z-index: 10;
   font-size: .9rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   max-width: 300px;
   line-height: 1.5;
 }
@@ -731,7 +731,7 @@
   display: block;
   font-family: var(--font-mono);
   font-size: .72rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   letter-spacing: .04em;
 }
 
@@ -773,7 +773,7 @@
 .providerStatus {
   font-family: var(--font-mono);
   font-size: .68rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   text-transform: uppercase;
   letter-spacing: .08em;
 }
@@ -787,7 +787,7 @@
 .providerNodes {
   display: block;
   font-size: .8rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
 }
 
 /* ── DEVELOPERS ───────────────────────────────────── */
@@ -900,7 +900,7 @@
 .devFeatureDesc {
   font-size: .85rem;
   line-height: 1.55;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
 }
 
 /* ── PORTFOLIO / MODELS ───────────────────────────── */
@@ -959,13 +959,13 @@
 .portCardId {
   font-family: var(--font-mono);
   font-size: .72rem;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.6);
   letter-spacing: .04em;
 }
 .portArrow {
   width: 20px;
   height: 20px;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -983,7 +983,7 @@
 .portCardTagline {
   font-family: var(--font-mono);
   font-size: .8rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   margin-bottom: 24px;
   letter-spacing: .02em;
 }
@@ -1004,7 +1004,7 @@
   font-size: .68rem;
   padding: 4px 12px;
   border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   letter-spacing: .04em;
 }
 
@@ -1020,14 +1020,14 @@
 .comingSoonLabel {
   font-family: var(--font-mono);
   font-size: .68rem;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
   text-transform: uppercase;
   letter-spacing: .12em;
   margin-bottom: 16px;
 }
 .comingSoonDesc {
   font-size: .85rem;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
   max-width: 240px;
   line-height: 1.55;
 }

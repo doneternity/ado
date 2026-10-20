@@ -50,7 +50,7 @@
   font-family: inherit;
   border-radius: var(--r-pill);
   background: transparent;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.62);
   cursor: pointer;
   transition: color var(--t-fast), background var(--t-fast);
 }
@@ -66,7 +66,7 @@
   align-items: center;
   gap: 12px;
   font-size: .72rem;
-  color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.57);
   &::before, &::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
 }
 
@@ -129,7 +129,7 @@
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
   margin-left: auto;
 }
 
@@ -162,7 +162,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.59);
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: var(--r-pill);
@@ -190,7 +190,7 @@
 .slotFullBody {
   margin: 0;
   font-size: .8rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   line-height: 1.6;
   font-weight: 300;
 }
@@ -219,12 +219,12 @@
 /* ── Legal line ── */
 .legal {
   font-size: .75rem;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
   line-height: 1.6;
   font-weight: 300;
 
   a {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.63);
     text-decoration: underline;
     text-underline-offset: 2px;
     &:hover { color: rgba(255,255,255,0.7); }

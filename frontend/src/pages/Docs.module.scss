@@ -30,7 +30,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: rgba(255,255,255,.25);
+  color: rgba(255,255,255,0.58);
   padding: 0 20px 16px;
   border-bottom: 1px solid rgba(255,255,255,.06);
   margin-bottom: 16px;
@@ -43,7 +43,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: rgba(255,255,255,.2);
+  color: rgba(255,255,255,0.57);
   padding: 0 20px 6px;
 }
 
@@ -51,7 +51,7 @@
   display: block;
   font-size: .84rem;
   font-weight: 400;
-  color: rgba(255,255,255,.38);
+  color: rgba(255,255,255,0.63);
   padding: 5px 20px;
   border-left: 2px solid transparent;
   transition: color var(--t-fast), background var(--t-fast);
@@ -96,7 +96,7 @@
 .lead {
   font-size: 1rem;
   line-height: 1.65;
-  color: rgba(255,255,255,.38);
+  color: rgba(255,255,255,0.63);
   max-width: 620px;
   margin-bottom: 32px;
   font-weight: 300;
@@ -141,7 +141,7 @@
   font-family: var(--font-mono);
   font-size: .9rem;
   font-weight: 400;
-  color: rgba(255,255,255,.25);
+  color: rgba(255,255,255,0.58);
   flex-shrink: 0;
   width: 28px;
 }
@@ -154,7 +154,7 @@
 
 .stepBody {
   font-size: .85rem;
-  color: rgba(255,255,255,.38);
+  color: rgba(255,255,255,0.63);
   line-height: 1.55;
   margin: 0;
   font-weight: 300;
@@ -199,7 +199,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,0.6);
 }
 
 .codeCopy {
@@ -211,7 +211,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,0.6);
   background: none;
   border: none;
   cursor: pointer;
@@ -273,7 +273,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: rgba(255,255,255,.3);
+    color: rgba(255,255,255,0.6);
     text-align: left;
     padding: 8px 12px;
     border-bottom: 1px solid rgba(255,255,255,.07);
@@ -326,7 +326,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: rgba(255,255,255,.25);
+  color: rgba(255,255,255,0.58);
   white-space: nowrap;
 }
 
@@ -371,7 +371,7 @@
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,0.6);
 }
 
 /* ── syntax colours (components/highlight.tsx) ── */

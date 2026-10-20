@@ -40,7 +40,7 @@
 .brandDesc {
   font-size: .82rem;
   line-height: 1.65;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   max-width: 280px;
 }
 
@@ -60,7 +60,7 @@
 }
 .footLink {
   font-size: .82rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.63);
   transition: color 0.15s ease;
   text-decoration: none;
   display: inline-flex;
@@ -80,7 +80,7 @@
 }
 .copy {
   font-size: .78rem;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
 }
 .bottomRight {
   display: flex;
@@ -96,5 +96,5 @@
 }
 .statusText {
   font-size: .78rem;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.58);
 }

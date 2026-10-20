@@ -17,6 +17,11 @@ updates:
     groups:
       npm-minor:
         update-types: [minor, patch]
+    ignore:
+      # eslint-plugin-react (last release April 2025) doesn't support ESLint 10
+      # yet, and its peer range makes `npm ci` fail. Drop this once it does.
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions

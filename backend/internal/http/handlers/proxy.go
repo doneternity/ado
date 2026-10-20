@@ -292,13 +292,17 @@ func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rp := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = target.Scheme
-			req.URL.Host = target.Host
-			req.URL.Path = strings.TrimRight(target.Path, "/") + "/realtime"
-			req.Host = target.Host
-			req.Header.Set("Authorization", "Bearer "+fwd.APIKey)
-			req.Header.Del("Cookie")
+		// Rewrite (unlike the old Director) starts from a copy with the inbound
+		// X-Forwarded-* headers removed and doesn't add the visitor's IP, so the
+		// provider never sees it. The query string is kept.
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.Out.URL.Scheme = target.Scheme
+			pr.Out.URL.Host = target.Host
+			pr.Out.URL.Path = strings.TrimRight(target.Path, "/") + "/realtime"
+			pr.Out.URL.RawPath = ""
+			pr.Out.Host = target.Host
+			pr.Out.Header.Set("Authorization", "Bearer "+fwd.APIKey)
+			pr.Out.Header.Del("Cookie")
 		},
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, e error) {
 			slog.Warn("realtime proxy failed", "err", e)

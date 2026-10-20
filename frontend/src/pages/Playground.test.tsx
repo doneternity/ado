@@ -4,6 +4,12 @@ import { MemoryRouter } from "react-router-dom";
 import { Playground } from "./Playground";
 
 let calls: { url: string; init?: RequestInit }[] = [];
+const DEFAULT_MODELS: Record<string, unknown>[] = [
+  { id: "deepseek-v4-pro", name: "DeepSeek-V4-Pro", owned_by: "deepseek", context_window: 1048576 },
+  { id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", owned_by: "deepseek", context_window: 1048576 },
+  { id: "glm-5.3", owned_by: "z-ai", ado_status: "degraded" },
+];
+let liveModels = DEFAULT_MODELS;
 let hasKey = true;
 
 function sse(...chunks: string[]) {
@@ -14,6 +20,8 @@ function sse(...chunks: string[]) {
 beforeEach(() => {
   calls = [];
   hasKey = true;
+  liveModels = DEFAULT_MODELS;
+  localStorage.clear();
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -27,7 +35,7 @@ beforeEach(() => {
         : json({ error: { code: "NOT_FOUND", message: "no active key" } }, 404);
     }
     if (url.includes("/api/playground/chat/completions")) return sse("Hel", "lo");
-    if (url.includes("/models")) return json({ data: [] });
+    if (url.includes("/models")) return json({ data: liveModels });
     return json({});
   }));
 });
@@ -54,6 +62,7 @@ describe("Playground", () => {
 
     expect(await screen.findByText("Hello")).toBeInTheDocument();
     const chat = calls.find((c) => c.url.includes("/api/playground/chat/completions"))!;
+    expect(JSON.parse(chat.init!.body as string).model).toBe("deepseek-v4-pro");
     const headers = chat.init!.headers as Record<string, string>;
     expect(chat.init!.credentials).toBe("include");
     expect(headers["X-CSRF-Token"]).toBe("csrf-123");
@@ -65,5 +74,50 @@ describe("Playground", () => {
     renderPage();
     expect(await screen.findByRole("link", { name: /Get one on the dashboard/ })).toHaveAttribute("href", "/dashboard");
     await waitFor(() => expect(screen.getByPlaceholderText("Get a key on the dashboard first")).toBeDisabled());
+  });
+
+  it("finds a model by search, picks it with the keyboard and remembers it", async () => {
+    renderPage();
+    const button = await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" });
+    fireEvent.click(button);
+
+    const search = screen.getByRole("combobox", { name: "Search models" });
+    fireEvent.change(search, { target: { value: "glm" } });
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent("GLM 5.3");
+    expect(options[0]).toHaveTextContent("Degraded");
+    expect(screen.getByRole("group", { name: "Z.ai" })).toBeInTheDocument();
+
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Model: GLM 5.3" })).toBeInTheDocument();
+    expect(localStorage.getItem("ado:playground-model")).toBe("glm-5.3");
+
+    const box = screen.getByPlaceholderText("Message…");
+    fireEvent.change(box, { target: { value: "hi" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(await screen.findByText("Hello")).toBeInTheDocument();
+    const chat = calls.find((c) => c.url.includes("/api/playground/chat/completions"))!;
+    expect(JSON.parse(chat.init!.body as string).model).toBe("glm-5.3");
+  });
+
+  it("starts on the remembered model", async () => {
+    localStorage.setItem("ado:playground-model", "deepseek-flash");
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Model: DeepSeek V4.1 Flash" })).toBeInTheDocument();
+  });
+
+  it("falls back to a served model when the remembered one is gone", async () => {
+    localStorage.setItem("ado:playground-model", "retired-model");
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" })).toBeInTheDocument();
+  });
+
+  it("says when no models are available instead of offering made-up ones", async () => {
+    liveModels = [];
+    renderPage();
+    expect(await screen.findByText("No models available")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose a model" })).toBeDisabled();
   });
 });

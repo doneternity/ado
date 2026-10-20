@@ -1,59 +1,45 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Send, Square, RotateCcw, ChevronDown, Settings2, X } from "lucide-react";
-import { useMe, useCurrentKey, usePublicModels } from "../api/queries";
+import { Send, Square, RotateCcw, ChevronDown, Settings2, X, Search, Check } from "lucide-react";
+import { useMe, useCurrentKey, useLiveModels } from "../api/queries";
 import { ApiError, getCsrfToken } from "../api/client";
-import { MODELS } from "../data/models";
+import { PROVIDER_NAME } from "../data/catalog";
+import { enrichAll } from "../data/model-meta";
+import type { EnrichedModel } from "../data/model-meta";
 import type { ModelProvider } from "../data/models";
 import styles from "./Playground.module.scss";
 
 type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string; id: number };
 
-type PickerModel = { id: string; name: string; provider: ModelProvider; tag?: string };
-
-const PROVIDER_LABEL: Record<ModelProvider, string> = {
-  claude:   "Anthropic",
-  gemini:   "Google",
-  deepseek: "DeepSeek",
-  openai:   "OpenAI",
-  xai:      "xAI",
-  zai:      "Z.ai",
-  moonshot: "Moonshot AI",
-  other:    "Other",
-};
-
 // Chats run as the signed-in user's own key through their session, so the
 // browser never needs the raw key (the backend only keeps its hash).
 const PLAYGROUND_URL = (import.meta.env.VITE_API_BASE_URL ?? "") + "/api/playground/chat/completions";
 
-function inferProvider(id: string): ModelProvider {
-  const key = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
-  if (/gemini|google|bard/i.test(key)) return "gemini";
-  if (/claude|anthropic/i.test(key)) return "claude";
-  if (/deepseek/i.test(key)) return "deepseek";
-  if (/gpt|openai|^o\d/i.test(key)) return "openai";
-  if (/grok|xai/i.test(key)) return "xai";
-  if (/glm|zhipu/i.test(key)) return "zai";
-  if (/kimi|moonshot/i.test(key)) return "moonshot";
-  return "other";
+// The last model picked here, so a reload keeps it.
+const MODEL_STORAGE_KEY = "ado:playground-model";
+
+function loadSavedModel(): string {
+  try {
+    return localStorage.getItem(MODEL_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 
-function toPickerModels(ids: string[]): PickerModel[] {
-  return ids.map(id => {
-    const static_ = MODELS.find(m => m.id === id);
-    if (static_) return { id, name: static_.name, provider: static_.provider, tag: static_.tag };
-    return {
-      id,
-      name: id
-        .replace(/^\[[^\]]+\]/, "")
-        .replace(/^[^/]*\//, "")
-        .replace(/[-_]/g, " ")
-        .replace(/\b\w/g, c => c.toUpperCase())
-        .trim() || id,
-      provider: inferProvider(id),
-    };
-  });
+function saveModel(id: string) {
+  try {
+    localStorage.setItem(MODEL_STORAGE_KEY, id);
+  } catch { /* storage blocked: the choice just won't survive a reload */ }
+}
+
+const STATUS_LABEL = { degraded: "Degraded", down: "Down" } as const;
+
+// Groups models by provider, in the order providers first appear.
+function groupByProvider(models: EnrichedModel[]): [ModelProvider, EnrichedModel[]][] {
+  const groups = new Map<ModelProvider, EnrichedModel[]>();
+  for (const m of models) groups.set(m.provider, [...(groups.get(m.provider) ?? []), m]);
+  return [...groups.entries()];
 }
 
 // Translate the backend's error code/status into a message that tells the user
@@ -151,71 +137,187 @@ async function streamCompletion(
 
 let msgIdCounter = 0;
 
-function ModelPicker({ value, onChange, models }: {
+// A searchable model menu: type to filter by name, ID or provider, arrow keys
+// to move, Enter to pick, Esc to close. Each row shows the model ID, context
+// size and live status, so you can tell models apart without the Models page.
+function ModelPicker({ value, onChange, models, loading }: {
   value: string;
   onChange: (id: string) => void;
-  models: PickerModel[];
+  models: EnrichedModel[];
+  loading: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const current = models.find(m => m.id === value) ?? models[0];
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const current = models.find(m => m.id === value);
 
   useEffect(() => {
     function handle(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, []);
 
-  const grouped = models.reduce<Record<string, PickerModel[]>>((acc, m) => {
-    const p = PROVIDER_LABEL[m.provider];
-    (acc[p] ??= []).push(m);
-    return acc;
-  }, {});
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matches = q
+      ? models.filter(m => [m.name, m.id, PROVIDER_NAME[m.provider]].some(s => s.toLowerCase().includes(q)))
+      : models;
+    return groupByProvider(matches);
+  }, [models, query]);
+  // Display order, which arrow keys follow.
+  const ordered = useMemo(() => groups.flatMap(([, ms]) => ms), [groups]);
 
-  if (!current) return null;
+  useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView?.({ block: "nearest" });
+  }, [active, open]);
+
+  function openMenu() {
+    setQuery("");
+    const all = groupByProvider(models).flatMap(([, ms]) => ms);
+    setActive(Math.max(0, all.findIndex(m => m.id === value)));
+    setOpen(true);
+  }
+
+  function close() {
+    setOpen(false);
+    btnRef.current?.focus();
+  }
+
+  function choose(m: EnrichedModel) {
+    onChange(m.id);
+    close();
+  }
+
+  function onSearchKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive(a => Math.min(a + 1, ordered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive(a => Math.max(a - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const m = ordered[active];
+      if (m) choose(m);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    }
+  }
+
+  const listId = "playground-model-list";
 
   return (
-    <div className={styles.pickerWrap} ref={ref}>
+    <div className={styles.pickerWrap} ref={wrapRef}>
       <button
+        ref={btnRef}
         className={styles.pickerBtn}
-        onClick={() => setOpen(v => !v)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={e => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); openMenu(); } }}
+        aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={current ? `Model: ${current.name}` : "Choose a model"}
+        disabled={!models.length}
       >
-        <span className={`${styles.pickerDot} ${styles[`dot_${current.provider}`]}`} />
-        <span className={styles.pickerLabel}>{current.name}</span>
-        {current.tag && <span className={styles.pickerTag}>{current.tag}</span>}
+        {current ? (
+          <>
+            <span className={`${styles.pickerDot} ${styles[`dot_${current.provider}`]}`} />
+            <span className={styles.pickerLabel}>{current.name}</span>
+            {current.adoStatus !== "available" && (
+              <span className={`${styles.pickerStatus} ${styles[`pickerStatus_${current.adoStatus}`]}`}>
+                {STATUS_LABEL[current.adoStatus]}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className={styles.pickerLabel}>{loading ? "Loading models…" : "No models available"}</span>
+        )}
         <ChevronDown size={12} className={`${styles.pickerCaret}${open ? ` ${styles.pickerCaretOpen}` : ""}`} />
       </button>
 
       {open && (
         <div className={styles.pickerDropdown}>
-          {Object.entries(grouped).map(([provider, ms]) => (
-            <div key={provider} className={styles.pickerGroup}>
-              <span className={styles.pickerGroupLabel}>{provider}</span>
-              {ms.map(m => (
-                <button
-                  key={m.id}
-                  className={`${styles.pickerOption}${m.id === value ? ` ${styles.pickerOptionActive}` : ""}`}
-                  onClick={() => { onChange(m.id); setOpen(false); }}
-                >
-                  <span className={`${styles.pickerDot} ${styles[`dot_${m.provider}`]}`} />
-                  <span>{m.name}</span>
-                  {m.tag && <span className={styles.pickerOptionTag}>{m.tag}</span>}
-                </button>
-              ))}
-            </div>
-          ))}
+          <div className={styles.pickerSearch}>
+            <Search size={13} />
+            <input
+              autoFocus
+              value={query}
+              onChange={e => { setQuery(e.target.value); setActive(0); }}
+              onKeyDown={onSearchKey}
+              placeholder={`Search ${models.length} model${models.length === 1 ? "" : "s"}`}
+              aria-label="Search models"
+              aria-controls={listId}
+              aria-activedescendant={ordered[active] ? `${listId}-${active}` : undefined}
+              role="combobox"
+              aria-expanded
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+
+          <div className={styles.pickerList} id={listId} role="listbox" aria-label="Models" ref={listRef}>
+            {ordered.length === 0 && <p className={styles.pickerEmpty}>No models match &ldquo;{query.trim()}&rdquo;.</p>}
+            {groups.map(([provider, ms]) => (
+              <div key={provider} className={styles.pickerGroup} role="group" aria-label={PROVIDER_NAME[provider]}>
+                <span className={styles.pickerGroupLabel}>
+                  {PROVIDER_NAME[provider]}
+                  <span className={styles.pickerGroupCount}>{ms.length}</span>
+                </span>
+                {ms.map(m => {
+                  const i = ordered.indexOf(m);
+                  const selected = m.id === value;
+                  return (
+                    <div
+                      key={m.id}
+                      id={`${listId}-${i}`}
+                      data-index={i}
+                      role="option"
+                      aria-selected={selected}
+                      title={m.description || undefined}
+                      className={[
+                        styles.pickerOption,
+                        i === active ? styles.pickerOptionFocus : "",
+                        selected ? styles.pickerOptionActive : "",
+                      ].filter(Boolean).join(" ")}
+                      onMouseEnter={() => setActive(i)}
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => choose(m)}
+                    >
+                      <span className={`${styles.pickerDot} ${styles[`dot_${m.provider}`]}`} />
+                      <span className={styles.pickerOptionText}>
+                        <span className={styles.pickerOptionName}>
+                          {m.name}
+                          {m.tag && <span className={styles.pickerOptionTag}>{m.tag}</span>}
+                        </span>
+                        <span className={styles.pickerOptionMeta}>
+                          {m.id}{m.context && ` · ${m.context}`}
+                        </span>
+                      </span>
+                      {m.adoStatus !== "available" && (
+                        <span className={`${styles.pickerStatus} ${styles[`pickerStatus_${m.adoStatus}`]}`}>
+                          {STATUS_LABEL[m.adoStatus]}
+                        </span>
+                      )}
+                      {selected && <Check size={13} className={styles.pickerCheck} />}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
-
-const STATIC_MODELS: PickerModel[] = MODELS.map(m => ({
-  id: m.id, name: m.name, provider: m.provider, tag: m.tag,
-}));
 
 export function Playground() {
   const { data: me } = useMe();
@@ -225,15 +327,14 @@ export function Playground() {
   const noKey = currentKey.error instanceof ApiError && currentKey.error.status === 404;
   const refetchKey = currentKey.refetch;
 
-  // The full model list comes from the public /models endpoint (no key needed),
-  // so the picker always reflects the live provider — not the curated subset.
-  const { data: liveIds } = usePublicModels();
-  const pickerModels = useMemo<PickerModel[]>(
-    () => (liveIds && liveIds.length ? toPickerModels(liveIds) : STATIC_MODELS),
-    [liveIds],
-  );
+  // The model list comes from the public /models endpoint (no key needed),
+  // enriched the same way as the Models page. Only models ADO actually serves
+  // are offered, never the curated catalogue.
+  const { data: live, isLoading: modelsLoading } = useLiveModels();
+  const pickerModels = useMemo(() => enrichAll(live ?? []), [live]);
 
-  const [model, setModel]           = useState(MODELS[0]!.id);
+  const [model, setModelState]      = useState(loadSavedModel);
+  const setModel = useCallback((id: string) => { setModelState(id); saveModel(id); }, []);
   const [systemPrompt, setSystem]   = useState("");
   const [showSystem, setShowSys]    = useState(false);
   const [messages, setMessages]     = useState<Msg[]>([]);
@@ -248,10 +349,12 @@ export function Playground() {
   // abort any in-flight stream on unmount
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Keep the selected model valid as the live list loads/changes.
+  // Keep the selected model valid as the live list loads/changes: the saved
+  // choice if it's still served, else the first model that isn't down. Not
+  // saved, so a model that's briefly missing is picked again once it's back.
   useEffect(() => {
     if (pickerModels.length && !pickerModels.find(m => m.id === model)) {
-      setModel(pickerModels[0]!.id);
+      setModelState((pickerModels.find(m => m.adoStatus !== "down") ?? pickerModels[0]!).id);
     }
   }, [pickerModels, model]);
 
@@ -268,7 +371,7 @@ export function Playground() {
 
   const send = useCallback(async () => {
     const text = input.trim();
-    if (!text || streaming || noKey) return;
+    if (!text || streaming || noKey || !pickerModels.some(m => m.id === model)) return;
     setError(null);
 
     const userMsg: Msg = { role: "user", content: text, id: ++msgIdCounter };
@@ -304,7 +407,7 @@ export function Playground() {
     if (abortRef.current === controller) abortRef.current = null;
     // The key may have been revoked or rotated meanwhile; refresh what we show.
     void refetchKey();
-  }, [input, streaming, noKey, model, messages, systemPrompt, refetchKey]);
+  }, [input, streaming, noKey, pickerModels, model, messages, systemPrompt, refetchKey]);
 
   // stop a running generation; the partial reply stays in the transcript
   const stop = useCallback(() => {
@@ -325,9 +428,9 @@ export function Playground() {
     setError(null);
   }
 
-  const canSend     = !noKey && input.trim().length > 0 && !streaming;
+  const currentModel = pickerModels.find(m => m.id === model);
+  const canSend     = !noKey && !!currentModel && input.trim().length > 0 && !streaming;
   const empty       = messages.length === 0;
-  const currentModel = pickerModels.find(m => m.id === model) ?? pickerModels[0];
 
   return (
     <div className={styles.page}>
@@ -339,7 +442,7 @@ export function Playground() {
           {me && <span className={styles.subtitle}>{me.user.email}</span>}
         </div>
         <div className={styles.controls}>
-          <ModelPicker value={model} onChange={setModel} models={pickerModels} />
+          <ModelPicker value={model} onChange={setModel} models={pickerModels} loading={modelsLoading} />
 
           <button
             className={`${styles.ctrlBtn}${showSystem ? ` ${styles.ctrlBtnActive}` : ""}`}
@@ -409,6 +512,7 @@ export function Playground() {
                 </>
               )}
             </p>
+            {currentModel?.description && <p className={styles.emptyDesc}>{currentModel.description}</p>}
             <div className={styles.emptyHints}>
               <span>Enter to send</span>
               <span>Shift+Enter for newline</span>

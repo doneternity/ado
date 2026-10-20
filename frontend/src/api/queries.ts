@@ -4,6 +4,7 @@ import { apiFetch, ApiError, setCsrfToken } from "./client";
 import { clearRawKey, loadRawKey, saveRawKey } from "./raw-key-storage";
 import { pickSampleModel } from "../data/sample-model";
 import { joinNames, summarizeProviders } from "../data/catalog";
+import type { LiveModel } from "../data/model-meta";
 
 export const meKey = ["me"] as const;
 export const currentKeyKey = ["keys", "current"] as const;
@@ -13,20 +14,29 @@ export const publicModelsKey = ["models", "public"] as const;
 export type ModelStatus = "available" | "degraded" | "down";
 export type PublicModel = { id: string; status: ModelStatus };
 
-// Shared, cached fetch of the public model list (no key required). Both hooks
+// Shared, cached fetch of the public model list (no key required). The hooks
 // below read the same cache entry, so the list is fetched once per page.
 const publicModelsQuery = {
   queryKey: publicModelsKey,
-  queryFn: async (): Promise<PublicModel[]> => {
+  queryFn: async (): Promise<LiveModel[]> => {
     const r = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/models");
-    const d = (await r.json()) as { data?: { id: string; ado_status?: ModelStatus }[] };
-    return (d.data ?? []).map((m) => ({ id: m.id, status: m.ado_status ?? "available" }));
+    const d = (await r.json()) as { data?: LiveModel[] };
+    return d.data ?? [];
   },
   staleTime: 5 * 60_000,
 };
 
+const toIds = (ms: LiveModel[]) => ms.map((m) => m.id);
+const toStatuses = (ms: LiveModel[]): PublicModel[] =>
+  ms.map((m) => ({ id: m.id, status: m.ado_status ?? "available" }));
+
 export function usePublicModels() {
-  return useQuery({ ...publicModelsQuery, select: (ms: PublicModel[]) => ms.map((m) => m.id) });
+  return useQuery({ ...publicModelsQuery, select: toIds });
+}
+
+// The full live entries (names, context sizes, status), for enrichAll.
+export function useLiveModels() {
+  return useQuery(publicModelsQuery);
 }
 
 // The live catalogue as marketing copy needs it: how many models, from which
@@ -40,7 +50,7 @@ export function useCatalog() {
 }
 
 export function usePublicModelStatuses() {
-  return useQuery(publicModelsQuery);
+  return useQuery({ ...publicModelsQuery, select: toStatuses });
 }
 
 // The example model ID for docs/snippets — live-resolved with a static fallback.

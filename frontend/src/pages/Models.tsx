@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Copy, Check, Zap, Brain, Eye, Wrench, Layers, Search, RefreshCw } from "lucide-react";
+import { Copy, Check, Zap, Brain, Eye, Wrench, Layers, Search, RefreshCw, Code2 } from "lucide-react";
+import { ModelCodeDialog } from "../components/ModelCodeDialog";
 import type { ModelDef, Capability } from "../data/models";
 import { enrichAll } from "../data/model-meta";
 import { PROVIDER_NAME } from "../data/catalog";
@@ -64,6 +65,7 @@ export function Models() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [codeFor, setCodeFor] = useState<EnrichedModel | null>(null);
 
   useEffect(() => { doLoad(); }, []);
 
@@ -213,6 +215,8 @@ export function Models() {
               key={model.id}
               custom={i}
               variants={cardVariants}
+              // Clicking the card opens its code; the buttons inside keep their own action.
+              onClick={e => { if (!(e.target as HTMLElement).closest("button, a")) setCodeFor(model); }}
               className={[
                 styles.card,
                 featured ? styles.featured : "",
@@ -241,6 +245,7 @@ export function Models() {
               </div>
 
               <h3 className={styles.modelName}>{model.name}</h3>
+              {model.description && <p className={styles.modelDesc}>{model.description}</p>}
 
               <div className={styles.meta}>
                 {model.context && <span className={styles.context}>{model.context}</span>}
@@ -255,12 +260,20 @@ export function Models() {
                 )}
               </div>
 
-              <CopyId id={model.id} />
+              <div className={styles.cardFoot}>
+                <CopyId id={model.id} />
+                <button type="button" className={styles.codeBtn} onClick={() => setCodeFor(model)} aria-label={`Code for ${model.name}`}>
+                  <Code2 size={13} />
+                  <span>Code</span>
+                </button>
+              </div>
             </motion.div>
           );
         })}
       </motion.div>
       )}
+
+      {codeFor && <ModelCodeDialog model={codeFor} onClose={() => setCodeFor(null)} />}
 
       <section className={styles.ctaStrip}>
         <h2 className={styles.ctaHeadline}>one key for all of them.</h2>

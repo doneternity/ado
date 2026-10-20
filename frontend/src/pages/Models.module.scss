@@ -21,7 +21,7 @@
   font-size: 1rem;
   line-height: 1.65;
   max-width: 540px;
-  color: rgba(255,255,255,.38);
+  color: rgba(255,255,255,0.63);
   margin-bottom: 28px;
   font-weight: 300;
 }
@@ -100,7 +100,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: rgba(255,255,255,.28);
+  color: rgba(255,255,255,0.59);
 }
 
 .statVal {
@@ -127,6 +127,12 @@
 .searchWrap {
   position: relative;
   flex-shrink: 0;
+
+  // Phones: the search gets its own full-width row under the filters.
+  @media (max-width: 600px) {
+    width: 100%;
+    .searchInput { width: 100%; box-sizing: border-box; }
+  }
 }
 
 .searchIcon {
@@ -134,7 +140,7 @@
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,0.6);
   pointer-events: none;
 }
 
@@ -149,15 +155,15 @@
   outline: none;
   width: 210px;
   transition: border-color var(--t-fast);
-  &:focus { border-color: rgba(255,255,255,.2); }
-  &::placeholder { color: rgba(255,255,255,.2); }
+  &:focus { border-color: rgba(236,168,214,.55); }
+  &::placeholder { color: rgba(255,255,255,0.45); }
   @media (max-width: 640px) { width: 100%; }
 }
 
 /* ── static note ── */
 .staticNote {
   font-size: .75rem;
-  color: rgba(255,255,255,.22);
+  color: rgba(255,255,255,0.57);
   margin-top: -32px;
   margin-bottom: 0;
   font-weight: 300;
@@ -287,6 +293,40 @@
   margin: 0;
 }
 
+.modelDesc {
+  margin: -4px 0 0;
+  font-size: .8rem;
+  line-height: 1.5;
+  color: rgba(255,255,255,.6);
+}
+
+.card { cursor: pointer; }
+
+.cardFoot {
+  display: flex;
+  gap: 6px;
+
+  .copyBtn { flex: 1; min-width: 0; width: auto; }
+}
+
+.codeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,.03);
+  color: rgba(255,255,255,.75);
+  font-family: inherit;
+  font-size: .74rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color var(--t-fast), color var(--t-fast);
+
+  &:hover { border-color: rgba(236,168,214,.4); color: var(--accent); }
+}
+
 /* ── meta ── */
 .meta { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
 
@@ -296,7 +336,7 @@
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: .05em;
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,0.6);
 }
 
 .caps { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -308,7 +348,7 @@
   font-family: var(--font-body);
   font-size: .72rem;
   font-weight: 400;
-  color: rgba(255,255,255,.32);
+  color: rgba(255,255,255,0.61);
   border: 1px solid rgba(255,255,255,.07);
   border-radius: var(--r-pill);
   padding: 2px 8px;

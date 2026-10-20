@@ -1,50 +1,10 @@
-import { memo, useState, type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { memo, type ComponentPropsWithoutRef, type ReactElement } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy } from "lucide-react";
-import { highlight } from "./highlight";
+import { CodeBlock } from "./CodeBlock";
 import styles from "./Markdown.module.scss";
 
-const TOKENS = {
-  comment: styles.tokComment,
-  string: styles.tokString,
-  key: styles.tokKey,
-  keyword: styles.tokKeyword,
-  number: styles.tokNumber,
-  flag: styles.tokFlag,
-};
-
-// Copies text and shows a tick for a moment. Clipboard access can be refused
-// (permissions, insecure context), in which case nothing changes.
-export function useCopy(): [boolean, (text: string) => void] {
-  const [copied, setCopied] = useState(false);
-  function copy(text: string) {
-    navigator.clipboard?.writeText(text).then(
-      () => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      },
-      () => { /* refused: leave the button as it is */ },
-    );
-  }
-  return [copied, copy];
-}
-
-function CodeBlock({ code, lang }: { code: string; lang?: string }) {
-  const [copied, copy] = useCopy();
-  return (
-    <div className={styles.codeBlock}>
-      <div className={styles.codeHeader}>
-        <span className={styles.codeLang}>{lang || "text"}</span>
-        <button type="button" className={styles.codeCopy} onClick={() => copy(code)} aria-label="Copy code">
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          <span>{copied ? "Copied" : "Copy"}</span>
-        </button>
-      </div>
-      <pre className={styles.pre}><code>{highlight(code, lang, TOKENS)}</code></pre>
-    </div>
-  );
-}
+export { useCopy } from "./CodeBlock";
 
 const components: Components = {
   // Fenced code: react-markdown wraps it as <pre><code class="language-x">.

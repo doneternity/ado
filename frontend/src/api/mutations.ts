@@ -3,6 +3,7 @@ import type { AuthResponse, CurrentKeyResponse, KeyJustIssued, MeResponse } from
 import { apiFetch, setCsrfToken } from "./client";
 import { meKey, rawKeyKey, currentKeyKey } from "./queries";
 import { clearRawKey, saveRawKey } from "./raw-key-storage";
+import { clearSavedChats } from "./playground-storage";
 
 function adoptAuthResponse(qc: ReturnType<typeof useQueryClient>, r: AuthResponse) {
   setCsrfToken(r.csrfToken);
@@ -24,6 +25,7 @@ export function useLogout() {
       qc.setQueryData(rawKeyKey, null);
       qc.removeQueries({ queryKey: currentKeyKey });
       clearRawKey();
+      clearSavedChats();
     },
   });
 }
@@ -71,6 +73,7 @@ export function useDeleteAccount() {
       qc.setQueryData(rawKeyKey, null);
       qc.removeQueries({ queryKey: currentKeyKey });
       clearRawKey();
+      clearSavedChats();
     },
   });
 }

@@ -50,7 +50,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Cookies",
-    body: "We only use the cookies and browser storage needed to keep you signed in, show your key on your dashboard, and remember your settings. No advertising or tracking cookies.",
+    body: "We only use the cookies and browser storage needed to keep you signed in, show your key on your dashboard, remember your settings, and keep your Playground chat on your own device until you clear it or sign out. No advertising or tracking cookies.",
   },
   {
     title: "Children",

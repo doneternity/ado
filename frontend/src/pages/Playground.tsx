@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { Send, Square, RotateCcw, ChevronDown, Settings2, X, Search, Check, Copy, Pencil, RefreshCw, Brain } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Send, Square, RotateCcw, ChevronDown, Settings2, SlidersHorizontal, X, Search, Check, Copy, Pencil, RefreshCw, Brain } from "lucide-react";
 import { Markdown, useCopy } from "../components/Markdown";
 import { splitThink } from "../data/think";
+import { fmtDuration, localTime, quotaState } from "../data/quota";
+import { loadChat, saveChat, loadSettings, saveSettings, DEFAULT_SETTINGS } from "../api/playground-storage";
+import type { GenSettings } from "../api/playground-storage";
 import { useMe, useCurrentKey, useLiveModels } from "../api/queries";
 import { ApiError, getCsrfToken } from "../api/client";
 import { PROVIDER_NAME } from "../data/catalog";
@@ -148,8 +151,11 @@ function friendlyError(status: number, code: string, rawMsg: string, model: stri
       return `No upstream provider could serve "${model}" right now. This is on the provider side, not your key. Try another model or try again shortly.`;
     case "MAINTENANCE":
       return "ADO is in maintenance mode right now. Please try again in a few minutes.";
-    case "QUOTA_EXCEEDED":
-      return "You've hit your daily request quota. It resets at UTC midnight.";
+    case "QUOTA_EXCEEDED": {
+      const now = new Date();
+      const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
+      return `You've used all of today's requests. More are available in ${fmtDuration(new Date(reset).getTime() - now.getTime())}, at ${localTime(reset)} your time.`;
+    }
     case "RATE_LIMITED":
       return "You're sending requests too quickly. Wait a moment and try again.";
     case "BANNED":
@@ -170,8 +176,12 @@ function friendlyError(status: number, code: string, rawMsg: string, model: stri
   return rawMsg || `Request failed (HTTP ${status}).`;
 }
 
+// Model plus the optional generation settings; unset ones are left out so
+// the provider uses its own defaults.
+type ChatParams = { model: string; temperature?: number; max_tokens?: number; reasoning_effort?: string };
+
 async function streamCompletion(
-  model: string,
+  params: ChatParams,
   messages: Pick<Msg, "role" | "content">[],
   signal: AbortSignal,
   onDelta: (content: string, reasoning: string) => void,
@@ -186,7 +196,7 @@ async function streamCompletion(
         "Content-Type": "application/json",
         "X-CSRF-Token": getCsrfToken() ?? "",
       },
-      body: JSON.stringify({ model, messages, stream: true }),
+      body: JSON.stringify({ ...params, messages, stream: true }),
       signal,
     });
 
@@ -198,7 +208,7 @@ async function streamCompletion(
         rawMsg = j.error?.message ?? "";
         code = j.error?.code ?? "";
       } catch { /* ignore */ }
-      onError(friendlyError(resp.status, code, rawMsg, model), resp.status);
+      onError(friendlyError(resp.status, code, rawMsg, params.model), resp.status);
       return;
     }
 
@@ -238,6 +248,93 @@ async function streamCompletion(
 }
 
 let msgIdCounter = 0;
+
+function isDefault(s: GenSettings) {
+  return s.temperature === null && s.maxTokens === null && s.effort === null;
+}
+
+// Generation settings. Anything left on Default isn't sent, so the provider's
+// own default applies. Reasoning effort only shows for models that list levels.
+function SettingsPanel({ value, onChange, onClose, effortLevels, effortDefault }: {
+  value: GenSettings;
+  onChange: (s: GenSettings) => void;
+  onClose: () => void;
+  effortLevels?: string[];
+  effortDefault?: string;
+}) {
+  const t = value.temperature;
+  return (
+    <div className={styles.sysPanel}>
+      <div className={styles.sysPanelHeader}>
+        <span className={styles.sysLabel}>Settings</span>
+        <button className={styles.sysClose} onClick={onClose} aria-label="Close settings">
+          <X size={12} />
+        </button>
+      </div>
+      <div className={styles.settingsGrid}>
+        <div className={styles.setting}>
+          <label className={styles.settingName} htmlFor="pg-temperature">
+            Temperature
+            <span className={styles.settingValue}>{t === null ? "Default" : t.toFixed(1)}</span>
+          </label>
+          <input
+            id="pg-temperature"
+            type="range"
+            min={0}
+            max={2}
+            step={0.1}
+            value={t ?? 1}
+            onChange={e => onChange({ ...value, temperature: Number(e.target.value) })}
+            className={styles.settingRange}
+          />
+          <span className={styles.settingHint}>Lower is more focused, higher is more varied.</span>
+        </div>
+
+        <div className={styles.setting}>
+          <label className={styles.settingName} htmlFor="pg-max-tokens">Max tokens</label>
+          <input
+            id="pg-max-tokens"
+            type="number"
+            min={1}
+            step={1}
+            inputMode="numeric"
+            placeholder="Default"
+            value={value.maxTokens ?? ""}
+            onChange={e => {
+              const n = parseInt(e.target.value, 10);
+              onChange({ ...value, maxTokens: Number.isFinite(n) && n > 0 ? n : null });
+            }}
+            className={styles.settingInput}
+          />
+          <span className={styles.settingHint}>The longest reply allowed. Empty uses the model&apos;s default.</span>
+        </div>
+
+        {effortLevels && (
+          <div className={styles.setting} role="group" aria-labelledby="pg-effort">
+            <span className={styles.settingName} id="pg-effort">Reasoning effort</span>
+            <div className={styles.segmented}>
+              {[null, ...effortLevels].map(level => (
+                <button
+                  type="button"
+                  key={level ?? "default"}
+                  aria-pressed={value.effort === level}
+                  className={`${styles.segment}${value.effort === level ? ` ${styles.segmentOn}` : ""}`}
+                  onClick={() => onChange({ ...value, effort: level })}
+                >
+                  {level ?? `Default${effortDefault ? ` (${effortDefault})` : ""}`}
+                </button>
+              ))}
+            </div>
+            <span className={styles.settingHint}>How much the model thinks before it answers.</span>
+          </div>
+        )}
+      </div>
+      <button type="button" className={styles.settingsReset} onClick={() => onChange(DEFAULT_SETTINGS)} disabled={isDefault(value)}>
+        Reset to defaults
+      </button>
+    </div>
+  );
+}
 
 // A searchable model menu: type to filter by name, ID or provider, arrow keys
 // to move, Enter to pick, Esc to close. Each row shows the model ID, context
@@ -439,6 +536,9 @@ export function Playground() {
   const setModel = useCallback((id: string) => { setModelState(id); saveModel(id); }, []);
   const [systemPrompt, setSystem]   = useState("");
   const [showSystem, setShowSys]    = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettingsState] = useState<GenSettings>(loadSettings);
+  const setSettings = useCallback((s: GenSettings) => { setSettingsState(s); saveSettings(s); }, []);
   const [messages, setMessages]     = useState<Msg[]>([]);
   const [input, setInput]           = useState("");
   const [streaming, setStreaming]   = useState(false);
@@ -454,14 +554,47 @@ export function Playground() {
   // abort any in-flight stream on unmount
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // Restore this account's saved chat once we know who's signed in, then keep
+  // it saved in this browser (shortly after each change, so a streaming reply
+  // is kept as far as it got if the page is closed).
+  const userId = me?.user.id;
+  const [restoredFor, setRestoredFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId || restoredFor === userId) return;
+    const saved = loadChat<Msg>(userId);
+    if (saved) {
+      setMessages(saved.messages);
+      setSystem(saved.systemPrompt);
+      if (saved.systemPrompt) setShowSys(true);
+      msgIdCounter = Math.max(msgIdCounter, ...saved.messages.map(m => m.id));
+    }
+    setRestoredFor(userId);
+  }, [userId, restoredFor]);
+  useEffect(() => {
+    if (!userId || restoredFor !== userId) return;
+    const t = setTimeout(() => saveChat(userId, { messages, systemPrompt }), 400);
+    return () => clearTimeout(t);
+  }, [userId, restoredFor, messages, systemPrompt]);
+
+  // A link like /playground?model=glm-5.3 (from a Models page card) picks
+  // that model once the list has loaded, then tidies the URL.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const wantedModel = searchParams.get("model");
+  useEffect(() => {
+    if (!wantedModel || !pickerModels.length) return;
+    if (pickerModels.some(m => m.id === wantedModel)) setModel(wantedModel);
+    setSearchParams(p => { p.delete("model"); return p; }, { replace: true });
+  }, [wantedModel, pickerModels, setModel, setSearchParams]);
+
   // Keep the selected model valid as the live list loads/changes: the saved
   // choice if it's still served, else the first model that isn't down. Not
   // saved, so a model that's briefly missing is picked again once it's back.
   useEffect(() => {
+    if (wantedModel) return; // a linked model is about to be picked
     if (pickerModels.length && !pickerModels.find(m => m.id === model)) {
       setModelState((pickerModels.find(m => m.adoStatus !== "down") ?? pickerModels[0]!).id);
     }
-  }, [pickerModels, model]);
+  }, [pickerModels, model, wantedModel]);
 
   useEffect(() => {
     if (stickRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
@@ -479,7 +612,8 @@ export function Playground() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
-  const canRun = !streaming && !noKey && pickerModels.some(m => m.id === model);
+  const quota = currentKey.data ? quotaState(currentKey.data.used, currentKey.data.dailyLimit) : null;
+  const canRun = !streaming && !noKey && !quota?.exhausted && pickerModels.some(m => m.id === model);
 
   // Streams a new reply after `base`, which ends with the user's message.
   // send, regenerate and edit all come through here.
@@ -503,8 +637,14 @@ export function Playground() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const params: ChatParams = { model };
+    if (settings.temperature !== null) params.temperature = settings.temperature;
+    if (settings.maxTokens !== null) params.max_tokens = settings.maxTokens;
+    const levels = pickerModels.find(m => m.id === model)?.effortLevels;
+    if (settings.effort && levels?.includes(settings.effort)) params.reasoning_effort = settings.effort;
+
     await streamCompletion(
-      model, history, controller.signal,
+      params, history, controller.signal,
       (content, reasoning) => {
         const now = Date.now();
         setMessages((prev) => prev.map((m) => {
@@ -526,7 +666,7 @@ export function Playground() {
     if (abortRef.current === controller) abortRef.current = null;
     // The key may have been revoked or rotated meanwhile; refresh what we show.
     void refetchKey();
-  }, [canRun, model, systemPrompt, refetchKey]);
+  }, [canRun, model, settings, pickerModels, systemPrompt, refetchKey]);
 
   const send = useCallback(() => {
     const text = input.trim();
@@ -584,7 +724,11 @@ export function Playground() {
       <div className={styles.topBar}>
         <div className={styles.topLeft}>
           <span className={styles.title}>playground</span>
-          {me && <span className={styles.subtitle}>{me.user.email}</span>}
+          {quota && !quota.exhausted && (
+            <span className={styles.subtitle} title="Chats here count toward your key's daily quota">
+              {quota.used} / {quota.limit} today
+            </span>
+          )}
         </div>
         <div className={styles.controls}>
           <ModelPicker value={model} onChange={setModel} models={pickerModels} loading={modelsLoading} />
@@ -599,6 +743,18 @@ export function Playground() {
           </button>
 
           <button
+            className={`${styles.ctrlBtn}${showSettings ? ` ${styles.ctrlBtnActive}` : ""}`}
+            onClick={() => setShowSettings(v => !v)}
+            title="Settings"
+            aria-label={isDefault(settings) ? "Settings" : "Settings (changed)"}
+            aria-expanded={showSettings}
+          >
+            <SlidersHorizontal size={13} />
+            <span>Settings</span>
+            {!isDefault(settings) && <span className={styles.ctrlDot} aria-hidden="true" />}
+          </button>
+
+          <button
             className={styles.ctrlBtn}
             onClick={clearChat}
             disabled={empty && !error}
@@ -609,7 +765,7 @@ export function Playground() {
         </div>
       </div>
 
-      {/* ── Key banner ── */}
+      {/* ── Key banner: only when there's no key, or today's quota is used up ── */}
       {noKey ? (
         <div className={styles.keyBanner}>
           <span className={styles.keyLabel}>ADO Key</span>
@@ -617,11 +773,13 @@ export function Playground() {
             You don&apos;t have an active key right now. <Link to="/dashboard" className={styles.keyLink}>Get one on the dashboard</Link>, then come back.
           </span>
         </div>
-      ) : currentKey.data && (
-        <div className={styles.keyBanner}>
-          <span className={styles.keyLabel}>ADO Key</span>
-          <code className={styles.keyPrefix}>{currentKey.data.keyPrefix}…</code>
-          <span className={styles.keyHint}>Chats here use your current key and count toward its daily quota.</span>
+      ) : currentKey.data && quota?.exhausted && (
+        <div className={`${styles.keyBanner} ${styles.keyBannerLimit}`} role="status">
+          <span className={styles.keyLabel}>Daily limit reached</span>
+          <span className={styles.keyHintStrong}>
+            You&apos;ve used all {quota.limit} requests for today. More are available in{" "}
+            {fmtDuration(new Date(currentKey.data.resetsAt).getTime() - Date.now())}, at {localTime(currentKey.data.resetsAt)} your time.
+          </span>
         </div>
       )}
 
@@ -642,6 +800,16 @@ export function Playground() {
             rows={3}
           />
         </div>
+      )}
+
+      {showSettings && (
+        <SettingsPanel
+          value={settings}
+          onChange={setSettings}
+          onClose={() => setShowSettings(false)}
+          effortLevels={currentModel?.effortLevels}
+          effortDefault={currentModel?.effortDefault}
+        />
       )}
 
       {/* ── Messages ── */}
@@ -754,8 +922,8 @@ export function Playground() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder={noKey ? "Get a key on the dashboard first" : "Message…"}
-            disabled={noKey || streaming}
+            placeholder={noKey ? "Get a key on the dashboard first" : quota?.exhausted ? "Daily limit reached" : "Message…"}
+            disabled={noKey || streaming || !!quota?.exhausted}
             rows={1}
           />
           <div className={styles.inputFooter}>

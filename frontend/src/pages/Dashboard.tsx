@@ -7,8 +7,9 @@ import {
   Activity, Shield, BookOpen, Zap, Terminal,
   Lock, ChevronRight, Code, Brain,
 } from "lucide-react";
-import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels, useMyUsageByModel } from "../api/queries";
+import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels, usePublicModelStatuses, useMyUsageByModel } from "../api/queries";
 import { compact } from "../data/format";
+import { fmtDuration, localTime, quotaState } from "../data/quota";
 import { MODELS } from "../data/models";
 import { prettyName } from "../data/model-meta";
 import { useRotateKey, useDeleteAccount, useSetReasoningMode } from "../api/mutations";
@@ -49,55 +50,114 @@ const fade = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.24, ease: "easeOut" as const } },
 };
 
-function fmt(n: number) { return String(n).padStart(2, "0"); }
+const HEALTH_TEXT: Record<ServiceStatus["tone"], string> = {
+  ok: "All models live",
+  warn: "Some models degraded",
+  down: "Models unavailable",
+  unknown: "Checking…",
+};
 
-function useCountdown(toIso: string | undefined) {
+// Re-renders every `ms` so relative times ("resets in 6h 12m") stay current.
+function useNow(ms = 30_000) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setNow(Date.now()), ms);
     return () => clearInterval(id);
-  }, []);
-  if (!toIso) return "--:--:--";
-  const diff = Math.max(0, new Date(toIso).getTime() - now);
-  const h = Math.floor(diff / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  const s = Math.floor((diff % 60_000) / 1000);
-  return `${fmt(h)}:${fmt(m)}:${fmt(s)}`;
+  }, [ms]);
+  return now;
+}
+
+type ServiceStatus = { tone: "ok" | "warn" | "down" | "unknown"; label: string; detail: string };
+
+// What the live model list says right now, never a fixed "all systems live".
+function useServiceStatus(): ServiceStatus {
+  const { data, isError } = usePublicModelStatuses();
+  if (isError) return { tone: "unknown", label: "Unknown", detail: "status couldn't be checked" };
+  if (!data) return { tone: "unknown", label: "Checking", detail: "checking the models" };
+  if (data.length === 0) return { tone: "down", label: "Down", detail: "no models are being served" };
+  const trouble = data.filter((m) => m.status !== "available").length;
+  if (data.every((m) => m.status === "down")) return { tone: "down", label: "Down", detail: "no models are answering" };
+  if (trouble > 0) return { tone: "warn", label: "Degraded", detail: `${trouble} of ${data.length} models having trouble` };
+  return { tone: "ok", label: "Live", detail: `all ${data.length} model${data.length === 1 ? "" : "s"} available` };
+}
+
+// Shown above the stats once today's requests are used up.
+function QuotaReachedBanner() {
+  const { data } = useCurrentKey({ enabled: true });
+  const now = useNow();
+  if (!data || !quotaState(data.used, data.dailyLimit).exhausted) return null;
+  return (
+    <motion.div className={styles.quotaBanner} variants={fade} role="status">
+      <AlertTriangle size={16} className={styles.quotaBannerIcon} />
+      <div>
+        <p className={styles.quotaBannerTitle}>Daily limit reached</p>
+        <p className={styles.quotaBannerText}>
+          You&apos;ve used all {data.dailyLimit} requests for today. More are available in{" "}
+          {fmtDuration(new Date(data.resetsAt).getTime() - now)}, at {localTime(data.resetsAt)} your time.
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+function TopModels() {
+  const { data } = useMyUsageByModel(30);
+  const top = (data ?? []).filter((m) => m.model).slice(0, 3);
+  return (
+    <div className={styles.statCell}>
+      <span className={styles.statCellLabel}>Top models · 30 days</span>
+      {top.length === 0 ? (
+        <span className={styles.statEmpty}>No requests yet</span>
+      ) : (
+        <ol className={styles.topModels}>
+          {top.map((m) => (
+            <li key={m.model}>
+              <span className={styles.topModelName}>{m.model}</span>
+              <span className={styles.topModelNum}>{compact(m.requests)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
 }
 
 function StatCards() {
   const { data } = useCurrentKey({ enabled: true });
-  const countdown = useCountdown(data?.resetsAt);
+  const now = useNow();
+  const status = useServiceStatus();
   if (!data) return null;
-  const pct = Math.min(100, Math.round((data.used / data.dailyLimit) * 100));
-  const nearLimit = pct >= 80;
+  const q = quotaState(data.used, data.dailyLimit);
+  const resetIn = fmtDuration(new Date(data.resetsAt).getTime() - now);
 
   return (
     <motion.div className={styles.statsRow} variants={fade}>
-      {/* Daily Usage */}
-      <div className={styles.statCell}>
-        <span className={styles.statCellLabel}>Daily usage</span>
+      {/* Today: used, left, and when it resets */}
+      <div className={styles.statCell} title={`Resets at UTC midnight (${localTime(data.resetsAt)} your time)`}>
+        <span className={styles.statCellLabel}>Today</span>
         <div className={styles.statCellMain}>
-          <span className={nearLimit ? styles.statNumWarn : styles.statNum}>{data.used}</span>
-          <span className={styles.statDenom}> / {data.dailyLimit}</span>
+          <span className={q.nearLimit ? styles.statNumWarn : styles.statNum}>{data.used}</span>
+          <span className={styles.statDenom}> of {data.dailyLimit} requests</span>
         </div>
-        <div className={styles.statBar}>
+        <div
+          className={styles.statBar}
+          role="progressbar"
+          aria-label="Requests used today"
+          aria-valuemin={0}
+          aria-valuemax={data.dailyLimit}
+          aria-valuenow={data.used}
+        >
           <div
-            className={`${styles.statBarFill}${nearLimit ? ` ${styles.statBarWarn}` : ""}`}
-            style={{ width: `${pct}%` }}
+            className={`${styles.statBarFill}${q.nearLimit ? ` ${styles.statBarWarn}` : ""}`}
+            style={{ width: `${q.pct}%` }}
           />
         </div>
-        <span className={styles.statSub}>{pct}% consumed today</span>
+        <span className={styles.statSub}>
+          {q.exhausted ? "Limit reached" : `${q.left} left`} · resets in {resetIn}
+        </span>
       </div>
 
-      {/* Quota reset */}
-      <div className={styles.statCell}>
-        <span className={styles.statCellLabel}>Quota reset</span>
-        <div className={styles.statCellMain}>
-          <span className={styles.statMono}>{countdown}</span>
-        </div>
-        <span className={styles.statSub}>resets at UTC midnight</span>
-      </div>
+      <TopModels />
 
       {/* RPM */}
       {data.rpmLimit != null && (
@@ -111,15 +171,15 @@ function StatCards() {
         </div>
       )}
 
-      {/* API status */}
-      <div className={styles.statCell}>
+      {/* API status, from the live model list */}
+      <Link to="/status" className={`${styles.statCell} ${styles.statCellLink}`}>
         <span className={styles.statCellLabel}>API status</span>
         <div className={`${styles.statCellMain} ${styles.statStatusRow}`}>
-          <span className={styles.statusDot} />
-          <span className={styles.statNum}>LIVE</span>
+          <span className={`${styles.statusDot} ${styles[`statusDot_${status.tone}`]}`} />
+          <span className={styles.statNum}>{status.label}</span>
         </div>
-        <span className={styles.statSub}>all systems operational</span>
-      </div>
+        <span className={styles.statSub}>{status.detail}</span>
+      </Link>
     </motion.div>
   );
 }
@@ -425,6 +485,7 @@ export function Dashboard() {
   const qc = useQueryClient();
   const { data: me } = useMe();
   const { data: liveModels } = usePublicModels();
+  const health = useServiceStatus();
   useEffect(() => { void fetchFlashKeyOnce(qc); }, [qc]);
 
   // A few models the upstream actually serves right now, with curated names
@@ -453,17 +514,19 @@ export function Dashboard() {
             </p>
           </div>
           <div className={styles.headerRight}>
-            <div className={styles.healthCard}>
+            <Link to="/status" className={styles.healthCard}>
               <div className={styles.healthIcon}>
                 <Activity size={16} className={styles.healthActivity} />
               </div>
               <div>
                 <div className={styles.healthLabel}>Network health</div>
-                <div className={styles.healthStatus}>All systems live</div>
+                <div className={styles.healthStatus}>{HEALTH_TEXT[health.tone]}</div>
               </div>
-            </div>
+            </Link>
           </div>
         </motion.div>
+
+        <QuotaReachedBanner />
 
         {/* ── Stats row ── */}
         <StatCards />

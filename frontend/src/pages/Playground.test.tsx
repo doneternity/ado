@@ -5,12 +5,13 @@ import { Playground } from "./Playground";
 
 let calls: { url: string; init?: RequestInit }[] = [];
 const DEFAULT_MODELS: Record<string, unknown>[] = [
-  { id: "deepseek-v4-pro", name: "DeepSeek-V4-Pro", owned_by: "deepseek", context_window: 1048576 },
+  { id: "deepseek-v4-pro", name: "DeepSeek-V4-Pro", owned_by: "deepseek", context_window: 1048576, effort: { supported_levels: ["low", "high", "max"], default_level: "high" } },
   { id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", owned_by: "deepseek", context_window: 1048576 },
   { id: "glm-5.3", owned_by: "z-ai", ado_status: "degraded" },
 ];
 let liveModels = DEFAULT_MODELS;
 let hasKey = true;
+let usedToday = 0;
 
 function sseDeltas(...deltas: Record<string, string>[]) {
   const body = deltas.map((d) => `data: ${JSON.stringify({ choices: [{ delta: d }] })}\n\n`).join("") + "data: [DONE]\n\n";
@@ -40,6 +41,7 @@ async function say(text: string) {
 beforeEach(() => {
   calls = [];
   hasKey = true;
+  usedToday = 0;
   liveModels = DEFAULT_MODELS;
   nextReply = () => sse("Hel", "lo");
   localStorage.clear();
@@ -52,7 +54,7 @@ beforeEach(() => {
     if (url.includes("/api/auth/me")) return json({ user: { id: "u1", email: "me@example.com" }, csrfToken: "csrf-123" });
     if (url.includes("/api/keys/current")) {
       return hasKey
-        ? json({ keyPrefix: "ado-abc123", dailyLimit: 100, used: 0, resetsAt: "", createdAt: "" })
+        ? json({ keyPrefix: "ado-abc123", dailyLimit: 100, used: usedToday, resetsAt: new Date(Date.now() + 3 * 3_600_000).toISOString(), createdAt: "" })
         : json({ error: { code: "NOT_FOUND", message: "no active key" } }, 404);
     }
     if (url.includes("/api/playground/chat/completions")) return nextReply();
@@ -62,11 +64,11 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function renderPage() {
+function renderPage(path = "/playground") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter><Playground /></MemoryRouter>
+      <MemoryRouter initialEntries={[path]}><Playground /></MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -74,7 +76,10 @@ function renderPage() {
 describe("Playground", () => {
   it("chats with the signed-in session, without asking for a key", async () => {
     renderPage();
-    expect(await screen.findByText("ado-abc123…")).toBeInTheDocument();
+    expect(await screen.findByText("0 / 100 today")).toBeInTheDocument();
+    // The header stays compact: no email, no key bar.
+    expect(screen.queryByText("me@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByText(/ado-abc123/)).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/ado-x/)).not.toBeInTheDocument();
 
     const box = screen.getByPlaceholderText("Message…");
@@ -121,6 +126,11 @@ describe("Playground", () => {
     expect(await screen.findByText("Hello")).toBeInTheDocument();
     const chat = calls.find((c) => c.url.includes("/api/playground/chat/completions"))!;
     expect(JSON.parse(chat.init!.body as string).model).toBe("glm-5.3");
+  });
+
+  it("picks the model named in the link from a Models page card", async () => {
+    renderPage("/playground?model=glm-5.3");
+    expect(await screen.findByRole("button", { name: "Model: GLM 5.3" })).toBeInTheDocument();
   });
 
   it("starts on the remembered model", async () => {
@@ -206,5 +216,61 @@ describe("Playground", () => {
     // [the user message's copy button, the reply's]
     fireEvent.click(screen.getAllByRole("button", { name: "Copy" })[1]!);
     expect(writeText).toHaveBeenCalledWith("Hello");
+  });
+
+  it("sends the chosen settings, and only effort levels the model supports", async () => {
+    renderPage();
+    await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" });
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.change(screen.getByLabelText(/Temperature/), { target: { value: "0.3" } });
+    fireEvent.change(screen.getByLabelText("Max tokens"), { target: { value: "256" } });
+    fireEvent.click(screen.getByRole("button", { name: "max" }));
+    expect(screen.getByRole("button", { name: "Settings (changed)" })).toBeInTheDocument();
+
+    await say("hi");
+    await screen.findByText("Hello");
+    expect(chatBodies()[0]).toMatchObject({ temperature: 0.3, max_tokens: 256, reasoning_effort: "max" });
+
+    // GLM lists no effort levels, so the effort isn't sent to it.
+    fireEvent.click(screen.getByRole("button", { name: "Model: DeepSeek V4 Pro" }));
+    fireEvent.click(screen.getByRole("option", { name: /GLM 5.3/ }));
+    expect(screen.queryByRole("group", { name: "Reasoning effort" })).not.toBeInTheDocument();
+    await say("again");
+    await waitFor(() => expect(chatBodies()).toHaveLength(2));
+    expect(chatBodies()[1]).not.toHaveProperty("reasoning_effort");
+    expect(chatBodies()[1]).toMatchObject({ model: "glm-5.3", temperature: 0.3, max_tokens: 256 });
+
+    // Settings are remembered.
+    expect(JSON.parse(localStorage.getItem("ado:playground-settings")!)).toEqual({ temperature: 0.3, maxTokens: 256, effort: "max" });
+  });
+
+  it("shows today's usage, and says when the limit resets once it's reached", async () => {
+    usedToday = 42;
+    const first = renderPage();
+    expect(await screen.findByText("42 / 100 today")).toBeInTheDocument();
+    first.unmount();
+
+    usedToday = 100;
+    renderPage();
+    expect(await screen.findByText("Daily limit reached")).toBeInTheDocument();
+    expect(screen.getByText(/More are available in (2h 5\dm|3h), at/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Daily limit reached")).toBeDisabled();
+  });
+
+  it("keeps the chat across a reload, and forgets it when cleared", async () => {
+    const first = renderPage();
+    await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" });
+    await say("remember me");
+    await screen.findByText("Hello");
+    await waitFor(() => expect(localStorage.getItem("ado:playground-chat:u1")).toContain("Hello"));
+    first.unmount();
+
+    renderPage();
+    expect(await screen.findByText("remember me")).toBeInTheDocument();
+    expect(screen.getByText("Hello")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Clear chat"));
+    expect(screen.queryByText("remember me")).not.toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem("ado:playground-chat:u1")).toBeNull());
   });
 });

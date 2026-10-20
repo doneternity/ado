@@ -17,8 +17,8 @@ function errMsg(err: unknown, fallback: string): string {
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
 
-type FormState = { name: string; baseUrl: string; apiKeys: string; priority: number };
-const empty: FormState = { name: "", baseUrl: "", apiKeys: "", priority: 0 };
+type FormState = { name: string; baseUrl: string; apiKeys: string; priority: number; modelSuffix: string };
+const empty: FormState = { name: "", baseUrl: "", apiKeys: "", priority: 0, modelSuffix: "" };
 
 // One key per line (commas and spaces also separate), blanks and repeats dropped.
 function parseKeys(text: string): string[] {
@@ -58,14 +58,14 @@ export function AdminProviders() {
     e.preventDefault();
     setFormError(null);
     if (editing) {
-      update.mutate({ id: editing.id, name: form.name, baseUrl: form.baseUrl, priority: form.priority }, {
+      update.mutate({ id: editing.id, name: form.name, baseUrl: form.baseUrl, priority: form.priority, modelSuffix: form.modelSuffix }, {
         onSuccess: () => { setEditing(null); setForm(empty); setShowForm(false); },
         onError: (err) => setFormError(errMsg(err, "Could not save provider")),
       });
     } else {
       const apiKeys = parseKeys(form.apiKeys);
       if (apiKeys.length === 0) { setFormError("Add at least one API key"); return; }
-      create.mutate({ name: form.name, baseUrl: form.baseUrl, priority: form.priority, apiKeys }, {
+      create.mutate({ name: form.name, baseUrl: form.baseUrl, priority: form.priority, modelSuffix: form.modelSuffix, apiKeys }, {
         onSuccess: () => { setForm(empty); setShowForm(false); },
         onError: (err) => setFormError(errMsg(err, "Could not create provider")),
       });
@@ -74,7 +74,7 @@ export function AdminProviders() {
 
   const startEdit = (p: AdminProvider) => {
     setEditing(p);
-    setForm({ name: p.name, baseUrl: p.baseUrl, apiKeys: "", priority: p.priority });
+    setForm({ name: p.name, baseUrl: p.baseUrl, apiKeys: "", priority: p.priority, modelSuffix: p.modelSuffix ?? "" });
     setFormError(null);
     create.reset(); update.reset();
     setShowForm(true);
@@ -187,6 +187,19 @@ export function AdminProviders() {
                 />
                 <span className={styles.fieldHint}>lower = tried first</span>
               </div>
+              <div className={styles.field} style={{ maxWidth: 260 }}>
+                <label className={styles.label} htmlFor="provider-model-suffix">Strip from model IDs</label>
+                <input
+                  id="provider-model-suffix"
+                  className={styles.input}
+                  placeholder="e.g. -thanks-somewhere"
+                  value={form.modelSuffix}
+                  onChange={(e) => setForm((f) => ({ ...f, modelSuffix: e.target.value }))}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <span className={styles.fieldHint}>optional: list and call gpt-6-sol instead of gpt-6-sol-thanks-somewhere</span>
+              </div>
               {!editing && (
                 <div className={styles.field} style={{ flex: 1 }}>
                   <label className={styles.label}>API keys</label>
@@ -254,6 +267,7 @@ function ProviderCard({
           <div className={styles.providerInfo}>
             <div className={styles.providerName}>{p.name}</div>
             <div className={styles.providerUrl}>{p.baseUrl}</div>
+            {p.modelSuffix && <div className={styles.providerKey}>strips &ldquo;{p.modelSuffix}&rdquo; from model IDs</div>}
             <div className={styles.providerKey}>
               {p.keys.length === 0
                 ? "no keys: add one below"

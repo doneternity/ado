@@ -17,12 +17,19 @@ export type LiveModel = {
   owned_by?: string;
   // capabilities
   input_modalities?: string[];
-  effort?: { supported_levels?: string[] };
+  effort?: { supported_levels?: string[]; default_level?: string };
+  // some providers group these under one object instead
+  capabilities?: { contextWindow?: number; vision?: boolean; reasoning?: boolean };
   reasoning?: unknown;
   supported_parameters?: string[];
 };
 
-export type EnrichedModel = ModelDef & { adoStatus: "available" | "degraded" | "down" };
+export type EnrichedModel = ModelDef & {
+  adoStatus: "available" | "degraded" | "down";
+  // reasoning effort levels the provider says the model takes, if any
+  effortLevels?: string[];
+  effortDefault?: string;
+};
 
 const LONG_CONTEXT = 500_000;
 
@@ -95,8 +102,9 @@ export function familyInfo(id: string): FamilyInfo | undefined {
 // 131072 -> "128K", 1048576 -> "1M" (binary sizes, as model cards quote them);
 // 200000 -> "200K", 1000000 -> "1M" (decimal sizes).
 export function fmtCtx(n: number): string {
-  const fmt = (v: number, unit: string) => `${+v.toFixed(1)}${unit} tokens`;
-  if (n >= 1_000_000) return fmt(n % 1_048_576 === 0 ? n / 1_048_576 : n / 1_000_000, "M");
+  const fmt = (v: number, unit: string, digits = 1) => `${+v.toFixed(digits)}${unit} tokens`;
+  // Two decimals for millions, so 1,050,000 reads "1.05M", not a rounded-up "1.1M".
+  if (n >= 1_000_000) return fmt(n % 1_048_576 === 0 ? n / 1_048_576 : n / 1_000_000, "M", 2);
   if (n >= 1_000) return fmt(n % 1_024 === 0 ? n / 1_024 : n / 1_000, "K");
   return `${n} tokens`;
 }
@@ -116,11 +124,12 @@ export function prettyName(raw: string): string {
 // Live data from the provider wins: it's what is actually served. The curated
 // catalogue only adds what providers don't report (tag, description, speed).
 export function mergeModel(live: LiveModel, curated?: ModelDef): EnrichedModel {
-  const ctxTokens = live.context_length ?? live.context_window;
+  const ctxTokens = live.context_length ?? live.context_window ?? live.capabilities?.contextWindow;
   const family = curated ? undefined : familyInfo(live.id);
 
   const caps = new Set<Capability>(curated?.capabilities ?? family?.capabilities ?? ["Streaming"]);
-  if (live.input_modalities?.includes("image")) caps.add("Vision");
+  if (live.input_modalities?.includes("image") || live.capabilities?.vision) caps.add("Vision");
+  if (live.capabilities?.reasoning) caps.add("Reasoning");
   if (live.effort?.supported_levels?.length || live.reasoning || live.supported_parameters?.includes("reasoning")) caps.add("Reasoning");
   if (live.supported_parameters?.includes("tools")) caps.add("Tools");
   if (ctxTokens && ctxTokens >= LONG_CONTEXT) caps.add("Long context");
@@ -129,7 +138,9 @@ export function mergeModel(live: LiveModel, curated?: ModelDef): EnrichedModel {
   const liveName = live.display_name || live.name;
   return {
     id: live.id,
-    name: liveName ? prettyName(liveName) : curated?.name ?? (prettyName(live.id) || live.id),
+    // A name with spaces is already written for people ("GPT-6 Sol"); one
+    // without is ID-like ("DeepSeek-V4.1-Flash") and gets tidied.
+    name: liveName ? (/\s/.test(liveName.trim()) ? liveName.trim() : prettyName(liveName)) : curated?.name ?? (prettyName(live.id) || live.id),
     provider: providerOf(live, curated?.provider),
     context: ctxTokens ? fmtCtx(ctxTokens) : curated?.context ?? "",
     speed: curated?.speed ?? family?.speed ?? 2,
@@ -137,6 +148,8 @@ export function mergeModel(live: LiveModel, curated?: ModelDef): EnrichedModel {
     tag: curated?.tag,
     description: curated?.description ?? family?.description ?? "",
     adoStatus: live.ado_status ?? "available",
+    effortLevels: live.effort?.supported_levels?.length ? live.effort.supported_levels : undefined,
+    effortDefault: live.effort?.default_level,
   };
 }
 

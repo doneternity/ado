@@ -52,7 +52,23 @@ describe("model metadata", () => {
     expect(fmtCtx(131_072)).toBe("128K tokens");
     expect(fmtCtx(200_000)).toBe("200K tokens");
     expect(fmtCtx(1_000_000)).toBe("1M tokens");
+    expect(fmtCtx(1_050_000)).toBe("1.05M tokens");
     expect(prettyName("models/gemini-3-flash")).toBe("Gemini 3 Flash");
+  });
+
+  // Shape copied from the reseller provider's real /models entry, after ADO
+  // strips its suffix (see backend proxy/alias.go).
+  it("reads a provider's capabilities object and names GPT models properly", () => {
+    const m = mergeModel({
+      id: "gpt-6-sol",
+      display_name: "GPT-6 Sol",
+      owned_by: "dlab",
+      capabilities: { contextWindow: 1_050_000, vision: true, reasoning: true },
+    });
+    expect(m.name).toBe("GPT-6 Sol"); // already a display name: kept as written
+    expect(m.provider).toBe("openai"); // "dlab" names no known maker, so the ID decides
+    expect(m.context).toBe("1.05M tokens");
+    expect(m.capabilities).toEqual(["Streaming", "Reasoning", "Vision", "Long context"]);
   });
 
   it("recognises Z.ai GLM and Moonshot Kimi models", () => {

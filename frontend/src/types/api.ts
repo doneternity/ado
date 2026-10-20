@@ -64,6 +64,8 @@ export type AdminProvider = {
   baseUrl: string;
   isActive: boolean;
   priority: number;
+  // Stripped from the end of this provider's model IDs ("" for none).
+  modelSuffix: string;
   keys: AdminProviderKey[];
 };
 

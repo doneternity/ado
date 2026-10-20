@@ -829,3 +829,18 @@
   color: var(--accent);
   font-size: .75rem;
 }
+
+/* ── Site announcement editor ── */
+.announceForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.announceRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+
+  @media (max-width: 600px) { grid-template-columns: 1fr; }
+}

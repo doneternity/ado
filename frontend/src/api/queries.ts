@@ -140,6 +140,25 @@ export function fetchFlashKeyOnce(qc: ReturnType<typeof useQueryClient>) {
 // Whether maintenance mode is on. Polled so visitors see the site come back
 // without reloading; a failed check counts as "off" so an outage of this
 // endpoint never locks people out.
+export type Announcement = { id?: string; message?: string; linkUrl?: string; linkLabel?: string };
+
+// The site-wide notice (Admin > Maintenance). A failed read shows nothing.
+export function useAnnouncement() {
+  return useQuery({
+    queryKey: ["announcement"],
+    queryFn: async (): Promise<Announcement> => {
+      try {
+        const r = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/announcement");
+        return r.ok ? ((await r.json()) as Announcement) : {};
+      } catch {
+        return {};
+      }
+    },
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}
+
 export function useMaintenance() {
   return useQuery({
     queryKey: ["maintenance"],

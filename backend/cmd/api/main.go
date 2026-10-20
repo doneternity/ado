@@ -29,7 +29,8 @@ import (
 	"github.com/ado/ado/backend/internal/store/redis"
 )
 
-// Retention periods stated in the privacy policy (frontend/src/pages/Privacy.tsx).
+// How long logs are kept. The privacy policy (frontend/src/pages/Privacy.tsx)
+// only says "a limited time", so these can change without editing it.
 const (
 	errorLogRetentionDays   = 30
 	usageRetentionDays      = 90
@@ -177,6 +178,7 @@ func main() {
 	adminReqInfoH := handlers.NewAdminRequestInfo(limiter)
 	usageLogH := handlers.NewUsageLog(queries)
 	clientErrorsH := handlers.NewClientErrors(queries, limiter)
+	announcementH := handlers.NewAnnouncement(queries)
 
 	// Operator alerts go to the Discord webhook, if configured.
 	notifier := alert.NewDiscord(cfg.AlertWebhookURL)
@@ -202,8 +204,8 @@ func main() {
 	every(ctx, time.Hour, func(ctx context.Context) {
 		handlers.ReapInactiveKeys(ctx, queries, maint)
 	})
-	// Retention cleanup, matching what the privacy policy promises: error logs
-	// 30 days, daily usage counters and request logs 90 days.
+	// Retention cleanup: error logs 30 days, daily usage counters and request
+	// logs 90 days.
 	every(ctx, time.Hour, func(ctx context.Context) {
 		if err := queries.DeleteOldErrorLogs(ctx, int32(errorLogRetentionDays)); err != nil {
 			slog.Warn("delete old error logs", "err", err)
@@ -306,6 +308,7 @@ func main() {
 		AdminRequestInfo: adminReqInfoH,
 		UsageLog:         usageLogH,
 		ClientErrors:     clientErrorsH,
+		Announcement:     announcementH,
 		AdminMiddleware:  adminMW,
 		Maintenance:      maint,
 		FrontendOrigin:   cfg.FrontendOrigin,

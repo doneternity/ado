@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
-import type { ModelUsage } from "./queries";
+import type { Announcement, ModelUsage } from "./queries";
 import type {
   AdminProvider, AdminProviderKey, AdminUser, AdminStats, AdminQuotas,
   AdminErrorsResponse, MaintenanceStatus, AdminPlan,
@@ -244,6 +244,25 @@ export function useBulkDeleteErrors() {
 }
 
 // ── Maintenance ────────────────────────────────────────────
+export function useAdminAnnouncement() {
+  return useQuery({
+    queryKey: ["admin", "announcement"],
+    queryFn: () => apiFetch<Announcement>("/api/admin/announcement"),
+  });
+}
+
+export function useSetAnnouncement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { message: string; linkUrl?: string; linkLabel?: string }) =>
+      apiFetch<Announcement>("/api/admin/announcement", { method: "PUT", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["admin", "announcement"] });
+      void qc.invalidateQueries({ queryKey: ["announcement"] });
+    },
+  });
+}
+
 export function useMaintenanceStatus() {
   return useQuery({
     queryKey: ["admin", "maintenance"],

@@ -36,6 +36,7 @@ type Deps struct {
 	AdminRequestInfo *handlers.AdminRequestInfo
 	UsageLog         *handlers.UsageLog
 	ClientErrors     *handlers.ClientErrors
+	Announcement     *handlers.Announcement
 	Maintenance      *proxy.MaintenanceFlag
 	AdminMiddleware  func(http.Handler) http.Handler
 	FrontendOrigin   string
@@ -94,6 +95,10 @@ func NewRouter(d Deps) http.Handler {
 	// Public on/off read so the website can show its maintenance page.
 	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:maintenance:ip", 60, time.Minute, false)).
 		Get("/api/maintenance", d.AdminMaintenance.Status)
+
+	// Site-wide notice shown under the header (set in Admin > Maintenance).
+	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:announcement:ip", 60, time.Minute, false)).
+		Get("/api/announcement", d.Announcement.Public)
 
 	// Website crash reports (same-origin, no session needed). Open during
 	// maintenance too, since that is when things are most likely to break.
@@ -190,6 +195,8 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/usage/models", d.UsageLog.AdminByModel)
 		r.Get("/maintenance", d.AdminMaintenance.Get)
 		r.Post("/maintenance/toggle", d.AdminMaintenance.Toggle)
+		r.Get("/announcement", d.Announcement.Get)
+		r.Put("/announcement", d.Announcement.Set)
 	})
 
 	return r

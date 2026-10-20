@@ -10,6 +10,7 @@ import { useDialog } from "./useDialog";
 import { ScrollProgress } from "./ScrollProgress";
 import { MaintenanceScreen, MaintenanceBanner } from "./MaintenanceScreen";
 import { PageLoader } from "./PageLoader";
+import { AnnouncementBar } from "./AnnouncementBar";
 import styles from "./Layout.module.scss";
 import betaStyles from "./BetaModal.module.scss";
 
@@ -116,6 +117,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {!isDark && <Footer />}
       {maintenance && isAdmin && <MaintenanceBanner />}
+      <AnnouncementBar raised={maintenance && isAdmin} />
       <BetaModal />
       <Toast />
       {showSlotsModal && (

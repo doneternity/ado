@@ -11,6 +11,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AdminAuditLog struct {
+	ID         int64
+	CreatedAt  pgtype.Timestamptz
+	ActorID    pgtype.UUID
+	ActorLabel string
+	Action     string
+	Target     string
+	Details    []byte
+}
+
 type AdoKey struct {
 	ID            uuid.UUID
 	UserID        uuid.UUID
@@ -53,14 +63,15 @@ type Plan struct {
 }
 
 type Provider struct {
-	ID        uuid.UUID
-	Name      string
-	BaseUrl   string
-	ApiKey    string
-	IsActive  bool
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
-	Priority  int32
+	ID          uuid.UUID
+	Name        string
+	BaseUrl     string
+	ApiKey      string
+	IsActive    bool
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	Priority    int32
+	ModelSuffix string
 }
 
 type ProviderKey struct {

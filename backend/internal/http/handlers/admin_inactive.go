@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/validate"
 )
@@ -83,6 +85,7 @@ func (h *AdminUsers) DeleteInactive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("deleted inactive accounts", "count", n, "requested", len(req.IDs), "inactive_days", req.Days)
+	mw.NoteAudit(r.Context(), fmt.Sprintf("%d inactive accounts", n), map[string]any{"deleted": n, "inactiveDays": req.Days})
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]int64{"deleted": n})
 }

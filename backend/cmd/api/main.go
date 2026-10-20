@@ -35,6 +35,7 @@ const (
 	errorLogRetentionDays   = 30
 	usageRetentionDays      = 90
 	requestLogRetentionDays = 90
+	auditLogRetentionDays   = 365 // admin_audit_log: long enough to answer "who changed this?"
 )
 
 // Error spike alert: this many errors within one window sends a Discord alert.
@@ -179,6 +180,8 @@ func main() {
 	usageLogH := handlers.NewUsageLog(queries)
 	clientErrorsH := handlers.NewClientErrors(queries, limiter)
 	announcementH := handlers.NewAnnouncement(queries)
+	statusHistoryH := handlers.NewStatusHistory(queries, reg.ServedModelIDs)
+	adminAuditH := handlers.NewAdminAudit(queries)
 
 	// Operator alerts go to the Discord webhook, if configured.
 	notifier := alert.NewDiscord(cfg.AlertWebhookURL)
@@ -205,7 +208,7 @@ func main() {
 		handlers.ReapInactiveKeys(ctx, queries, maint)
 	})
 	// Retention cleanup: error logs 30 days, daily usage counters and request
-	// logs 90 days.
+	// logs 90 days, the admin audit log a year.
 	every(ctx, time.Hour, func(ctx context.Context) {
 		if err := queries.DeleteOldErrorLogs(ctx, int32(errorLogRetentionDays)); err != nil {
 			slog.Warn("delete old error logs", "err", err)
@@ -215,6 +218,9 @@ func main() {
 		}
 		if err := queries.DeleteOldRequestLogs(ctx, requestLogRetentionDays); err != nil {
 			slog.Warn("delete old request logs", "err", err)
+		}
+		if err := queries.DeleteOldAuditLogs(ctx, auditLogRetentionDays); err != nil {
+			slog.Warn("delete old audit logs", "err", err)
 		}
 	})
 
@@ -309,6 +315,8 @@ func main() {
 		UsageLog:         usageLogH,
 		ClientErrors:     clientErrorsH,
 		Announcement:     announcementH,
+		StatusHistory:    statusHistoryH,
+		AdminAudit:       adminAuditH,
 		AdminMiddleware:  adminMW,
 		Maintenance:      maint,
 		FrontendOrigin:   cfg.FrontendOrigin,

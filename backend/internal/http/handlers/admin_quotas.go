@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keys"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
@@ -104,6 +105,7 @@ func (h *AdminQuotas) SetGlobal(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "propagate quota"))
 		return
 	}
+	mw.NoteAudit(r.Context(), "global daily quota", map[string]any{"limit": req.Limit})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -147,6 +149,7 @@ func (h *AdminQuotas) SetUserOverride(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "propagate override"))
 		return
 	}
+	mw.NoteAudit(r.Context(), user.Email, map[string]any{"limit": req.Limit})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -178,6 +181,11 @@ func (h *AdminQuotas) RemoveUserOverride(w http.ResponseWriter, r *http.Request)
 		apperr.Write(w, apperr.Internal("INTERNAL", "reset key limit"))
 		return
 	}
+	target := id.String()
+	if u, err := h.q.GetUserByID(r.Context(), id); err == nil {
+		target = u.Email
+	}
+	mw.NoteAudit(r.Context(), target, map[string]any{"limit": globalLimit})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -200,6 +208,7 @@ func (h *AdminQuotas) SetGlobalRPM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.rpmCfg.Set(req.Limit)
+	mw.NoteAudit(r.Context(), "global rpm", map[string]any{"limit": req.Limit})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -221,5 +230,6 @@ func (h *AdminQuotas) SetFreeTierLimit(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set slots limit"))
 		return
 	}
+	mw.NoteAudit(r.Context(), "free tier slots", map[string]any{"limit": req.Limit})
 	w.WriteHeader(http.StatusNoContent)
 }

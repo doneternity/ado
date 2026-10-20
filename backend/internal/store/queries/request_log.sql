@@ -39,3 +39,19 @@ FROM request_log
 WHERE user_id = sqlc.arg(user_id) AND created_at >= sqlc.arg(since)
 GROUP BY model
 ORDER BY requests DESC;
+
+-- name: ModelOutcomesByHour :many
+-- Per model and hour since a point in time: requests a provider succeeded on
+-- (2xx) and ones that failed on our or the provider's side (5xx, including
+-- "no provider could serve it"). Client errors (4xx: bad input, quota, rate
+-- limits) say nothing about the model, so they're left out.
+SELECT model::text AS model,
+       date_trunc('hour', created_at)::timestamptz AS hour,
+       COUNT(*) FILTER (WHERE status BETWEEN 200 AND 299)::int4 AS ok,
+       COUNT(*) FILTER (WHERE status >= 500)::int4 AS failed
+FROM request_log
+WHERE created_at >= sqlc.arg(since)
+  AND model IS NOT NULL AND model <> ''
+  AND (status BETWEEN 200 AND 299 OR status >= 500)
+GROUP BY 1, 2
+ORDER BY 1, 2;

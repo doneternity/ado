@@ -117,6 +117,55 @@ func (q *Queries) ListRecentRequests(ctx context.Context, arg ListRecentRequests
 	return items, nil
 }
 
+const modelOutcomesByHour = `-- name: ModelOutcomesByHour :many
+SELECT model::text AS model,
+       date_trunc('hour', created_at)::timestamptz AS hour,
+       COUNT(*) FILTER (WHERE status BETWEEN 200 AND 299)::int4 AS ok,
+       COUNT(*) FILTER (WHERE status >= 500)::int4 AS failed
+FROM request_log
+WHERE created_at >= $1
+  AND model IS NOT NULL AND model <> ''
+  AND (status BETWEEN 200 AND 299 OR status >= 500)
+GROUP BY 1, 2
+ORDER BY 1, 2
+`
+
+type ModelOutcomesByHourRow struct {
+	Model  string
+	Hour   pgtype.Timestamptz
+	Ok     int32
+	Failed int32
+}
+
+// Per model and hour since a point in time: requests a provider succeeded on
+// (2xx) and ones that failed on our or the provider's side (5xx, including
+// "no provider could serve it"). Client errors (4xx: bad input, quota, rate
+// limits) say nothing about the model, so they're left out.
+func (q *Queries) ModelOutcomesByHour(ctx context.Context, since pgtype.Timestamptz) ([]ModelOutcomesByHourRow, error) {
+	rows, err := q.db.Query(ctx, modelOutcomesByHour, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ModelOutcomesByHourRow
+	for rows.Next() {
+		var i ModelOutcomesByHourRow
+		if err := rows.Scan(
+			&i.Model,
+			&i.Hour,
+			&i.Ok,
+			&i.Failed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const usageByModel = `-- name: UsageByModel :many
 SELECT COALESCE(model, '')::text AS model,
        COUNT(*)::int4 AS requests,

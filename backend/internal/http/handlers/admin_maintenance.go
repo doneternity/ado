@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/validate"
@@ -60,6 +61,7 @@ func (h *AdminMaintenance) Toggle(w http.ResponseWriter, r *http.Request) {
 		val = "true"
 	}
 	_ = h.q.SetSetting(r.Context(), db.SetSettingParams{Key: settingMaintenanceMode, Value: val})
+	mw.NoteAudit(r.Context(), "maintenance mode", map[string]any{"enabled": body.Enabled})
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]bool{"enabled": body.Enabled})
 }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/keyencrypt"
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/store/db"
@@ -39,12 +41,14 @@ type providerKeyItem struct {
 }
 
 type providerItem struct {
-	ID       uuid.UUID         `json:"id"`
-	Name     string            `json:"name"`
-	BaseURL  string            `json:"baseUrl"`
-	IsActive bool              `json:"isActive"`
-	Priority int32             `json:"priority"`
-	Keys     []providerKeyItem `json:"keys"`
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	BaseURL  string    `json:"baseUrl"`
+	IsActive bool      `json:"isActive"`
+	Priority int32     `json:"priority"`
+	// ModelSuffix is stripped from this provider's model IDs ("" for none).
+	ModelSuffix string            `json:"modelSuffix"`
+	Keys        []providerKeyItem `json:"keys"`
 }
 
 // keySuffix is the last 4 characters of a decrypted key: enough to tell keys
@@ -88,6 +92,7 @@ func RebuildChain(ctx context.Context, q *db.Queries, secret string, reg *proxy.
 		}
 		f := proxy.New(row.BaseUrl, key)
 		f.Group = group
+		f.ModelSuffix = row.ModelSuffix
 		f.Label = fmt.Sprintf("%s …%s", row.Name, keySuffix(row.ApiKey, secret))
 		if row.Label != "" {
 			f.Label = fmt.Sprintf("%s %q …%s", row.Name, row.Label, keySuffix(row.ApiKey, secret))
@@ -122,7 +127,7 @@ func (h *AdminProviders) List(w http.ResponseWriter, r *http.Request) {
 		if ks == nil {
 			ks = []providerKeyItem{}
 		}
-		out[i] = providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, Keys: ks}
+		out[i] = providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, ModelSuffix: p.ModelSuffix, Keys: ks}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
@@ -176,6 +181,8 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 		APIKey   string   `json:"apiKey"`  // a single key (older clients)
 		APIKeys  []string `json:"apiKeys"` // or several
 		Priority int32    `json:"priority"`
+		// ModelSuffix: text to strip from the end of model IDs (see proxy/alias.go).
+		ModelSuffix string `json:"modelSuffix"`
 	}
 	if err := validate.Bind(r, &req); err != nil {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
@@ -188,16 +195,22 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
+	suffix, err := cleanModelSuffix(req.ModelSuffix)
+	if err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
 	keys, err := cleanKeys(append(req.APIKeys, req.APIKey))
 	if err != nil {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
 	p, err := h.d.Q.CreateProvider(r.Context(), db.CreateProviderParams{
-		Name:     req.Name,
-		BaseUrl:  req.BaseURL,
-		IsActive: true,
-		Priority: req.Priority,
+		Name:        req.Name,
+		BaseUrl:     req.BaseURL,
+		IsActive:    true,
+		Priority:    req.Priority,
+		ModelSuffix: suffix,
 	})
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "create provider"))
@@ -211,9 +224,10 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.rebuildChain(r)
+	mw.NoteAudit(r.Context(), p.Name, map[string]any{"baseUrl": p.BaseUrl, "keys": len(added), "modelSuffix": p.ModelSuffix})
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, Keys: added})
+	_ = json.NewEncoder(w).Encode(providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, ModelSuffix: p.ModelSuffix, Keys: added})
 }
 
 func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
@@ -223,9 +237,10 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name     string `json:"name"`
-		BaseURL  string `json:"baseUrl"`
-		Priority int32  `json:"priority"`
+		Name        string `json:"name"`
+		BaseURL     string `json:"baseUrl"`
+		Priority    int32  `json:"priority"`
+		ModelSuffix string `json:"modelSuffix"`
 	}
 	if err := validate.Bind(r, &req); err != nil {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
@@ -238,13 +253,19 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
+	suffix, err := cleanModelSuffix(req.ModelSuffix)
+	if err != nil {
+		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
+		return
+	}
 	if _, err := h.d.Q.UpdateProviderMeta(r.Context(), db.UpdateProviderMetaParams{
-		ID: id, Name: req.Name, BaseUrl: req.BaseURL, Priority: req.Priority,
+		ID: id, Name: req.Name, BaseUrl: req.BaseURL, Priority: req.Priority, ModelSuffix: suffix,
 	}); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "update provider"))
 		return
 	}
 	h.rebuildChain(r)
+	mw.NoteAudit(r.Context(), req.Name, map[string]any{"baseUrl": req.BaseURL, "priority": req.Priority, "modelSuffix": suffix})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -268,6 +289,7 @@ func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.rebuildChain(r)
+	h.noteProvider(r, id, map[string]any{"active": req.Active})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -277,6 +299,7 @@ func (h *AdminProviders) Delete(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
 		return
 	}
+	h.noteProvider(r, id, nil) // before it's gone
 	if err := h.d.Q.DeleteProvider(r.Context(), id); err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "delete"))
 		return
@@ -310,10 +333,12 @@ func (h *AdminProviders) AddKeys(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", err.Error()))
 		return
 	}
-	if _, err := h.d.Q.GetProvider(r.Context(), id); err != nil {
+	prov, err := h.d.Q.GetProvider(r.Context(), id)
+	if err != nil {
 		apperr.Write(w, apperr.NotFound("NOT_FOUND", "provider not found"))
 		return
 	}
+	mw.NoteAudit(r.Context(), prov.Name, map[string]any{"keysAdded": len(keys), "label": req.Label})
 	added, err := h.addKeys(r.Context(), id, keys, req.Label)
 	if err != nil {
 		h.rebuildChain(r) // some may have been saved
@@ -350,6 +375,7 @@ func (h *AdminProviders) SetKeyActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.rebuildChain(r)
+	h.noteProvider(r, id, map[string]any{"active": req.Active})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -360,6 +386,7 @@ func (h *AdminProviders) DeleteKey(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
 		return
 	}
+	h.noteProvider(r, id, nil)
 	n, err := h.d.Q.DeleteProviderKey(r.Context(), db.DeleteProviderKeyParams{ID: keyID, ProviderID: id})
 	if err != nil {
 		apperr.Write(w, apperr.Internal("INTERNAL", "delete key"))
@@ -371,4 +398,29 @@ func (h *AdminProviders) DeleteKey(w http.ResponseWriter, r *http.Request) {
 	}
 	h.rebuildChain(r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// noteProvider names the provider in this request's audit log entry.
+func (h *AdminProviders) noteProvider(r *http.Request, id uuid.UUID, details map[string]any) {
+	name := id.String()
+	if p, err := h.d.Q.GetProvider(r.Context(), id); err == nil {
+		name = p.Name
+	}
+	mw.NoteAudit(r.Context(), name, details)
+}
+
+// cleanModelSuffix trims the suffix and checks it's a plausible ID ending:
+// up to 60 characters of letters, digits, dashes, dots, underscores or colons.
+func cleanModelSuffix(raw string) (string, error) {
+	s := strings.TrimSpace(raw)
+	if len(s) > 60 {
+		return "", errors.New("model suffix must be at most 60 characters")
+	}
+	for _, c := range s {
+		ok := c == '-' || c == '.' || c == '_' || c == ':' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+		if !ok {
+			return "", errors.New("model suffix may only contain letters, digits, dashes, dots, underscores and colons")
+		}
+	}
+	return s, nil
 }

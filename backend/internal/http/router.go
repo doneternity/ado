@@ -37,6 +37,8 @@ type Deps struct {
 	UsageLog         *handlers.UsageLog
 	ClientErrors     *handlers.ClientErrors
 	Announcement     *handlers.Announcement
+	StatusHistory    *handlers.StatusHistory
+	AdminAudit       *handlers.AdminAudit
 	Maintenance      *proxy.MaintenanceFlag
 	AdminMiddleware  func(http.Handler) http.Handler
 	FrontendOrigin   string
@@ -100,6 +102,10 @@ func NewRouter(d Deps) http.Handler {
 	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:announcement:ip", 60, time.Minute, false)).
 		Get("/api/announcement", d.Announcement.Public)
 
+	// Success-rate history per model for the Status page (cached a minute).
+	r.With(mw.CORSPublic, d.Limiter.PerIP("rl:status-history:ip", 30, time.Minute, false)).
+		Get("/api/status/history", d.StatusHistory.Public)
+
 	// Website crash reports (same-origin, no session needed). Open during
 	// maintenance too, since that is when things are most likely to break.
 	r.With(d.Limiter.PerIP("rl:client-errors:ip", 20, time.Hour, false)).
@@ -155,6 +161,10 @@ func NewRouter(d Deps) http.Handler {
 		r.Use(d.AdminMiddleware)
 		r.Use(mw.CORSPrivate(d.FrontendOrigin))
 		r.Use(mw.CSRF)
+		// Every successful change below lands in the audit log.
+		r.Use(mw.Audit(d.Queries))
+
+		r.Get("/audit", d.AdminAudit.List)
 
 		r.Get("/providers", d.AdminProviders.List)
 		r.Post("/providers", d.AdminProviders.Create)

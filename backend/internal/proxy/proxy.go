@@ -44,6 +44,11 @@ type Forwarder struct {
 	// request only to providers that serve the requested model.
 	models atomic.Pointer[map[string]bool]
 
+	// ModelSuffix is stripped from this provider's model IDs (see alias.go);
+	// aliases maps each plain ID back to the provider's own.
+	ModelSuffix string
+	aliases     atomic.Pointer[map[string]string]
+
 	mu        sync.Mutex
 	fails     int
 	openUntil time.Time
@@ -132,7 +137,7 @@ func (f *Forwarder) do(ctx context.Context, r *http.Request, path string, body [
 // the given model. Returns true only on a 2xx response.
 func (f *Forwarder) probe(ctx context.Context, model string) bool {
 	body, err := json.Marshal(map[string]any{
-		"model":      model,
+		"model":      f.upstreamID(model),
 		"messages":   []map[string]string{{"role": "user", "content": "ping"}},
 		"max_tokens": 1,
 	})
@@ -187,6 +192,21 @@ func (r *Registry) CachedModelIDs() []string {
 	return ids
 }
 
+// ServedModelIDs returns the IDs from the last model-list fetch, fetching the
+// lists first when there's none yet (after a restart or a provider change).
+func (r *Registry) ServedModelIDs(ctx context.Context) []string {
+	if ids := r.CachedModelIDs(); len(ids) > 0 {
+		return ids
+	}
+	if len(r.Get()) == 0 {
+		return nil
+	}
+	rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	r.refreshModels(rctx)
+	return r.CachedModelIDs()
+}
+
 // ForwardResult is the outcome of a Forward call (used for logging + quota).
 type ForwardResult struct {
 	Started  bool   // a provider response was streamed to the client
@@ -207,7 +227,8 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 
 	var lastErr error
 	attempts := 0
-	chain = r.forModel(req.Context(), chain, modelOf(body))
+	model := modelOf(body)
+	chain = r.forModel(req.Context(), chain, model)
 	for _, f := range failoverOrder(rotateGroups(chain, r.rr.Add(1))) {
 		if cerr := req.Context().Err(); cerr != nil {
 			return ForwardResult{Attempts: attempts}, cerr
@@ -217,7 +238,15 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 		// per-attempt context so the idle watchdog can cancel one stalled
 		// upstream without touching the others.
 		streamCtx, cancel := context.WithCancel(req.Context())
-		resp, derr := f.do(streamCtx, req, path, body)
+		// A plain ID goes to the provider as its own (tagged) ID, and is
+		// swapped back in the response.
+		sendBody := body
+		var swap *quotedSwap
+		if up := f.upstreamID(model); up != model {
+			sendBody = withModel(body, up)
+			swap = newQuotedSwap(up, model)
+		}
+		resp, derr := f.do(streamCtx, req, path, sendBody)
 		if derr != nil {
 			cancel()
 			// client cancel isn't the provider's fault: don't trip it, just stop.
@@ -241,7 +270,7 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 		f.resetBreaker()
 		// Keep the end of the response to read its token usage; content is not kept.
 		tail := newTailBuffer(16 << 10)
-		serr := streamResponse(w, resp, cancel, tail)
+		serr := streamResponse(w, resp, cancel, tail, swap)
 		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, Usage: parseUsage(tail.Bytes())}, serr
 	}
 	return ForwardResult{Attempts: attempts}, lastErr
@@ -403,16 +432,14 @@ func (r *Registry) refreshModels(ctx context.Context) []map[string]any {
 			}
 			if json.Unmarshal(raw, &envelope) == nil && len(envelope.Data) > 0 {
 				slog.Info("aggregate models: ok", "url", fwd.BaseURL+"/models", "count", len(envelope.Data))
-				results[idx] = envelope.Data
-				fwd.setModels(envelope.Data)
+				results[idx] = fwd.setModels(envelope.Data)
 				return
 			}
 			// some providers return a bare array
 			var arr []modelItem
 			if json.Unmarshal(raw, &arr) == nil && len(arr) > 0 {
 				slog.Info("aggregate models: ok (bare array)", "url", fwd.BaseURL+"/models", "count", len(arr))
-				results[idx] = arr
-				fwd.setModels(arr)
+				results[idx] = fwd.setModels(arr)
 				return
 			}
 			slog.Warn("aggregate models: unparseable response", "url", fwd.BaseURL+"/models", "body", string(raw[:min(len(raw), 300)]))
@@ -440,14 +467,30 @@ func (r *Registry) refreshModels(ctx context.Context) []map[string]any {
 }
 
 // setModels records the model IDs from this provider's /models response.
-func (f *Forwarder) setModels(list []map[string]any) {
+// It returns the list as ADO shows it: with ModelSuffix set, plain IDs and
+// names. Both the plain and the provider's own ID count as served.
+func (f *Forwarder) setModels(list []map[string]any) []map[string]any {
 	ids := make(map[string]bool, len(list))
+	aliases := map[string]string{}
+	nameRe := suffixNamePattern(f.ModelSuffix)
+	out := make([]map[string]any, 0, len(list))
 	for _, m := range list {
-		if id, _ := m["id"].(string); id != "" {
-			ids[id] = true
+		id, _ := m["id"].(string)
+		if id == "" {
+			continue
 		}
+		ids[id] = true
+		pub := f.publicID(id)
+		if pub != id {
+			ids[pub] = true
+			aliases[pub] = id
+			m = f.publicEntry(m, nameRe)
+		}
+		out = append(out, m)
 	}
 	f.models.Store(&ids)
+	f.aliases.Store(&aliases)
+	return out
 }
 
 // withStatus returns a copy of the model list with each item's ado_status set
@@ -486,12 +529,16 @@ const streamIdleTimeout = 120 * time.Second
 // streamResponse relays the upstream response, flushing each chunk. cancel
 // cancels the upstream request; it fires on idle (watchdog) and on return.
 // tail, if non-nil, receives a copy of what is streamed (it keeps only the end).
-func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer) error {
+// swap, if non-nil, replaces the provider's tagged model ID in the body.
+func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer, swap *quotedSwap) error {
 	defer resp.Body.Close()
 	defer cancel()
 	for k, vs := range resp.Header {
 		if isHopByHop(k) || isUpstreamOnly(k) {
 			continue
+		}
+		if swap != nil && http.CanonicalHeaderKey(k) == "Content-Length" {
+			continue // the swap changes the length
 		}
 		for _, v := range vs {
 			w.Header().Add(k, v)
@@ -504,19 +551,35 @@ func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.C
 
 	rc := http.NewResponseController(w)
 	buf := make([]byte, 4096)
+	write := func(p []byte) error {
+		if len(p) == 0 {
+			return nil
+		}
+		if tail != nil {
+			tail.Write(p)
+		}
+		if _, werr := w.Write(p); werr != nil {
+			return werr
+		}
+		_ = rc.Flush()
+		return nil
+	}
 	for {
 		n, rerr := resp.Body.Read(buf)
 		if n > 0 {
 			idle.Reset(streamIdleTimeout)
-			if tail != nil {
-				tail.Write(buf[:n])
+			chunk := buf[:n]
+			if swap != nil {
+				chunk = swap.push(chunk)
 			}
-			if _, werr := w.Write(buf[:n]); werr != nil {
+			if werr := write(chunk); werr != nil {
 				return werr
 			}
-			_ = rc.Flush()
 		}
 		if errors.Is(rerr, io.EOF) {
+			if swap != nil {
+				return write(swap.flush())
+			}
 			return nil
 		}
 		if rerr != nil {

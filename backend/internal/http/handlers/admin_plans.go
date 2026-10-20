@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/validate"
 )
@@ -78,6 +79,7 @@ func (h *AdminPlans) Upsert(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "save plan"))
 		return
 	}
+	mw.NoteAudit(r.Context(), p.Name, map[string]any{"dailyQuota": req.DailyQuota, "rpm": req.RPM})
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(planDTO{ID: p.ID, Name: p.Name, DailyQuota: p.DailyQuota, RPM: p.Rpm, CreatedAt: p.CreatedAt.Time})
 }
@@ -93,6 +95,7 @@ func (h *AdminPlans) Delete(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Conflict("PLAN_IN_USE", "plan not found, still has users, or is the free plan"))
 		return
 	}
+	mw.NoteAudit(r.Context(), chi.URLParam(r, "id"), nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -124,5 +127,10 @@ func (h *AdminPlans) SetUserPlan(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.NotFound("NOT_FOUND", "user not found"))
 		return
 	}
+	target := id.String()
+	if u, err := h.q.GetUserByID(r.Context(), id); err == nil {
+		target = u.Email
+	}
+	mw.NoteAudit(r.Context(), target, map[string]any{"plan": req.PlanID})
 	w.WriteHeader(http.StatusNoContent)
 }

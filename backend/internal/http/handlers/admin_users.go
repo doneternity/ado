@@ -87,6 +87,7 @@ func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set role"))
 		return
 	}
+	h.noteUser(r, id, map[string]any{"role": req.Role})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -111,6 +112,7 @@ func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.Internal("INTERNAL", "set banned"))
 		return
 	}
+	h.noteUser(r, id, map[string]any{"banned": req.Banned})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -145,5 +147,15 @@ func (h *AdminUsers) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("admin deleted account", "user", id)
+	mw.NoteAudit(r.Context(), u.Email, nil)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// noteUser names the user (by email) in this request's audit log entry.
+func (h *AdminUsers) noteUser(r *http.Request, id uuid.UUID, details map[string]any) {
+	target := id.String()
+	if u, err := h.q.GetUserByID(r.Context(), id); err == nil {
+		target = u.Email
+	}
+	mw.NoteAudit(r.Context(), target, details)
 }

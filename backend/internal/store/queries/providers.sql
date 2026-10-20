@@ -6,13 +6,13 @@ SELECT * FROM providers WHERE id = $1;
 
 -- name: CreateProvider :one
 -- Keys live in provider_keys; providers.api_key is legacy and left empty.
-INSERT INTO providers (name, base_url, is_active, priority)
-VALUES ($1, $2, $3, $4)
+INSERT INTO providers (name, base_url, is_active, priority, model_suffix)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: UpdateProviderMeta :one
 UPDATE providers
-SET name = $2, base_url = $3, priority = $4, updated_at = NOW()
+SET name = $2, base_url = $3, priority = $4, model_suffix = $5, updated_at = NOW()
 WHERE id = $1
 RETURNING *;
 

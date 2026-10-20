@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ado/ado/backend/internal/apperr"
+	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/store/db"
 	"github.com/ado/ado/backend/internal/validate"
 )
@@ -146,5 +147,10 @@ func (h *Announcement) Set(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.cached, h.fetchedAt = a, time.Now()
 	h.mu.Unlock()
+	if a.Message == "" {
+		mw.NoteAudit(r.Context(), "announcement", map[string]any{"cleared": true})
+	} else {
+		mw.NoteAudit(r.Context(), "announcement", map[string]any{"message": a.Message, "link": a.LinkURL})
+	}
 	writeAnnouncement(w, a)
 }

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Send, Square, RotateCcw, ChevronDown, Settings2, X, Search, Check } from "lucide-react";
+import { Send, Square, RotateCcw, ChevronDown, Settings2, X, Search, Check, Copy, Pencil, RefreshCw, Brain } from "lucide-react";
+import { Markdown, useCopy } from "../components/Markdown";
+import { splitThink } from "../data/think";
 import { useMe, useCurrentKey, useLiveModels } from "../api/queries";
 import { ApiError, getCsrfToken } from "../api/client";
 import { PROVIDER_NAME } from "../data/catalog";
@@ -10,7 +12,103 @@ import type { ModelProvider } from "../data/models";
 import styles from "./Playground.module.scss";
 
 type Role = "user" | "assistant" | "system";
-type Msg = { role: Role; content: string; id: number };
+type Msg = {
+  role: Role;
+  content: string;
+  id: number;
+  // assistant only: the model's streamed reasoning, when it sends any
+  reasoning?: string;
+  // when reasoning started arriving, and how long until the answer began
+  thinkStart?: number;
+  thinkMs?: number;
+};
+
+function fmtThinkTime(ms: number): string {
+  const s = Math.max(1, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+// The model's reasoning, open while it's being written and folded away once
+// the answer starts. A click overrides that either way.
+function Thinking({ text, live, ms }: { text: string; live: boolean; ms?: number }) {
+  const [manual, setManual] = useState<boolean | null>(null);
+  const open = manual ?? live;
+  const label = live ? "Thinking…" : ms !== undefined ? `Thought for ${fmtThinkTime(ms)}` : "Thought process";
+  return (
+    <div className={styles.thinking}>
+      <button
+        type="button"
+        className={`${styles.thinkingToggle}${live ? ` ${styles.thinkingLive}` : ""}`}
+        onClick={() => setManual(!open)}
+        aria-expanded={open}
+      >
+        <Brain size={12} />
+        <span>{label}</span>
+        <ChevronDown size={12} className={`${styles.thinkingCaret}${open ? ` ${styles.thinkingCaretOpen}` : ""}`} />
+      </button>
+      {open && <div className={styles.thinkingBody}>{text}</div>}
+    </div>
+  );
+}
+
+function ActionButton({ label, onClick, disabled, children }: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button type="button" className={styles.msgAction} onClick={onClick} disabled={disabled} aria-label={label} title={label}>
+      {children}
+    </button>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, copy] = useCopy();
+  return (
+    <ActionButton label={copied ? "Copied" : "Copy"} onClick={() => copy(text)} disabled={!text}>
+      {copied ? <Check size={13} /> : <Copy size={13} />}
+    </ActionButton>
+  );
+}
+
+// Editing a sent message: Enter resends (and drops everything after it),
+// Shift+Enter adds a line, Esc cancels.
+function EditBox({ initial, onSave, onCancel }: { initial: string; onSave: (text: string) => void; onCancel: () => void }) {
+  const [text, setText] = useState(initial);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    // scrollHeight leaves out the border, so add it back or a scrollbar shows.
+    const border = el.offsetHeight - el.clientHeight;
+    el.style.height = `${Math.min(el.scrollHeight + border, 300)}px`;
+  }, [text]);
+  const canSave = text.trim().length > 0;
+  return (
+    <div className={styles.editBox}>
+      <textarea
+        ref={ref}
+        autoFocus
+        className={styles.editArea}
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (canSave) onSave(text); }
+          if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        }}
+        aria-label="Edit message"
+        rows={1}
+      />
+      <div className={styles.editActions}>
+        <button type="button" className={styles.editCancel} onClick={onCancel}>Cancel</button>
+        <button type="button" className={styles.editSave} onClick={() => onSave(text)} disabled={!canSave}>Send</button>
+      </div>
+    </div>
+  );
+}
 
 // Chats run as the signed-in user's own key through their session, so the
 // browser never needs the raw key (the backend only keeps its hash).
@@ -76,7 +174,7 @@ async function streamCompletion(
   model: string,
   messages: Pick<Msg, "role" | "content">[],
   signal: AbortSignal,
-  onToken: (t: string) => void,
+  onDelta: (content: string, reasoning: string) => void,
   onDone: () => void,
   onError: (msg: string, status?: number) => void,
 ) {
@@ -115,15 +213,19 @@ async function streamCompletion(
       const parts = buf.split("\n");
       buf = parts.pop() ?? "";
       for (const line of parts) {
-        if (!line.startsWith("data: ")) continue;
-        const d = line.slice(6).trim();
+        if (!line.startsWith("data:")) continue;
+        const d = line.slice(5).trim();
         if (d === "[DONE]") { onDone(); return; }
         try {
+          // Thinking models stream their reasoning separately from the answer:
+          // DeepSeek, Z.ai and Moonshot as reasoning_content, others as reasoning.
           const chunk = JSON.parse(d) as {
-            choices?: [{ delta?: { content?: string } }];
+            choices?: [{ delta?: { content?: string | null; reasoning_content?: string | null; reasoning?: string | null } }];
           };
-          const tok = chunk.choices?.[0]?.delta?.content;
-          if (tok) onToken(tok);
+          const delta = chunk.choices?.[0]?.delta;
+          const content = delta?.content ?? "";
+          const reasoning = delta?.reasoning_content ?? (typeof delta?.reasoning === "string" ? delta.reasoning : "");
+          if (content || reasoning) onDelta(content, reasoning);
         } catch { /* ignore */ }
       }
     }
@@ -341,10 +443,13 @@ export function Playground() {
   const [input, setInput]           = useState("");
   const [streaming, setStreaming]   = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [editingId, setEditingId]   = useState<number | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
   const abortRef  = useRef<AbortController | null>(null);
+  // Follow the reply as it streams, unless the reader has scrolled up.
+  const stickRef  = useRef(true);
 
   // abort any in-flight stream on unmount
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -359,8 +464,13 @@ export function Playground() {
   }, [pickerModels, model]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (stickRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [messages, error]);
+
+  function onMessagesScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
 
   useEffect(() => {
     const el = inputRef.current;
@@ -369,22 +479,25 @@ export function Playground() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || streaming || noKey || !pickerModels.some(m => m.id === model)) return;
+  const canRun = !streaming && !noKey && pickerModels.some(m => m.id === model);
+
+  // Streams a new reply after `base`, which ends with the user's message.
+  // send, regenerate and edit all come through here.
+  const run = useCallback(async (base: Msg[]) => {
+    if (!canRun) return;
     setError(null);
+    setEditingId(null);
+    stickRef.current = true;
 
-    const userMsg: Msg = { role: "user", content: text, id: ++msgIdCounter };
-    const assistantMsg: Msg = { role: "assistant", content: "", id: ++msgIdCounter };
-
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    setInput("");
+    const assistantMsg: Msg = { role: "assistant", content: "", reasoning: "", id: ++msgIdCounter };
+    setMessages([...base, assistantMsg]);
     setStreaming(true);
 
+    // Earlier replies go back without their reasoning: it isn't part of the
+    // conversation, and some providers reject it in the input.
     const history: Pick<Msg, "role" | "content">[] = [
       ...(systemPrompt.trim() ? [{ role: "system" as Role, content: systemPrompt.trim() }] : []),
-      ...messages.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user" as Role, content: text },
+      ...base.map((m) => ({ role: m.role, content: m.role === "assistant" ? splitThink(m.content).answer : m.content })),
     ];
 
     const controller = new AbortController();
@@ -392,22 +505,52 @@ export function Playground() {
 
     await streamCompletion(
       model, history, controller.signal,
-      (tok) => {
-        setMessages((prev) =>
-          prev.map((m) => m.id === assistantMsg.id ? { ...m, content: m.content + tok } : m),
-        );
+      (content, reasoning) => {
+        const now = Date.now();
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== assistantMsg.id) return m;
+          const next = { ...m, content: m.content + content, reasoning: (m.reasoning ?? "") + reasoning };
+          if (reasoning && next.thinkStart === undefined) next.thinkStart = now;
+          if (content && next.thinkStart !== undefined && next.thinkMs === undefined) next.thinkMs = now - next.thinkStart;
+          return next;
+        }));
       },
       () => setStreaming(false),
       (msg) => {
         setError(msg);
-        setMessages((prev) => prev.filter((m) => m.id !== assistantMsg.id));
+        // Keep a reply that had started; drop the empty placeholder.
+        setMessages((prev) => prev.filter((m) => m.id !== assistantMsg.id || m.content || m.reasoning));
         setStreaming(false);
       },
     );
     if (abortRef.current === controller) abortRef.current = null;
     // The key may have been revoked or rotated meanwhile; refresh what we show.
     void refetchKey();
-  }, [input, streaming, noKey, pickerModels, model, messages, systemPrompt, refetchKey]);
+  }, [canRun, model, systemPrompt, refetchKey]);
+
+  const send = useCallback(() => {
+    const text = input.trim();
+    if (!text || !canRun) return;
+    setInput("");
+    void run([...messages, { role: "user", content: text, id: ++msgIdCounter }]);
+  }, [input, canRun, messages, run]);
+
+  // A new reply to the last user message, replacing the one after it (or
+  // retrying after an error, when there's no reply yet).
+  const regenerate = useCallback(() => {
+    let last = -1;
+    messages.forEach((m, i) => { if (m.role === "user") last = i; });
+    if (last >= 0) void run(messages.slice(0, last + 1));
+  }, [messages, run]);
+
+  // Resend an earlier message with new text. Everything after it is dropped,
+  // since the conversation branches from there.
+  const resendEdited = useCallback((id: number, text: string) => {
+    const idx = messages.findIndex(m => m.id === id);
+    const trimmed = text.trim();
+    if (idx < 0 || !trimmed) return;
+    void run([...messages.slice(0, idx), { ...messages[idx]!, content: trimmed }]);
+  }, [messages, run]);
 
   // stop a running generation; the partial reply stays in the transcript
   const stop = useCallback(() => {
@@ -417,7 +560,7 @@ export function Playground() {
   }, []);
 
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   }
 
   function clearChat() {
@@ -426,10 +569,12 @@ export function Playground() {
     setStreaming(false);
     setMessages([]);
     setError(null);
+    setEditingId(null);
   }
 
   const currentModel = pickerModels.find(m => m.id === model);
-  const canSend     = !noKey && !!currentModel && input.trim().length > 0 && !streaming;
+  const canSend     = canRun && input.trim().length > 0;
+  const lastUserIdx = messages.reduce((acc, m, i) => (m.role === "user" ? i : acc), -1);
   const empty       = messages.length === 0;
 
   return (
@@ -500,7 +645,7 @@ export function Playground() {
       )}
 
       {/* ── Messages ── */}
-      <div className={styles.messages}>
+      <div className={styles.messages} onScroll={onMessagesScroll}>
         {empty && !error && (
           <div className={styles.emptyState}>
             <p className={styles.emptyTitle}>Ask anything.</p>
@@ -521,23 +666,65 @@ export function Playground() {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div
-            key={msg.id}
-            className={`${styles.msg} ${msg.role === "user" ? styles.msgUser : styles.msgAssistant}`}
-          >
-            <div className={styles.msgMeta}>
-              <span className={styles.msgRole}>{msg.role}</span>
-            </div>
-            <div className={styles.msgContent}>
-              {msg.content || (
-                streaming && i === messages.length - 1
-                  ? <span className={styles.cursor}>▋</span>
-                  : null
+        {messages.map((msg, i) => {
+          const isLast = i === messages.length - 1;
+          const live = streaming && isLast;
+
+          if (msg.role === "user") {
+            const editing = editingId === msg.id;
+            return (
+              <div key={msg.id} className={`${styles.msg} ${styles.msgUser}`}>
+                <div className={styles.msgMeta}>
+                  <span className={styles.msgRole}>user</span>
+                </div>
+                {editing ? (
+                  <EditBox
+                    initial={msg.content}
+                    onSave={(text) => resendEdited(msg.id, text)}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <>
+                    <div className={styles.msgContent}>{msg.content}</div>
+                    <div className={styles.msgActions}>
+                      <CopyButton text={msg.content} />
+                      <ActionButton label="Edit and resend" onClick={() => setEditingId(msg.id)} disabled={!canRun}>
+                        <Pencil size={13} />
+                      </ActionButton>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          }
+
+          const inline = splitThink(msg.content);
+          const reasoning = (msg.reasoning ?? "") + (msg.reasoning && inline.reasoning ? "\n\n" : "") + inline.reasoning;
+          const answer = inline.answer;
+          return (
+            <div key={msg.id} className={`${styles.msg} ${styles.msgAssistant}`}>
+              <div className={styles.msgMeta}>
+                <span className={styles.msgRole}>assistant</span>
+              </div>
+              {reasoning && <Thinking text={reasoning} live={live && !answer} ms={msg.thinkMs} />}
+              <div className={styles.msgContent}>
+                {answer
+                  ? <Markdown text={answer} />
+                  : live && !reasoning ? <span className={styles.cursor}>▋</span> : null}
+              </div>
+              {!live && (
+                <div className={styles.msgActions}>
+                  <CopyButton text={answer} />
+                  {i > lastUserIdx && (
+                    <ActionButton label="Regenerate" onClick={regenerate} disabled={!canRun}>
+                      <RefreshCw size={13} />
+                    </ActionButton>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {error && (
           <div className={styles.errorMsg}>
@@ -545,6 +732,13 @@ export function Playground() {
               <span className={`${styles.msgRole} ${styles.msgRoleError}`}>error</span>
             </div>
             <div className={styles.msgContent}>{error}</div>
+            {lastUserIdx >= 0 && (
+              <div className={styles.msgActions}>
+                <button type="button" className={styles.retryBtn} onClick={regenerate} disabled={!canRun}>
+                  <RefreshCw size={12} /> Try again
+                </button>
+              </div>
+            )}
           </div>
         )}
 

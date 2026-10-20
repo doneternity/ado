@@ -1,0 +1,137 @@
+// Formatting for model replies in the Playground.
+.md {
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  > :first-child { margin-top: 0; }
+  > :last-child { margin-bottom: 0; }
+
+  p, ul, ol, blockquote, .tableWrap, .codeBlock { margin: 0 0 .85em; }
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 1.2em 0 .5em;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #ffffff;
+  }
+  h1 { font-size: 1.25rem; }
+  h2 { font-size: 1.12rem; }
+  h3 { font-size: 1rem; }
+  h4, h5, h6 { font-size: .92rem; }
+
+  ul, ol { padding-left: 1.4em; }
+  li { margin: .2em 0; }
+  li > ul, li > ol { margin: .2em 0; }
+  // GFM task lists
+  li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.2em; }
+  input[type="checkbox"] { margin-right: .5em; vertical-align: middle; }
+
+  strong { color: #ffffff; font-weight: 600; }
+
+  a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(236,168,214,0.4);
+    &:hover { text-decoration-color: var(--accent); }
+  }
+
+  blockquote {
+    padding: .1em 0 .1em 1em;
+    border-left: 2px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6);
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin: 1.2em 0;
+  }
+
+  table {
+    border-collapse: collapse;
+    font-size: .84rem;
+    min-width: 100%;
+  }
+  th, td {
+    border: 1px solid rgba(255,255,255,0.09);
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: rgba(255,255,255,0.04); color: #ffffff; font-weight: 600; }
+}
+
+.tableWrap { overflow-x: auto; }
+
+.inlineCode {
+  font-family: var(--font-mono);
+  font-size: .82em;
+  padding: .12em .4em;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.codeBlock {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+
+.codeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px 5px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+}
+
+.codeLang {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  text-transform: lowercase;
+  color: rgba(255,255,255,0.35);
+}
+
+.codeCopy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  font-family: inherit;
+  font-size: .7rem;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+
+  &:hover { background: rgba(255,255,255,0.06); color: #ffffff; }
+}
+
+.pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  line-height: 1.6;
+  white-space: pre;
+  color: rgba(255,255,255,0.82);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+
+  code { font-family: inherit; }
+}
+
+// Same palette as the Docs snippets.
+.tokComment { color: rgba(255,255,255,.32); font-style: italic; }
+.tokString  { color: var(--accent); }
+.tokKey     { color: rgba(255,255,255,.9); }
+.tokKeyword { color: #ffffff; font-weight: 700; }
+.tokNumber  { color: var(--green); }
+.tokFlag    { color: var(--electric); }

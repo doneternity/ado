@@ -19,6 +19,7 @@
   flex-shrink: 0;
   gap: 10px;
   flex-wrap: nowrap;
+  position: relative; // the model menu anchors here on phones
 
   @media (max-width: 600px) { padding: 8px 14px; }
 }
@@ -36,6 +37,9 @@
   text-transform: uppercase;
   letter-spacing: .08em;
   color: rgba(255,255,255,0.5);
+
+  // The bottom nav already says which page this is.
+  @media (max-width: 600px) { display: none; }
 }
 
 .subtitle {
@@ -54,7 +58,13 @@
 }
 
 /* ── Model picker ── */
-.pickerWrap { position: relative; }
+.pickerWrap {
+  position: relative;
+  min-width: 0;
+
+  // On phones the menu spans the screen, anchored to the top bar instead.
+  @media (max-width: 600px) { position: static; }
+}
 
 .pickerBtn {
   display: flex;
@@ -111,6 +121,13 @@
   max-height: min(460px, 70vh);
   overflow: hidden;
   backdrop-filter: blur(20px);
+
+  @media (max-width: 600px) {
+    top: calc(100% + 4px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
 }
 
 .pickerSearch {
@@ -275,6 +292,9 @@
 
   &:hover:not(:disabled) { color: rgba(255,255,255,0.75); border-color: rgba(255,255,255,0.14); }
   &:disabled { opacity: .25; cursor: not-allowed; }
+
+  // Icon only on phones, so the top bar fits.
+  @media (max-width: 600px) { span { display: none; } }
 }
 
 .ctrlBtnActive {
@@ -524,6 +544,163 @@
 
 .msgAssistant .msgContent {
   max-width: 100%;
+  white-space: normal; // Markdown handles line breaks
+}
+
+/* ── Message actions (copy, edit, regenerate) ── */
+.msgActions {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+
+  // Touch screens have no hover, so keep them visible there.
+  @media (hover: none) { opacity: 0.7; }
+}
+
+.msg:hover .msgActions,
+.msg:focus-within .msgActions,
+.errorMsg .msgActions { opacity: 1; }
+
+.msgUser .msgActions { align-self: flex-end; }
+
+.msgAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+
+  &:hover:not(:disabled) { background: rgba(255,255,255,0.06); color: #ffffff; }
+  &:disabled { opacity: 0.35; cursor: default; }
+}
+
+.retryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.7);
+  font-family: inherit;
+  font-size: .75rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { border-color: rgba(255,255,255,0.2); color: #ffffff; }
+  &:disabled { opacity: 0.4; cursor: default; }
+}
+
+/* ── Editing a sent message ── */
+.editBox {
+  align-self: flex-end;
+  width: min(100%, 620px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editArea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(236,168,214,0.35);
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: .9rem;
+  line-height: 1.6;
+  outline: none;
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.editCancel,
+.editSave {
+  padding: 5px 14px;
+  border-radius: var(--r-pill);
+  font-family: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+}
+
+.editCancel {
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  &:hover { color: #ffffff; }
+}
+
+.editSave {
+  border: none;
+  background: var(--accent);
+  color: #000000;
+  font-weight: 500;
+  &:disabled { opacity: 0.4; cursor: default; }
+}
+
+/* ── Thinking (model reasoning) ── */
+.thinking {
+  margin-bottom: 10px;
+}
+
+.thinkingToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.5);
+  font-family: inherit;
+  font-size: .74rem;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+
+  &:hover { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.15); }
+}
+
+.thinkingLive span { animation: thinkPulse 1.4s ease-in-out infinite; }
+
+@keyframes thinkPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinkingLive span { animation: none; }
+}
+
+.thinkingCaret { transition: transform var(--t-fast); }
+.thinkingCaretOpen { transform: rotate(180deg); }
+
+.thinkingBody {
+  margin-top: 8px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.45);
+  font-size: .82rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .cursor {

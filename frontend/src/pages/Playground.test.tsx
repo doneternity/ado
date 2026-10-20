@@ -12,15 +12,36 @@ const DEFAULT_MODELS: Record<string, unknown>[] = [
 let liveModels = DEFAULT_MODELS;
 let hasKey = true;
 
-function sse(...chunks: string[]) {
-  const body = chunks.map((c) => `data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`).join("") + "data: [DONE]\n\n";
+function sseDeltas(...deltas: Record<string, string>[]) {
+  const body = deltas.map((d) => `data: ${JSON.stringify({ choices: [{ delta: d }] })}\n\n`).join("") + "data: [DONE]\n\n";
   return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
+function sse(...chunks: string[]) {
+  return sseDeltas(...chunks.map((content) => ({ content })));
+}
+
+// What the next chat request streams back.
+let nextReply: () => Response;
+
+function chatBodies() {
+  return calls
+    .filter((c) => c.url.includes("/api/playground/chat/completions"))
+    .map((c) => JSON.parse(c.init!.body as string) as { model: string; messages: { role: string; content: string }[] });
+}
+
+async function say(text: string) {
+  const box = screen.getByPlaceholderText("Message…");
+  await waitFor(() => expect(box).not.toBeDisabled());
+  fireEvent.change(box, { target: { value: text } });
+  fireEvent.keyDown(box, { key: "Enter" });
 }
 
 beforeEach(() => {
   calls = [];
   hasKey = true;
   liveModels = DEFAULT_MODELS;
+  nextReply = () => sse("Hel", "lo");
   localStorage.clear();
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -34,7 +55,7 @@ beforeEach(() => {
         ? json({ keyPrefix: "ado-abc123", dailyLimit: 100, used: 0, resetsAt: "", createdAt: "" })
         : json({ error: { code: "NOT_FOUND", message: "no active key" } }, 404);
     }
-    if (url.includes("/api/playground/chat/completions")) return sse("Hel", "lo");
+    if (url.includes("/api/playground/chat/completions")) return nextReply();
     if (url.includes("/models")) return json({ data: liveModels });
     return json({});
   }));
@@ -119,5 +140,71 @@ describe("Playground", () => {
     renderPage();
     expect(await screen.findByText("No models available")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Choose a model" })).toBeDisabled();
+  });
+
+  it("shows the model's reasoning in a section that folds away once the answer starts", async () => {
+    nextReply = () => sseDeltas({ reasoning_content: "Let me think" }, { reasoning_content: " about it." }, { content: "The answer is **4**." });
+    renderPage();
+    await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" });
+    await say("2+2?");
+
+    const answer = await screen.findByText("4");
+    expect(answer.tagName).toBe("STRONG"); // rendered as Markdown
+    const toggle = screen.getByRole("button", { name: /Thought for/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Let me think about it.")).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.getByText("Let me think about it.")).toBeInTheDocument();
+
+    // The reasoning is never sent back with the next message.
+    await say("and 3+3?");
+    await waitFor(() => expect(chatBodies()).toHaveLength(2));
+    expect(chatBodies()[1]!.messages.map((m) => m.content)).toEqual(["2+2?", "The answer is **4**.", "and 3+3?"]);
+  });
+
+  it("regenerates the last reply from the same conversation", async () => {
+    renderPage();
+    await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" });
+    await say("hi");
+    await screen.findByText("Hello");
+
+    nextReply = () => sse("Hi again");
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+    expect(await screen.findByText("Hi again")).toBeInTheDocument();
+    expect(screen.queryByText("Hello")).not.toBeInTheDocument();
+    expect(chatBodies()[1]!.messages).toEqual([{ role: "user", content: "hi" }]);
+  });
+
+  it("edits an earlier message and continues from there", async () => {
+    renderPage();
+    await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" });
+    await say("hi");
+    await screen.findByText("Hello");
+    nextReply = () => sse("Second reply");
+    await say("tell me more");
+    await screen.findByText("Second reply");
+
+    nextReply = () => sse("Edited reply");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit and resend" })[0]!);
+    const edit = screen.getByRole("textbox", { name: "Edit message" });
+    fireEvent.change(edit, { target: { value: "hey there" } });
+    fireEvent.keyDown(edit, { key: "Enter" });
+
+    expect(await screen.findByText("Edited reply")).toBeInTheDocument();
+    expect(screen.queryByText("tell me more")).not.toBeInTheDocument();
+    expect(screen.queryByText("Second reply")).not.toBeInTheDocument();
+    expect(chatBodies()[2]!.messages).toEqual([{ role: "user", content: "hey there" }]);
+  });
+
+  it("copies a reply", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    renderPage();
+    await screen.findByRole("button", { name: "Model: DeepSeek V4 Pro" });
+    await say("hi");
+    await screen.findByText("Hello");
+    // [the user message's copy button, the reply's]
+    fireEvent.click(screen.getAllByRole("button", { name: "Copy" })[1]!);
+    expect(writeText).toHaveBeenCalledWith("Hello");
   });
 });

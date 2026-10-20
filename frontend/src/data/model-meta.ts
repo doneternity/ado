@@ -33,6 +33,8 @@ export function inferProvider(id: string): ModelProvider {
   if (/deepseek/i.test(key)) return "deepseek";
   if (/gpt|openai|^o\d/i.test(key)) return "openai";
   if (/grok|xai/i.test(key)) return "xai";
+  if (/glm|zhipu/i.test(key)) return "zai";
+  if (/kimi|moonshot/i.test(key)) return "moonshot";
   return "other";
 }
 
@@ -43,7 +45,51 @@ export function providerFromLabel(label: string): ModelProvider {
   if (l.includes("deepseek")) return "deepseek";
   if (l.includes("openai")) return "openai";
   if (l.includes("xai") || l.includes("grok")) return "xai";
+  if (l.includes("z-ai") || l.includes("z.ai") || l.includes("zai") || l.includes("zhipu")) return "zai";
+  if (l.includes("moonshot") || l.includes("kimi")) return "moonshot";
   return "other";
+}
+
+// Who serves a live model: the provider's own owner field when it names a
+// known company, otherwise the fallback or a guess from the model ID (owners
+// like "system" or "organization-owner" say nothing).
+export function providerOf(live: Pick<LiveModel, "id" | "provider" | "owned_by">, fallback?: ModelProvider): ModelProvider {
+  const owner = live.provider ?? live.owned_by;
+  const fromOwner = owner ? providerFromLabel(owner) : "other";
+  if (fromOwner !== "other") return fromOwner;
+  return fallback ?? inferProvider(live.id);
+}
+
+type FamilyInfo = Pick<ModelDef, "description" | "capabilities" | "speed">;
+
+// What can truthfully be said about a model family the catalogue doesn't list
+// by ID, so new GLM and Kimi releases show up described instead of blank.
+// Live metadata (context size, image input) is still added on top.
+export function familyInfo(id: string): FamilyInfo | undefined {
+  const key = id.toLowerCase().replace(/^.*\//, "");
+  const thinking = /thinking/.test(key);
+  const light = /flash|air|turbo|mini|lite/.test(key);
+  const speed = light ? 1 : 2;
+  if (/^(chat)?glm/.test(key)) {
+    if (/^glm-[\d.]+v|vision/.test(key)) {
+      return { description: "Z.ai's GLM vision model, for questions about images as well as text.", capabilities: ["Streaming", "Vision"], speed };
+    }
+    return {
+      description: light ? "A lighter, faster GLM model from Z.ai for everyday tasks." : "Z.ai's GLM model for chat, coding and agent tasks.",
+      capabilities: thinking ? ["Streaming", "Reasoning"] : ["Streaming"],
+      speed,
+    };
+  }
+  if (/^(kimi|moonshot)/.test(key)) {
+    if (/vision|-vl\b/.test(key)) {
+      return { description: "Moonshot AI's Kimi vision model, for questions about images as well as text.", capabilities: ["Streaming", "Vision"], speed };
+    }
+    if (thinking) {
+      return { description: "Moonshot AI's Kimi thinking model, which reasons step by step before it answers.", capabilities: ["Streaming", "Reasoning"], speed };
+    }
+    return { description: "Moonshot AI's Kimi model for chat, coding and long documents.", capabilities: ["Streaming"], speed };
+  }
+  return undefined;
 }
 
 // 131072 -> "128K", 1048576 -> "1M" (binary sizes, as model cards quote them);
@@ -62,6 +108,8 @@ export function prettyName(raw: string): string {
     .replace(/^[^/]*\//, "")       // strip provider/ prefix
     .replace(/[-_]+/g, " ")
     .replace(/\b([a-z])/g, (c) => c.toUpperCase())
+    .replace(/\b(Glm|Gpt)\b/g, (w) => w.toUpperCase()) // "glm-5.3" -> "GLM 5.3"
+    .replace(/(\d)v\b/g, "$1V")                       // "4.5v" -> "4.5V"
     .trim();
 }
 
@@ -69,9 +117,9 @@ export function prettyName(raw: string): string {
 // catalogue only adds what providers don't report (tag, description, speed).
 export function mergeModel(live: LiveModel, curated?: ModelDef): EnrichedModel {
   const ctxTokens = live.context_length ?? live.context_window;
-  const owner = live.provider ?? live.owned_by;
+  const family = curated ? undefined : familyInfo(live.id);
 
-  const caps = new Set<Capability>(curated?.capabilities ?? ["Streaming"]);
+  const caps = new Set<Capability>(curated?.capabilities ?? family?.capabilities ?? ["Streaming"]);
   if (live.input_modalities?.includes("image")) caps.add("Vision");
   if (live.effort?.supported_levels?.length || live.reasoning || live.supported_parameters?.includes("reasoning")) caps.add("Reasoning");
   if (live.supported_parameters?.includes("tools")) caps.add("Tools");
@@ -82,12 +130,12 @@ export function mergeModel(live: LiveModel, curated?: ModelDef): EnrichedModel {
   return {
     id: live.id,
     name: liveName ? prettyName(liveName) : curated?.name ?? (prettyName(live.id) || live.id),
-    provider: owner ? providerFromLabel(owner) : curated?.provider ?? inferProvider(live.id),
+    provider: providerOf(live, curated?.provider),
     context: ctxTokens ? fmtCtx(ctxTokens) : curated?.context ?? "",
-    speed: curated?.speed ?? 2,
+    speed: curated?.speed ?? family?.speed ?? 2,
     capabilities: order.filter((c) => caps.has(c)),
     tag: curated?.tag,
-    description: curated?.description ?? "",
+    description: curated?.description ?? family?.description ?? "",
     adoStatus: live.ado_status ?? "available",
   };
 }

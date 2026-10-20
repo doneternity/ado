@@ -11,6 +11,8 @@ export const PROVIDER_NAME: Record<ModelProvider, string> = {
   deepseek: "DeepSeek",
   openai:   "OpenAI",
   xai:      "xAI",
+  zai:      "Z.ai",
+  moonshot: "Moonshot AI",
   other:    "Other",
 };
 

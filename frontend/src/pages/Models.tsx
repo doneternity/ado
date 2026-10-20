@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Copy, Check, Zap, Brain, Eye, Wrench, Layers, Search, RefreshCw } from "lucide-react";
 import type { ModelDef, Capability } from "../data/models";
 import { enrichAll } from "../data/model-meta";
+import { PROVIDER_NAME } from "../data/catalog";
 import type { LiveModel, EnrichedModel } from "../data/model-meta";
 import { useMe } from "../api/queries";
 import styles from "./Models.module.scss";
@@ -26,17 +27,12 @@ const PROVIDER_CLASS: Record<ModelDef["provider"], string> = {
   deepseek: styles.providerDeepseek ?? "",
   openai:   styles.providerOpenai   ?? "",
   xai:      styles.providerXai      ?? "",
+  zai:      styles.providerZai      ?? "",
+  moonshot: styles.providerMoonshot ?? "",
   other:    styles.providerOther    ?? "",
 };
 
-const PROVIDER_LABEL: Record<ModelDef["provider"], string> = {
-  gemini:   "Google",
-  claude:   "Anthropic",
-  deepseek: "DeepSeek",
-  openai:   "OpenAI",
-  xai:      "xAI",
-  other:    "Other",
-};
+const PROVIDER_LABEL = PROVIDER_NAME;
 
 function CopyId({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);

@@ -13,6 +13,14 @@ describe("summarizeProviders", () => {
     ]);
   });
 
+  it("names Z.ai and Moonshot AI", () => {
+    const out = summarizeProviders([
+      { id: "glm-5.3", status: "available" },
+      { id: "kimi-k2.5", status: "available" },
+    ]);
+    expect(out.map((p) => p.name).sort()).toEqual(["Moonshot AI", "Z.ai"]);
+  });
+
   it("is empty when nothing is served", () => {
     expect(summarizeProviders([])).toEqual([]);
   });

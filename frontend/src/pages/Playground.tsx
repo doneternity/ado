@@ -18,6 +18,8 @@ const PROVIDER_LABEL: Record<ModelProvider, string> = {
   deepseek: "DeepSeek",
   openai:   "OpenAI",
   xai:      "xAI",
+  zai:      "Z.ai",
+  moonshot: "Moonshot AI",
   other:    "Other",
 };
 
@@ -32,6 +34,8 @@ function inferProvider(id: string): ModelProvider {
   if (/deepseek/i.test(key)) return "deepseek";
   if (/gpt|openai|^o\d/i.test(key)) return "openai";
   if (/grok|xai/i.test(key)) return "xai";
+  if (/glm|zhipu/i.test(key)) return "zai";
+  if (/kimi|moonshot/i.test(key)) return "moonshot";
   return "other";
 }
 

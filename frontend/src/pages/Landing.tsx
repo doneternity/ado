@@ -41,6 +41,8 @@ const PROVIDER_BLURB: Partial<Record<string, { tagline: string; tags: string[] }
   OpenAI:    { tagline: "General-purpose flagship models", tags: ["General", "Tool use"] },
   Anthropic: { tagline: "Careful reasoning and writing",  tags: ["Reasoning", "Writing"] },
   xAI:       { tagline: "Grok models",                    tags: ["General"] },
+  "Z.ai":        { tagline: "GLM models for coding and agents", tags: ["Code", "Agents"] },
+  "Moonshot AI": { tagline: "Kimi models",                      tags: ["General", "Code"] },
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;

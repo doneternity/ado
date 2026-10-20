@@ -1,4 +1,4 @@
-import { enrichAll, fmtCtx, mergeModel, prettyName } from "./model-meta";
+import { enrichAll, fmtCtx, mergeModel, prettyName, providerOf } from "./model-meta";
 import type { LiveModel } from "./model-meta";
 
 // Shapes copied from DeepSeek's real /models response.
@@ -53,5 +53,30 @@ describe("model metadata", () => {
     expect(fmtCtx(200_000)).toBe("200K tokens");
     expect(fmtCtx(1_000_000)).toBe("1M tokens");
     expect(prettyName("models/gemini-3-flash")).toBe("Gemini 3 Flash");
+  });
+
+  it("recognises Z.ai GLM and Moonshot Kimi models", () => {
+    const glm = mergeModel({ id: "glm-5.3", owned_by: "z-ai" });
+    expect(glm.name).toBe("GLM 5.3");
+    expect(glm.provider).toBe("zai");
+    expect(glm.description).toMatch(/Z.ai/);
+
+    const vision = mergeModel({ id: "glm-4.5v", owned_by: "system" });
+    expect(vision.name).toBe("GLM 4.5V");
+    expect(vision.provider).toBe("zai"); // "system" says nothing, so the ID decides
+    expect(vision.capabilities).toContain("Vision");
+
+    const kimi = mergeModel({ id: "kimi-k2-thinking", owned_by: "moonshot", context_length: 262144 });
+    expect(kimi.name).toBe("Kimi K2 Thinking");
+    expect(kimi.provider).toBe("moonshot");
+    expect(kimi.context).toBe("256K tokens");
+    expect(kimi.capabilities).toEqual(["Streaming", "Reasoning"]);
+    expect(kimi.description).toMatch(/Moonshot AI/);
+  });
+
+  it("trusts a known owner over the ID, and the ID over an unknown owner", () => {
+    expect(providerOf({ id: "kimi-k2", owned_by: "Moonshot" })).toBe("moonshot");
+    expect(providerOf({ id: "glm-5", owned_by: "organization-owner" })).toBe("zai");
+    expect(providerOf({ id: "mystery", owned_by: "system" })).toBe("other");
   });
 });

@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
+import { PROVIDER_NAME } from "../data/catalog";
+import { providerOf } from "../data/model-meta";
+import type { ModelProvider } from "../data/models";
 import styles from "./Status.module.scss";
 
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "") as string;
@@ -10,43 +13,17 @@ type AdoStatus = "available" | "degraded" | "down";
 type LiveModel = {
   id: string;
   ado_status: AdoStatus;
-  provider: string;
+  provider?: string;
+  owned_by?: string;
   display_name: string;
   context_length: number;
 };
 
-type ProviderKey = "google" | "deepseek" | "openai" | "anthropic" | "xai" | "other";
+type ProviderKey = ModelProvider;
 
-const PROVIDER_LABELS: Record<ProviderKey, string> = {
-  google:    "Google",
-  deepseek:  "DeepSeek",
-  openai:    "OpenAI",
-  anthropic: "Anthropic",
-  xai:       "xAI",
-  other:     "Other",
-};
+const PROVIDER_LABELS = PROVIDER_NAME;
 
-const PROVIDER_ORDER: ProviderKey[] = ["google", "deepseek", "openai", "anthropic", "xai", "other"];
-
-function inferProvider(id: string): ProviderKey {
-  const key = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
-  if (/gemini|google|bard/i.test(key)) return "google";
-  if (/claude|anthropic/i.test(key)) return "anthropic";
-  if (/deepseek/i.test(key)) return "deepseek";
-  if (/gpt|openai|^o\d/i.test(key)) return "openai";
-  if (/grok|xai/i.test(key)) return "xai";
-  return "other";
-}
-
-function providerFromLabel(label: string): ProviderKey {
-  const l = label.toLowerCase();
-  if (l.includes("google") || l.includes("gemini")) return "google";
-  if (l.includes("anthropic") || l.includes("claude")) return "anthropic";
-  if (l.includes("deepseek")) return "deepseek";
-  if (l.includes("openai")) return "openai";
-  if (l.includes("xai") || l.includes("grok")) return "xai";
-  return "other";
-}
+const PROVIDER_ORDER: ProviderKey[] = ["gemini", "deepseek", "openai", "claude", "xai", "zai", "moonshot", "other"];
 
 type ProviderStatus = "operational" | "degraded" | "down" | "unknown";
 
@@ -105,9 +82,7 @@ export function Status() {
 
       const grouped = new Map<ProviderKey, LiveModel[]>();
       for (const m of models) {
-        const pk = m.provider
-          ? providerFromLabel(m.provider)
-          : inferProvider(m.id);
+        const pk = providerOf(m);
         if (!grouped.has(pk)) grouped.set(pk, []);
         grouped.get(pk)!.push(m);
       }

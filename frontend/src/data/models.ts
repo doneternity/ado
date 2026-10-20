@@ -1,4 +1,4 @@
-export type ModelProvider = "claude" | "gemini" | "deepseek" | "openai" | "xai" | "other";
+export type ModelProvider = "claude" | "gemini" | "deepseek" | "openai" | "xai" | "zai" | "moonshot" | "other";
 export type Capability = "Vision" | "Tools" | "Streaming" | "Reasoning" | "Long context";
 
 export interface ModelDef {
@@ -189,7 +189,7 @@ export const MODELS: ModelDef[] = [
   {
     id: "kimi-k2",
     name: "Kimi K2",
-    provider: "other",
+    provider: "moonshot",
     context: "128K tokens",
     speed: 2,
     capabilities: ["Streaming", "Reasoning"],

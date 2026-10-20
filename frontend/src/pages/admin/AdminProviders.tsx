@@ -401,11 +401,15 @@ function LivePreview() {
     setErr(null);
     setModels(null);
     try {
-      const base = import.meta.env.VITE_PROXY_BASE_URL || PROXY_REQUEST_BASE;
-      const r = await fetch(`${base}/models`, {
+      const r = await fetch(`${PROXY_REQUEST_BASE}/models`, {
         headers: { Authorization: `Bearer ${k}` },
       });
-      const d = await r.json() as { data?: LiveModel[]; error?: { message?: string } };
+      let d: { data?: LiveModel[]; error?: { message?: string } };
+      try {
+        d = await r.json() as typeof d;
+      } catch {
+        throw new Error(`Unexpected non-JSON response (HTTP ${r.status})`);
+      }
       if (!r.ok) throw new Error(d.error?.message ?? `HTTP ${r.status}`);
       setModels(d.data ?? []);
     } catch (e) {

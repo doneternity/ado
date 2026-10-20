@@ -54,7 +54,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Children",
-    body: <>ADO isn't meant for anyone under 16. If you think a child has signed up, tell us on our <DiscordLink /> and we'll remove the account.</>,
+    body: <>ADO isn&apos;t meant for anyone under 16. If you think a child has signed up, tell us on our <DiscordLink /> and we&apos;ll remove the account.</>,
   },
   {
     title: "Changes",

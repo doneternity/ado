@@ -177,7 +177,15 @@ func TestAPI_ErrorsSayWhatIsWrong(t *testing.T) {
 	fx := newFixture(t)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			_, _ = w.Write([]byte(`{"data":[{"id":"ok-model"},{"id":"broke-model"}]}`))
+			_, _ = w.Write([]byte(`{"data":[{"id":"ok-model"},{"id":"broke-model"},{"id":"picky-model"}]}`))
+			return
+		}
+		var req struct{ Model string }
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Model == "picky-model" {
+			// A provider's own error, in its own shape.
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"detail":"temperature must be at most 2"}`))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -221,6 +229,17 @@ func TestAPI_ErrorsSayWhatIsWrong(t *testing.T) {
 		if code != c.status || !strings.Contains(out, c.want) || strings.Contains(out, "Insufficient Balance") {
 			t.Errorf("%s %s %s: %d %s, want %d containing %q", c.method, c.path, c.body, code, out, c.status, c.want)
 		}
+	}
+
+	// No provider answered: SDKs are asked to wait out the 30s cooldown.
+	if _, hdr, _ := apiCall(t, fx, auth, `{"model":"broke-model","messages":[{"role":"user","content":"hi"}]}`); hdr.Get("Retry-After") != "30" {
+		t.Errorf("NO_PROVIDER Retry-After = %q, want 30", hdr.Get("Retry-After"))
+	}
+
+	// A provider's own error comes back in ADO's format with its message.
+	code, out := apiDo(t, fx, "POST", chat, auth, `{"model":"picky-model","messages":[{"role":"user","content":"hi"}]}`)
+	if code != 400 || !strings.Contains(out, `"code":"PROVIDER_ERROR"`) || !strings.Contains(out, "temperature must be at most 2") || !strings.Contains(out, `"type":"invalid_request_error"`) {
+		t.Errorf("provider error: %d %s", code, out)
 	}
 
 	// None of those reached a model, so none counted.

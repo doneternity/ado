@@ -92,7 +92,7 @@ func TestKeepAlive_LateErrorInStream(t *testing.T) {
 	res, rr, _ := forward(t, reg, ForwardOptions{KeepAlive: true, Stream: true})
 	out := rr.Body.String()
 	if !res.KeptAlive || res.Status != 400 || !strings.Contains(out, ": keep-alive") ||
-		!strings.Contains(out, `data: {"error":{"message":"context too long"}}`) {
+		!strings.Contains(out, `data: {"error":{"code":"PROVIDER_ERROR","message":"context too long","type":"invalid_request_error"}}`) {
 		t.Fatalf("res %+v body %q", res, out)
 	}
 }

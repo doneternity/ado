@@ -738,7 +738,7 @@ Retry-After: 22380
                   { status: "429", code: "RATE_LIMITED",       desc: "Over your per-minute limit. Wait for Retry-After seconds, then retry." },
                   { status: "429", code: "QUOTA_EXCEEDED",     desc: "Today's quota is used up. It resets at 00:00 UTC, and the message says how long that is." },
                   { status: "429", code: "TOO_MANY_BAD_KEYS",  desc: "Your address sent too many requests with a missing or invalid key. Fix the key and wait for Retry-After." },
-                  { status: "503", code: "NO_PROVIDER",        desc: "Every provider for that model was down, overloaded or too slow. It isn't your key. Try again shortly or use another model; the Status page shows what's affected." },
+                  { status: "503", code: "NO_PROVIDER",        desc: "Every provider for that model was down, overloaded or too slow. It isn't your key. Wait for Retry-After (30 seconds) or use another model; the Status page shows what's affected." },
                   { status: "503", code: "MAINTENANCE",        desc: "ADO is down for maintenance. Try again in a few minutes." },
                   { status: "500", code: "INTERNAL",           desc: "Something went wrong on our side, and the message says what couldn't be done. Safe to retry after a short delay." },
                 ].map(({ status, code, desc }) => (
@@ -756,9 +756,10 @@ Retry-After: 22380
             </table>
           </div>
           <p>
-            Errors with a different code come from the model&apos;s provider, passed on as they are (a conversation
-            longer than the model&apos;s context, say). 429s and 5xx errors are worth retrying after a wait; other 4xx
-            errors need a change to the request first.
+            When the model&apos;s provider turns a request down (a conversation longer than the model&apos;s context, say),
+            you get its own message in the same format, with code <C>PROVIDER_ERROR</C> or the provider&apos;s own code.
+            429s and 5xx errors are worth retrying after a wait (<C>Retry-After</C> says how long when it&apos;s known);
+            other 4xx errors need a change to the request first.
           </p>
           <p>
             If a streamed reply breaks partway because the provider stalls or drops the connection, the stream ends

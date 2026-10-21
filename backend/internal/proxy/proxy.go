@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/ado/ado/backend/internal/apperr"
 )
 
 const (
@@ -286,7 +288,8 @@ func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path st
 		// swapped back in the response.
 		sendBody := body
 		var swap *quotedSwap
-		if up := f.upstreamID(model); up != model {
+		up := f.upstreamID(model)
+		if up != model {
 			sendBody = withModel(body, up)
 			swap = newQuotedSwap(up, model)
 		}
@@ -324,11 +327,12 @@ func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path st
 		}
 		f.resetBreaker()
 		committed := ka.stop()
-		if committed && resp.StatusCode >= 300 {
-			// The 200 is already sent: pass the provider's error on in the body.
-			writeLateProviderError(w, resp, opts.Stream)
+		if resp.StatusCode >= 400 || (committed && resp.StatusCode >= 300) {
+			// A request the provider turned down (bad input, a context that's
+			// too long): pass its message on in ADO's error format.
+			writeProviderError(w, resp, opts.Stream, committed, up, model)
 			cancel()
-			return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, KeptAlive: true}, nil
+			return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, KeptAlive: committed}, nil
 		}
 		// Keep the end of the response to read its token usage; content is not kept.
 		tail := newTailBuffer(16 << 10)
@@ -415,25 +419,84 @@ func (k *keepAlive) stop() bool {
 	return k.started.Load()
 }
 
-// writeLateProviderError passes on a provider's error response after a
-// keep-alive already sent a 200: as is for JSON, as an error event in a
-// stream (OpenAI's SDKs raise an error for it).
-func writeLateProviderError(w http.ResponseWriter, resp *http.Response, sse bool) {
+// writeProviderError passes on a provider's error response in ADO's format,
+// {"error": {"code", "message", "type"}} like OpenAI's, keeping the
+// provider's own message and code. Providers word errors differently (a bare
+// string, "detail", plain text, an HTML page), and clients expect one shape.
+// When a keep-alive already sent a 200 (committed), it goes in the body: an
+// error event in a stream, which OpenAI's SDKs raise, or the object itself.
+func writeProviderError(w http.ResponseWriter, resp *http.Response, sse, committed bool, upstreamID, model string) {
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
-	var parsed map[string]json.RawMessage
-	if json.Unmarshal(body, &parsed) != nil || parsed["error"] == nil {
-		body, _ = json.Marshal(map[string]any{"error": map[string]any{
-			"message": fmt.Sprintf("the provider returned an error (HTTP %d)", resp.StatusCode),
-			"type":    "api_error",
-		}})
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	msg, code := providerErrorText(raw)
+	if msg == "" {
+		msg = fmt.Sprintf("the provider turned the request down (HTTP %d)", resp.StatusCode)
 	}
-	if sse {
-		_, _ = fmt.Fprintf(w, "data: %s\n\n", bytes.TrimSpace(body))
-	} else {
+	if upstreamID != model && upstreamID != "" {
+		msg = strings.ReplaceAll(msg, upstreamID, model) // the ID the client asked for
+	}
+	if code == "" {
+		code = "PROVIDER_ERROR"
+	}
+	body, _ := json.Marshal(map[string]any{"error": map[string]any{
+		"code": code, "message": msg, "type": apperr.TypeFor(resp.StatusCode),
+	}})
+	switch {
+	case !committed:
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		_, _ = w.Write(body)
+	case sse:
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", body)
+	default:
 		_, _ = w.Write(body)
 	}
 	_ = http.NewResponseController(w).Flush()
+}
+
+// providerErrorText finds the message (and code, if any) in a provider's
+// error body, whichever of the usual shapes it uses.
+func providerErrorText(raw []byte) (msg, code string) {
+	var body struct {
+		Error   json.RawMessage `json:"error"`
+		Message string          `json:"message"`
+		Detail  json.RawMessage `json:"detail"`
+	}
+	if json.Unmarshal(raw, &body) != nil {
+		text := strings.TrimSpace(string(raw))
+		if text == "" || strings.HasPrefix(text, "<") { // nothing, or an HTML error page
+			return "", ""
+		}
+		if len(text) > 300 {
+			text = text[:300] + "…"
+		}
+		return text, ""
+	}
+	var errObj struct {
+		Message string          `json:"message"`
+		Code    json.RawMessage `json:"code"`
+	}
+	var errStr string
+	switch {
+	case json.Unmarshal(body.Error, &errObj) == nil && errObj.Message != "":
+		msg = errObj.Message
+		_ = json.Unmarshal(errObj.Code, &code) // only a string code is kept
+	case json.Unmarshal(body.Error, &errStr) == nil:
+		msg = errStr
+	case body.Message != "":
+		msg = body.Message
+	default:
+		var detail string
+		var details []struct {
+			Msg string `json:"msg"`
+		}
+		if json.Unmarshal(body.Detail, &detail) == nil {
+			msg = detail
+		} else if json.Unmarshal(body.Detail, &details) == nil && len(details) > 0 {
+			msg = details[0].Msg
+		}
+	}
+	return strings.TrimSpace(msg), code
 }
 
 // rotateGroups spreads load across a provider's keys: within each run of

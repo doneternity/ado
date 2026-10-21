@@ -127,11 +127,12 @@ export function UptimeHistory() {
             <span><i className={`${styles.key} ${styles.bar_good}`} /> 99% or more</span>
             <span><i className={`${styles.key} ${styles.bar_fair}`} /> 95 to 99%</span>
             <span><i className={`${styles.key} ${styles.bar_poor}`} /> under 95%</span>
-            <span><i className={`${styles.key} ${styles.bar_none}`} /> no requests</span>
+            <span><i className={`${styles.key} ${styles.bar_none}`} /> no requests (quiet, not down)</span>
           </div>
           <p className={styles.note}>
             The share of requests that got an answer from the model. Requests turned away for bad input or usage
-            limits aren&apos;t counted.
+            limits aren&apos;t counted. A grey slot only means nobody used the model then; live health is in the
+            list above.
           </p>
         </>
       )}

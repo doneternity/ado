@@ -4,6 +4,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	mw "github.com/ado/ado/backend/internal/http/middleware"
 	"github.com/ado/ado/backend/internal/proxy"
@@ -94,5 +95,19 @@ func TestHasImages(t *testing.T) {
 	without := `{"messages":[{"role":"user","content":"hi"},{"role":"user","content":[{"type":"text","text":"x"}]}]}`
 	if !hasImages([]byte(with)) || hasImages([]byte(without)) {
 		t.Fatal("hasImages got it wrong")
+	}
+}
+
+func TestLoggedModel(t *testing.T) {
+	if got := loggedModel("deepseek-v4-pro"); got != "deepseek-v4-pro" {
+		t.Fatalf("a normal ID is kept: %q", got)
+	}
+	long := strings.Repeat("m", 300)
+	if got := loggedModel(long); got != strings.Repeat("m", 64)+"…" {
+		t.Fatalf("a junk ID is cut short: %q", got)
+	}
+	multi := strings.Repeat("é", 150) // 300 bytes
+	if got := loggedModel(multi); !utf8.ValidString(got) {
+		t.Fatalf("cut inside a character: %q", got)
 	}
 }

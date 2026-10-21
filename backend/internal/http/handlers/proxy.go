@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -67,6 +68,21 @@ func (p *Proxy) checkModel(w http.ResponseWriter, r *http.Request, model string,
 		return false
 	}
 	return true
+}
+
+// loggedModel is the model name as the request log keeps it. A name too long
+// to be a model ID (the request is refused anyway) is cut short, so a junk
+// value doesn't fill the log or stretch the admin usage tables.
+func loggedModel(model string) string {
+	const keep = 64
+	if len(model) <= maxModelName {
+		return model
+	}
+	cut := keep
+	for cut > 0 && !utf8.RuneStart(model[cut]) {
+		cut-- // don't split a multi-byte character
+	}
+	return model[:cut] + "…"
 }
 
 // msgNoModelList is the 503 when no provider's model list could be read.
@@ -291,7 +307,7 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(data, &meta)
 	note := mw.RequestNoteFrom(r.Context())
 	if note != nil {
-		note.Model, note.Stream = meta.Model, meta.Stream
+		note.Model, note.Stream = loggedModel(meta.Model), meta.Stream
 	}
 	if !p.checkModel(w, r, meta.Model, true) {
 		return
@@ -512,7 +528,7 @@ func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 			_ = json.Unmarshal(data, &meta)
 			model = meta.Model
 			if note != nil {
-				note.Model, note.Stream = meta.Model, meta.Stream
+				note.Model, note.Stream = loggedModel(meta.Model), meta.Stream
 			}
 			if !p.checkModel(w, r, meta.Model, false) {
 				return
@@ -573,7 +589,7 @@ func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
 	}
 	model := r.URL.Query().Get("model")
 	if note := mw.RequestNoteFrom(r.Context()); note != nil {
-		note.Model, note.Stream = model, true
+		note.Model, note.Stream = loggedModel(model), true
 	}
 	if strings.TrimSpace(model) == "" {
 		apperr.Write(w, apperr.BadRequest("MODEL_REQUIRED", "add the model to the address, like /v1/realtime?model=<id>; see https://adoai.space/models for the models you can use"))

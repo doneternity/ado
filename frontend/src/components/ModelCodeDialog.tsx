@@ -1,18 +1,10 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 import { API_BASE_URL } from "../config";
-import { CodeBlock } from "./CodeBlock";
+import { CodeTabs, LANGS } from "./CodeTabs";
+import type { Lang } from "./CodeTabs";
 import { useDialog } from "./useDialog";
 import styles from "./ModelCodeDialog.module.scss";
-
-type Lang = "curl" | "python" | "javascript";
-const LANGS: { id: Lang; label: string; hl: string }[] = [
-  { id: "curl", label: "cURL", hl: "bash" },
-  { id: "python", label: "Python", hl: "python" },
-  { id: "javascript", label: "JavaScript", hl: "javascript" },
-];
-const LANG_KEY = "ado:snippet-lang";
 
 // Ready-to-paste chat completion for one model. The key comes from an
 // ADO_API_KEY environment variable, so the snippet is safe to share as is.
@@ -51,24 +43,9 @@ console.log(reply.choices[0].message.content);`;
   }
 }
 
-function loadLang(): Lang {
-  try {
-    const v = localStorage.getItem(LANG_KEY);
-    return LANGS.some(l => l.id === v) ? (v as Lang) : "curl";
-  } catch {
-    return "curl";
-  }
-}
-
 export function ModelCodeDialog({ model, onClose }: { model: { id: string; name: string }; onClose: () => void }) {
-  const [lang, setLangState] = useState<Lang>(loadLang);
   const ref = useDialog<HTMLDivElement>(true, onClose);
-  const current = LANGS.find(l => l.id === lang)!;
-
-  function setLang(l: Lang) {
-    setLangState(l);
-    try { localStorage.setItem(LANG_KEY, l); } catch { /* not remembered */ }
-  }
+  const snippets = Object.fromEntries(LANGS.map(l => [l.id, snippetFor(l.id, model.id)])) as Record<Lang, string>;
 
   return (
     <div className={styles.overlay} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -85,24 +62,7 @@ export function ModelCodeDialog({ model, onClose }: { model: { id: string; name:
           </button>
         </div>
 
-        <div className={styles.tabs} role="tablist" aria-label="Language">
-          {LANGS.map(l => (
-            <button
-              key={l.id}
-              type="button"
-              role="tab"
-              aria-selected={l.id === lang}
-              className={`${styles.tab}${l.id === lang ? ` ${styles.tabOn}` : ""}`}
-              onClick={() => setLang(l.id)}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
-
-        <div role="tabpanel">
-          <CodeBlock code={snippetFor(lang, model.id)} lang={current.hl} />
-        </div>
+        <CodeTabs snippets={snippets} />
 
         <div className={styles.foot}>
           <Link to={`/playground?model=${encodeURIComponent(model.id)}`} className={styles.footLink}>Try it in the Playground</Link>

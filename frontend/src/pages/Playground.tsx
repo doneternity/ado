@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Send, Square, RotateCcw, ChevronDown, Settings2, SlidersHorizontal, X, Search, Check, Copy, Pencil, RefreshCw, Brain } from "lucide-react";
+import { Send, Square, RotateCcw, ChevronDown, Settings2, SlidersHorizontal, X, Search, Check, Copy, Pencil, RefreshCw, Brain, ImagePlus } from "lucide-react";
 import { Markdown, useCopy } from "../components/Markdown";
 import { splitThink } from "../data/think";
+import { MAX_IMAGES, messageContent, prepareImage } from "../data/images";
+import type { ContentPart } from "../data/images";
 import { fmtDuration, localTime, quotaState } from "../data/quota";
 import { loadChat, saveChat, loadSettings, saveSettings, DEFAULT_SETTINGS } from "../api/playground-storage";
 import type { GenSettings } from "../api/playground-storage";
@@ -19,6 +21,10 @@ type Msg = {
   role: Role;
   content: string;
   id: number;
+  // user only: attached images (data URLs). Not kept in the saved chat;
+  // imagesDropped counts the ones a reload left out.
+  images?: string[];
+  imagesDropped?: number;
   // assistant only: the model's streamed reasoning, when it sends any
   reasoning?: string;
   // when reasoning started arriving, and how long until the answer began
@@ -182,7 +188,7 @@ type ChatParams = { model: string; temperature?: number; max_tokens?: number; re
 
 async function streamCompletion(
   params: ChatParams,
-  messages: Pick<Msg, "role" | "content">[],
+  messages: { role: Role; content: string | ContentPart[] }[],
   signal: AbortSignal,
   onDelta: (content: string, reasoning: string) => void,
   onDone: () => void,
@@ -544,6 +550,9 @@ export function Playground() {
   const [streaming, setStreaming]   = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [editingId, setEditingId]   = useState<number | null>(null);
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
@@ -572,7 +581,9 @@ export function Playground() {
   }, [userId, restoredFor]);
   useEffect(() => {
     if (!userId || restoredFor !== userId) return;
-    const t = setTimeout(() => saveChat(userId, { messages, systemPrompt }), 400);
+    // Images aren't kept: a few photos would fill the browser's storage.
+    const kept = messages.map(m => (m.images?.length ? { ...m, images: undefined, imagesDropped: m.images.length } : m));
+    const t = setTimeout(() => saveChat(userId, { messages: kept, systemPrompt }), 400);
     return () => clearTimeout(t);
   }, [userId, restoredFor, messages, systemPrompt]);
 
@@ -614,6 +625,9 @@ export function Playground() {
 
   const quota = currentKey.data ? quotaState(currentKey.data.used, currentKey.data.dailyLimit) : null;
   const canRun = !streaming && !noKey && !quota?.exhausted && pickerModels.some(m => m.id === model);
+  // Images only go to models that take them.
+  const takesImages = !!pickerModels.find(m => m.id === model)?.capabilities.includes("Vision");
+  const imagesBlocked = attachments.length > 0 && !takesImages;
 
   // Streams a new reply after `base`, which ends with the user's message.
   // send, regenerate and edit all come through here.
@@ -629,9 +643,12 @@ export function Playground() {
 
     // Earlier replies go back without their reasoning: it isn't part of the
     // conversation, and some providers reject it in the input.
-    const history: Pick<Msg, "role" | "content">[] = [
+    const history: { role: Role; content: string | ContentPart[] }[] = [
       ...(systemPrompt.trim() ? [{ role: "system" as Role, content: systemPrompt.trim() }] : []),
-      ...base.map((m) => ({ role: m.role, content: m.role === "assistant" ? splitThink(m.content).answer : m.content })),
+      ...base.map((m) => ({
+        role: m.role,
+        content: m.role === "assistant" ? splitThink(m.content).answer : messageContent(m.content, m.images),
+      })),
     ];
 
     const controller = new AbortController();
@@ -670,10 +687,36 @@ export function Playground() {
 
   const send = useCallback(() => {
     const text = input.trim();
-    if (!text || !canRun) return;
+    if ((!text && !attachments.length) || !canRun || imagesBlocked) return;
     setInput("");
-    void run([...messages, { role: "user", content: text, id: ++msgIdCounter }]);
-  }, [input, canRun, messages, run]);
+    setAttachments([]);
+    setAttachError(null);
+    const msg: Msg = { role: "user", content: text, id: ++msgIdCounter };
+    if (attachments.length) msg.images = attachments;
+    void run([...messages, msg]);
+  }, [input, attachments, imagesBlocked, canRun, messages, run]);
+
+  // Adds images from the file picker or a paste, up to MAX_IMAGES.
+  async function addImages(files: File[]) {
+    const images = files.filter(f => f.type.startsWith("image/"));
+    if (!images.length) return;
+    setAttachError(null);
+    const room = MAX_IMAGES - attachments.length;
+    if (room <= 0) {
+      setAttachError(`You can attach up to ${MAX_IMAGES} images.`);
+      return;
+    }
+    const added: string[] = [];
+    for (const f of images.slice(0, room)) {
+      try {
+        added.push(await prepareImage(f));
+      } catch (e) {
+        setAttachError(e instanceof Error ? e.message : "That image couldn't be read.");
+      }
+    }
+    if (images.length > room) setAttachError(`You can attach up to ${MAX_IMAGES} images.`);
+    setAttachments(prev => [...prev, ...added].slice(0, MAX_IMAGES));
+  }
 
   // A new reply to the last user message, replacing the one after it (or
   // retrying after an error, when there's no reply yet).
@@ -713,7 +756,7 @@ export function Playground() {
   }
 
   const currentModel = pickerModels.find(m => m.id === model);
-  const canSend     = canRun && input.trim().length > 0;
+  const canSend     = canRun && !imagesBlocked && (input.trim().length > 0 || attachments.length > 0);
   const lastUserIdx = messages.reduce((acc, m, i) => (m.role === "user" ? i : acc), -1);
   const empty       = messages.length === 0;
 
@@ -853,7 +896,19 @@ export function Playground() {
                   />
                 ) : (
                   <>
-                    <div className={styles.msgContent}>{msg.content}</div>
+                    {msg.images && msg.images.length > 0 && (
+                      <div className={styles.msgImages}>
+                        {msg.images.map((src, k) => (
+                          <img key={k} src={src} alt={`Attached image ${k + 1}`} className={styles.msgImage} />
+                        ))}
+                      </div>
+                    )}
+                    {msg.content && <div className={styles.msgContent}>{msg.content}</div>}
+                    {!!msg.imagesDropped && (
+                      <span className={styles.msgImagesNote}>
+                        {msg.imagesDropped === 1 ? "1 image" : `${msg.imagesDropped} images`} sent (images aren&apos;t kept after a reload)
+                      </span>
+                    )}
                     <div className={styles.msgActions}>
                       <CopyButton text={msg.content} />
                       <ActionButton label="Edit and resend" onClick={() => setEditingId(msg.id)} disabled={!canRun}>
@@ -916,18 +971,72 @@ export function Playground() {
       {/* ── Input ── */}
       <div className={styles.inputArea}>
         <div className={styles.inputWrap}>
+          {attachments.length > 0 && (
+            <div className={styles.attachRow}>
+              {attachments.map((src, k) => (
+                <div key={k} className={styles.attachThumb}>
+                  <img src={src} alt={`Image ${k + 1} to send`} />
+                  <button
+                    type="button"
+                    className={styles.attachRemove}
+                    onClick={() => setAttachments(prev => prev.filter((_, j) => j !== k))}
+                    aria-label={`Remove image ${k + 1}`}
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {(attachError || imagesBlocked) && (
+            <p className={styles.attachError} role="status">
+              {imagesBlocked
+                ? `${currentModel?.name ?? "This model"} doesn't take images. Pick a model that does, or remove them.`
+                : attachError}
+            </p>
+          )}
           <textarea
             ref={inputRef}
             className={styles.input}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
+            onPaste={(e) => {
+              const files = Array.from(e.clipboardData.files);
+              if (files.some(f => f.type.startsWith("image/")) && takesImages) {
+                e.preventDefault();
+                void addImages(files);
+              }
+            }}
             placeholder={noKey ? "Get a key on the dashboard first" : quota?.exhausted ? "Daily limit reached" : "Message…"}
             disabled={noKey || streaming || !!quota?.exhausted}
             rows={1}
           />
           <div className={styles.inputFooter}>
-            <span className={styles.inputHint}>Enter to send · Shift+Enter for newline</span>
+            <div className={styles.inputFooterLeft}>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={(e) => {
+                  void addImages(Array.from(e.target.files ?? []));
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className={styles.attachBtn}
+                onClick={() => fileRef.current?.click()}
+                disabled={!takesImages || noKey || streaming || !!quota?.exhausted || attachments.length >= MAX_IMAGES}
+                title={takesImages ? "Attach images (or paste them)" : `${currentModel?.name ?? "This model"} doesn't take images`}
+                aria-label="Attach images"
+              >
+                <ImagePlus size={15} />
+              </button>
+              <span className={styles.inputHint}>Enter to send · Shift+Enter for newline</span>
+            </div>
             {streaming ? (
               <button
                 className={styles.sendBtn}

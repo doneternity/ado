@@ -6,7 +6,7 @@ import { Playground } from "./Playground";
 let calls: { url: string; init?: RequestInit }[] = [];
 const DEFAULT_MODELS: Record<string, unknown>[] = [
   { id: "deepseek-v4-pro", name: "DeepSeek-V4-Pro", owned_by: "deepseek", context_window: 1048576, effort: { supported_levels: ["low", "high", "max"], default_level: "high" } },
-  { id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", owned_by: "deepseek", context_window: 1048576 },
+  { id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", owned_by: "deepseek", context_window: 1048576, input_modalities: ["text", "image"] },
   { id: "glm-5.3", owned_by: "z-ai", ado_status: "degraded" },
 ];
 let liveModels = DEFAULT_MODELS;
@@ -272,5 +272,34 @@ describe("Playground", () => {
     fireEvent.click(screen.getByTitle("Clear chat"));
     expect(screen.queryByText("remember me")).not.toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("ado:playground-chat:u1")).toBeNull());
+  });
+
+  it("sends attached images to a model that takes them, and doesn't keep them in the saved chat", async () => {
+    localStorage.setItem("ado:playground-model", "deepseek-flash"); // takes images
+    const { container } = renderPage();
+    const attach = await screen.findByRole("button", { name: "Attach images" });
+    await waitFor(() => expect(attach).not.toBeDisabled());
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "cat.png", { type: "image/png" });
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    expect(await screen.findByAltText("Image 1 to send")).toBeInTheDocument();
+
+    await say("what is this?");
+    await screen.findByText("Hello");
+    const content = chatBodies()[0]!.messages[0]!.content as unknown as { type: string; image_url?: { url: string } }[];
+    expect(content[0]).toEqual({ type: "text", text: "what is this?" });
+    expect(content[1]!.type).toBe("image_url");
+    expect(content[1]!.image_url!.url).toMatch(/^data:image\/png;base64,/);
+
+    // Saved without the image, noting that it was sent.
+    await waitFor(() => expect(localStorage.getItem("ado:playground-chat:u1")).toContain('"imagesDropped":1'));
+    expect(localStorage.getItem("ado:playground-chat:u1")).not.toContain("data:image");
+  });
+
+  it("only lets you attach images for models that take them", async () => {
+    localStorage.setItem("ado:playground-model", "glm-5.3"); // text only
+    renderPage();
+    await screen.findByRole("button", { name: "Model: GLM 5.3" });
+    expect(screen.getByRole("button", { name: "Attach images" })).toBeDisabled();
   });
 });

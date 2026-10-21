@@ -38,7 +38,7 @@ type adminUserDTO struct {
 func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.q.ListUsersAdmin(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list users"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the users; try again in a moment"))
 		return
 	}
 	out := make([]adminUserDTO, len(rows))
@@ -63,7 +63,7 @@ func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
 func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid user id"))
 		return
 	}
 	var req struct {
@@ -80,11 +80,11 @@ func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sess, ok := mw.SessionFromContext(r.Context()); ok && sess.UserID == id && req.Role != "admin" {
-		apperr.Write(w, apperr.BadRequest("SELF_DEMOTE", "you cannot remove your own admin role"))
+		apperr.Write(w, apperr.BadRequest("SELF_DEMOTE", "you can't remove your own admin role"))
 		return
 	}
 	if err := h.q.SetUserRole(r.Context(), db.SetUserRoleParams{ID: id, Role: req.Role}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set role"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't change the user's role; try again in a moment"))
 		return
 	}
 	h.noteUser(r, id, map[string]any{"role": req.Role})
@@ -94,7 +94,7 @@ func (h *AdminUsers) SetRole(w http.ResponseWriter, r *http.Request) {
 func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid user id"))
 		return
 	}
 	var req struct {
@@ -105,11 +105,11 @@ func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sess, ok := mw.SessionFromContext(r.Context()); ok && sess.UserID == id && req.Banned {
-		apperr.Write(w, apperr.BadRequest("SELF_BAN", "you cannot ban yourself"))
+		apperr.Write(w, apperr.BadRequest("SELF_BAN", "you can't ban yourself"))
 		return
 	}
 	if err := h.q.SetUserBanned(r.Context(), db.SetUserBannedParams{ID: id, Banned: req.Banned}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set banned"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't change the user's ban; try again in a moment"))
 		return
 	}
 	h.noteUser(r, id, map[string]any{"banned": req.Banned})
@@ -122,20 +122,20 @@ func (h *AdminUsers) SetBanned(w http.ResponseWriter, r *http.Request) {
 func (h *AdminUsers) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid user id"))
 		return
 	}
 	if sess, ok := mw.SessionFromContext(r.Context()); ok && sess.UserID == id {
-		apperr.Write(w, apperr.BadRequest("SELF_DELETE", "you cannot delete your own account here"))
+		apperr.Write(w, apperr.BadRequest("SELF_DELETE", "you can't delete your own account here; use the dashboard"))
 		return
 	}
 	u, err := h.q.GetUserByID(r.Context(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.NotFound("NOT_FOUND", "user not found"))
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "there's no user with that id"))
 		return
 	}
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "load user"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the user; try again in a moment"))
 		return
 	}
 	if u.Role == "admin" {
@@ -143,7 +143,7 @@ func (h *AdminUsers) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.q.DeleteUser(r.Context(), id); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "delete user"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete the user, so nothing was removed; try again in a moment"))
 		return
 	}
 	slog.Info("admin deleted account", "user", id)

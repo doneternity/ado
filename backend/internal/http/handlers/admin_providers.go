@@ -109,12 +109,12 @@ func (h *AdminProviders) rebuildChain(r *http.Request) {
 func (h *AdminProviders) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.d.Q.ListProviders(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list providers"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the providers; try again in a moment"))
 		return
 	}
 	keys, err := h.d.Q.ListProviderKeys(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list provider keys"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the provider keys; try again in a moment"))
 		return
 	}
 	byProvider := make(map[uuid.UUID][]providerKeyItem)
@@ -213,14 +213,14 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 		ModelSuffix: suffix,
 	})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "create provider"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't create the provider; try again in a moment"))
 		return
 	}
 	added, err := h.addKeys(r.Context(), p.ID, keys, "")
 	if err != nil {
 		// Don't leave a provider without its keys behind.
 		_ = h.d.Q.DeleteProvider(r.Context(), p.ID)
-		apperr.Write(w, apperr.Internal("INTERNAL", "save keys"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the keys; try again in a moment"))
 		return
 	}
 	h.rebuildChain(r)
@@ -233,7 +233,7 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid provider id"))
 		return
 	}
 	var req struct {
@@ -261,7 +261,7 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 	if _, err := h.d.Q.UpdateProviderMeta(r.Context(), db.UpdateProviderMetaParams{
 		ID: id, Name: req.Name, BaseUrl: req.BaseURL, Priority: req.Priority, ModelSuffix: suffix,
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "update provider"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the provider; try again in a moment"))
 		return
 	}
 	h.rebuildChain(r)
@@ -272,7 +272,7 @@ func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {
 func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid provider id"))
 		return
 	}
 	var req struct {
@@ -285,7 +285,7 @@ func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {
 	if err := h.d.Q.SetProviderActiveState(r.Context(), db.SetProviderActiveStateParams{
 		ID: id, IsActive: req.Active,
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set active"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't turn the provider on or off; try again in a moment"))
 		return
 	}
 	h.rebuildChain(r)
@@ -296,12 +296,12 @@ func (h *AdminProviders) SetActive(w http.ResponseWriter, r *http.Request) {
 func (h *AdminProviders) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid provider id"))
 		return
 	}
 	h.noteProvider(r, id, nil) // before it's gone
 	if err := h.d.Q.DeleteProvider(r.Context(), id); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "delete"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete the provider; try again in a moment"))
 		return
 	}
 	h.rebuildChain(r)
@@ -312,7 +312,7 @@ func (h *AdminProviders) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AdminProviders) AddKeys(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid provider id"))
 		return
 	}
 	var req struct {
@@ -335,14 +335,14 @@ func (h *AdminProviders) AddKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	prov, err := h.d.Q.GetProvider(r.Context(), id)
 	if err != nil {
-		apperr.Write(w, apperr.NotFound("NOT_FOUND", "provider not found"))
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "there's no provider with that id"))
 		return
 	}
 	mw.NoteAudit(r.Context(), prov.Name, map[string]any{"keysAdded": len(keys), "label": req.Label})
 	added, err := h.addKeys(r.Context(), id, keys, req.Label)
 	if err != nil {
 		h.rebuildChain(r) // some may have been saved
-		apperr.Write(w, apperr.Internal("INTERNAL", "save keys"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the keys; try again in a moment"))
 		return
 	}
 	h.rebuildChain(r)
@@ -355,7 +355,7 @@ func (h *AdminProviders) SetKeyActive(w http.ResponseWriter, r *http.Request) {
 	id, err1 := uuid.Parse(chi.URLParam(r, "id"))
 	keyID, err2 := uuid.Parse(chi.URLParam(r, "keyId"))
 	if err1 != nil || err2 != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid provider id"))
 		return
 	}
 	var req struct {
@@ -367,11 +367,11 @@ func (h *AdminProviders) SetKeyActive(w http.ResponseWriter, r *http.Request) {
 	}
 	n, err := h.d.Q.SetProviderKeyActive(r.Context(), db.SetProviderKeyActiveParams{ID: keyID, ProviderID: id, IsActive: req.Active})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set key active"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't turn the key on or off; try again in a moment"))
 		return
 	}
 	if n == 0 {
-		apperr.Write(w, apperr.NotFound("NOT_FOUND", "key not found"))
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "that provider has no key with that id"))
 		return
 	}
 	h.rebuildChain(r)
@@ -383,17 +383,17 @@ func (h *AdminProviders) DeleteKey(w http.ResponseWriter, r *http.Request) {
 	id, err1 := uuid.Parse(chi.URLParam(r, "id"))
 	keyID, err2 := uuid.Parse(chi.URLParam(r, "keyId"))
 	if err1 != nil || err2 != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid provider id"))
 		return
 	}
 	h.noteProvider(r, id, nil)
 	n, err := h.d.Q.DeleteProviderKey(r.Context(), db.DeleteProviderKeyParams{ID: keyID, ProviderID: id})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "delete key"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete the key; try again in a moment"))
 		return
 	}
 	if n == 0 {
-		apperr.Write(w, apperr.NotFound("NOT_FOUND", "key not found"))
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "that provider has no key with that id"))
 		return
 	}
 	h.rebuildChain(r)

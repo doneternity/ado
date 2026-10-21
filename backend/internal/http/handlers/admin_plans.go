@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"time"
@@ -37,7 +38,7 @@ type planDTO struct {
 func (h *AdminPlans) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.q.ListPlansWithUserCounts(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list plans"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the plans; try again in a moment"))
 		return
 	}
 	out := make([]planDTO, len(rows))
@@ -76,7 +77,7 @@ func (h *AdminPlans) Upsert(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.q.UpsertPlan(r.Context(), db.UpsertPlanParams{ID: id, Name: req.Name, DailyQuota: req.DailyQuota, Rpm: req.RPM})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "save plan"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the plan; try again in a moment"))
 		return
 	}
 	mw.NoteAudit(r.Context(), p.Name, map[string]any{"dailyQuota": req.DailyQuota, "rpm": req.RPM})
@@ -84,15 +85,30 @@ func (h *AdminPlans) Upsert(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(planDTO{ID: p.ID, Name: p.Name, DailyQuota: p.DailyQuota, RPM: p.Rpm, CreatedAt: p.CreatedAt.Time})
 }
 
+// whyNotDeleted says why DeleteUnusedPlan removed nothing.
+func (h *AdminPlans) whyNotDeleted(r *http.Request, id string) *apperr.Error {
+	if id == "free" {
+		return apperr.Conflict("PLAN_IN_USE", "the free plan can't be deleted: new users join it")
+	}
+	if plans, err := h.q.ListPlansWithUserCounts(r.Context()); err == nil {
+		for _, p := range plans {
+			if p.ID == id {
+				return apperr.Conflict("PLAN_IN_USE", fmt.Sprintf("%d users are still on this plan; move them to another plan first", p.UserCount))
+			}
+		}
+	}
+	return apperr.NotFound("NOT_FOUND", "there's no plan with that id")
+}
+
 // Delete removes a plan nobody is on. The free plan can't be deleted.
 func (h *AdminPlans) Delete(w http.ResponseWriter, r *http.Request) {
 	n, err := h.q.DeleteUnusedPlan(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "delete plan"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete the plan; try again in a moment"))
 		return
 	}
 	if n == 0 {
-		apperr.Write(w, apperr.Conflict("PLAN_IN_USE", "plan not found, still has users, or is the free plan"))
+		apperr.Write(w, h.whyNotDeleted(r, chi.URLParam(r, "id")))
 		return
 	}
 	mw.NoteAudit(r.Context(), chi.URLParam(r, "id"), nil)
@@ -103,7 +119,7 @@ func (h *AdminPlans) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AdminPlans) SetUserPlan(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid user id"))
 		return
 	}
 	var req struct {
@@ -116,15 +132,15 @@ func (h *AdminPlans) SetUserPlan(w http.ResponseWriter, r *http.Request) {
 	n, err := h.q.SetUserPlan(r.Context(), db.SetUserPlanParams{ID: id, PlanID: req.PlanID})
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign key: no such plan
-		apperr.Write(w, apperr.BadRequest("UNKNOWN_PLAN", "no plan with that id"))
+		apperr.Write(w, apperr.BadRequest("UNKNOWN_PLAN", "there's no plan with that id"))
 		return
 	}
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set plan"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't change the user's plan; try again in a moment"))
 		return
 	}
 	if n == 0 {
-		apperr.Write(w, apperr.NotFound("NOT_FOUND", "user not found"))
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "there's no user with that id"))
 		return
 	}
 	target := id.String()

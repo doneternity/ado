@@ -35,7 +35,7 @@ func (h *AdminAudit) List(w http.ResponseWriter, r *http.Request) {
 		BeforeID: before, RowLimit: int32(intParam(r, "limit", 50, 200)),
 	})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list audit log"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the audit log; try again in a moment"))
 		return
 	}
 	out := make([]auditEntryDTO, len(rows))

@@ -47,7 +47,7 @@ func (h *AdminUsers) Inactive(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := h.q.ListInactiveUsers(r.Context(), cutoff)
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list inactive users"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't find inactive accounts; try again in a moment"))
 		return
 	}
 	out := make([]inactiveUserDTO, len(rows))
@@ -76,12 +76,12 @@ func (h *AdminUsers) DeleteInactive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(req.IDs) == 0 || len(req.IDs) > 10000 {
-		apperr.Write(w, apperr.BadRequest("INVALID", "send between 1 and 10000 ids"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "choose between 1 and 10,000 accounts to delete"))
 		return
 	}
 	n, err := h.q.DeleteInactiveUsers(r.Context(), db.DeleteInactiveUsersParams{Ids: req.IDs, Cutoff: cutoff})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "delete inactive users"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete the accounts, so none were removed; try again in a moment"))
 		return
 	}
 	slog.Info("deleted inactive accounts", "count", n, "requested", len(req.IDs), "inactive_days", req.Days)

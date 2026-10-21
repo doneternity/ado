@@ -35,7 +35,7 @@ func (h *AdminErrors) List(w http.ResponseWriter, r *http.Request) {
 		Offset: int32((page - 1) * perPage),
 	})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list errors"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the error log; try again in a moment"))
 		return
 	}
 	out := make([]errorLogDTO, len(rows))
@@ -60,11 +60,11 @@ func (h *AdminErrors) List(w http.ResponseWriter, r *http.Request) {
 func (h *AdminErrors) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid error id"))
 		return
 	}
 	if err := h.q.DeleteErrorLog(r.Context(), id); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "delete"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete that error; try again in a moment"))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -73,11 +73,11 @@ func (h *AdminErrors) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AdminErrors) BulkDelete(w http.ResponseWriter, r *http.Request) {
 	days, err := strconv.Atoi(r.URL.Query().Get("days"))
 	if err != nil || days < 1 {
-		apperr.Write(w, apperr.BadRequest("INVALID", "days must be a positive integer"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "days must be a whole number of 1 or more"))
 		return
 	}
 	if err := h.q.DeleteOldErrorLogs(r.Context(), int32(days)); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "bulk delete"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete the old errors; try again in a moment"))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

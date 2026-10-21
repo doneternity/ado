@@ -15,12 +15,12 @@ func NewAdminStats(q *db.Queries) *AdminStats { return &AdminStats{q: q} }
 func (h *AdminStats) Get(w http.ResponseWriter, r *http.Request) {
 	daily, err := h.q.DailyRequestCounts(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "daily counts"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the daily request counts; try again in a moment"))
 		return
 	}
 	top, err := h.q.TopUsersByUsageThisMonth(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "top users"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the top users; try again in a moment"))
 		return
 	}
 	total, _ := h.q.CountUsers(r.Context())

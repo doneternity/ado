@@ -30,7 +30,7 @@ func NewAdminQuotas(q *db.Queries, rpmCfg *proxy.RpmConfig) *AdminQuotas {
 func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	global, err := h.q.GetSetting(r.Context(), settingGlobalDailyQuota)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.Internal("INTERNAL", "get quota"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the daily limit; try again in a moment"))
 		return
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -38,7 +38,7 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	rpm, err := h.q.GetSetting(r.Context(), settingGlobalRPM)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.Internal("INTERNAL", "get rpm"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the per-minute limit; try again in a moment"))
 		return
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -46,7 +46,7 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	slotsLimit, err := h.q.GetSetting(r.Context(), settingFreeTierLimit)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.Internal("INTERNAL", "get slots limit"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the free plan size; try again in a moment"))
 		return
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -54,12 +54,12 @@ func (h *AdminQuotas) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	slotsUsed, err := h.q.CountFreeTierUsers(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "count slots"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't count free plan users; try again in a moment"))
 		return
 	}
 	users, err := h.q.ListUsersAdmin(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list users"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the users; try again in a moment"))
 		return
 	}
 	type override struct {
@@ -92,17 +92,17 @@ func (h *AdminQuotas) SetGlobal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Limit < 1 {
-		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "the limit must be 1 or more"))
 		return
 	}
 	if err := h.q.SetSetting(r.Context(), db.SetSettingParams{
 		Key: settingGlobalDailyQuota, Value: strconv.Itoa(int(req.Limit)),
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set quota"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the daily limit; try again in a moment"))
 		return
 	}
 	if err := h.q.SetAllKeyDailyLimits(r.Context(), req.Limit); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "propagate quota"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "the daily limit was saved, but existing keys weren't updated; try again in a moment"))
 		return
 	}
 	mw.NoteAudit(r.Context(), "global daily quota", map[string]any{"limit": req.Limit})
@@ -125,28 +125,28 @@ func (h *AdminQuotas) SetUserOverride(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Limit < 1 {
-		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "the limit must be 1 or more"))
 		return
 	}
 	user, err := h.q.GetUserByEmail(r.Context(), req.Email)
 	if errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.NotFound("NOT_FOUND", "no user with that email"))
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "there's no user with that email"))
 		return
 	}
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "lookup user"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't look up that user; try again in a moment"))
 		return
 	}
 	if err := h.q.SetUserQuotaOverride(r.Context(), db.SetUserQuotaOverrideParams{
 		ID: user.ID, DailyQuotaOverride: &req.Limit,
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set override"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the user's limit; try again in a moment"))
 		return
 	}
 	if err := h.q.SetUserKeyDailyLimit(r.Context(), db.SetUserKeyDailyLimitParams{
 		UserID: user.ID, DailyLimit: req.Limit,
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "propagate override"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "the user's limit was saved, but their key wasn't updated; try again in a moment"))
 		return
 	}
 	mw.NoteAudit(r.Context(), user.Email, map[string]any{"limit": req.Limit})
@@ -156,17 +156,17 @@ func (h *AdminQuotas) SetUserOverride(w http.ResponseWriter, r *http.Request) {
 func (h *AdminQuotas) RemoveUserOverride(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID", "invalid id"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "that isn't a valid user id"))
 		return
 	}
 	if err := h.q.RemoveUserQuotaOverride(r.Context(), id); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "remove override"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't remove the user's limit; try again in a moment"))
 		return
 	}
 	// Reset key limit to global quota
 	global, err := h.q.GetSetting(r.Context(), settingGlobalDailyQuota)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.Internal("INTERNAL", "get global quota"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the daily limit; try again in a moment"))
 		return
 	}
 	globalLimit := int32(keys.DefaultDailyLimit)
@@ -178,7 +178,7 @@ func (h *AdminQuotas) RemoveUserOverride(w http.ResponseWriter, r *http.Request)
 	if err := h.q.SetUserKeyDailyLimit(r.Context(), db.SetUserKeyDailyLimitParams{
 		UserID: id, DailyLimit: globalLimit,
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "reset key limit"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't reset the user's key to the global limit; try again in a moment"))
 		return
 	}
 	target := id.String()
@@ -198,13 +198,13 @@ func (h *AdminQuotas) SetGlobalRPM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Limit < 1 {
-		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "the limit must be 1 or more"))
 		return
 	}
 	if err := h.q.SetSetting(r.Context(), db.SetSettingParams{
 		Key: settingGlobalRPM, Value: strconv.Itoa(int(req.Limit)),
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set rpm"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the per-minute limit; try again in a moment"))
 		return
 	}
 	h.rpmCfg.Set(req.Limit)
@@ -221,13 +221,13 @@ func (h *AdminQuotas) SetFreeTierLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Limit < 1 {
-		apperr.Write(w, apperr.BadRequest("INVALID", "limit must be >= 1"))
+		apperr.Write(w, apperr.BadRequest("INVALID", "the limit must be 1 or more"))
 		return
 	}
 	if err := h.q.SetSetting(r.Context(), db.SetSettingParams{
 		Key: settingFreeTierLimit, Value: strconv.Itoa(int(req.Limit)),
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set slots limit"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the free plan size; try again in a moment"))
 		return
 	}
 	mw.NoteAudit(r.Context(), "free tier slots", map[string]any{"limit": req.Limit})

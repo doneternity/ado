@@ -5,8 +5,9 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, AlertTriangle,
   Activity, Shield, BookOpen, Zap, Terminal,
-  Lock, ChevronRight, Code, Brain,
+  Lock, ChevronRight, Code, Brain, KeyRound,
 } from "lucide-react";
+import { ApiError } from "../api/client";
 import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels, useMyUsageByModel } from "../api/queries";
 import { HEALTH_TEXT, useServiceStatus } from "../api/service-status";
 import { compact } from "../data/format";
@@ -165,7 +166,7 @@ function StatCards() {
 }
 
 function KeyCard() {
-  const { data: current, isLoading } = useCurrentKey({ enabled: true });
+  const { data: current, isLoading, error } = useCurrentKey({ enabled: true });
   const raw = useRawKey();
   const rotate = useRotateKey();
   const reasoning = useSetReasoningMode();
@@ -176,7 +177,34 @@ function KeyCard() {
   const [copied, setCopied] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
 
-  if (isLoading || !current) return null;
+  if (isLoading) return null;
+  if (!current) {
+    const noKey = error instanceof ApiError && error.status === 404;
+    return (
+      <motion.div className={styles.keyCard} variants={fade}>
+        <div className={styles.keyCardGradient} />
+        <div className={styles.keyCardInner}>
+          <div className={styles.keyCardHead}>
+            <div className={styles.keyCardHeadLeft}>
+              <div className={styles.keyCardIcon}><Lock size={16} /></div>
+              <div className={styles.keyCardTitle}>{noKey ? "No active API key" : "Your API Key"}</div>
+            </div>
+          </div>
+          <p className={styles.noKeyText}>
+            {noKey
+              ? "Free keys are turned off after 14 days without use, so this account doesn't have one right now. Your account and usage history are still here. Get a new key to keep going."
+              : "Your key couldn't be loaded. Reload the page in a moment."}
+          </p>
+          {noKey && (
+            <button className={styles.rotateBtn} onClick={doRotate} disabled={rotate.isPending}>
+              <KeyRound size={12} />
+              {rotate.isPending ? "Creating…" : "Get a new key"}
+            </button>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
 
   const display = revealed && raw ? raw.key : current.keyPrefix + "…";
 
@@ -203,6 +231,7 @@ function KeyCard() {
         setRevealed(true);
         showToast("New key ready. Copy it now.");
       },
+      onError: (err) => showToast(err instanceof Error ? err.message : "Couldn't create a key. Try again in a moment."),
     });
   }
 

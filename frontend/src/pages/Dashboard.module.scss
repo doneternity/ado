@@ -373,6 +373,14 @@
   letter-spacing: -.01em;
 }
 
+.noKeyText {
+  margin: 14px 0 16px;
+  max-width: 560px;
+  font-size: .85rem;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.68);
+}
+
 .keyCardSub {
   font-family: var(--font-mono);
   font-size: .6rem;

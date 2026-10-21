@@ -398,7 +398,8 @@ $env:ADO_API_KEY = "ado-your-key"`}</Code>
             which works too.
           </p>
           <p>
-            Rotating your key on the dashboard gives you a new one and stops the old one at once.
+            Rotating your key on the dashboard gives you a new one and stops the old one at once. Free keys
+            are also turned off after 14 days without use; the dashboard gives you a new one with one click.
             Too many requests with a wrong key from one address are blocked for a few minutes.
           </p>
           <div className={styles.callout}>
@@ -729,7 +730,7 @@ Retry-After: 22380
                 {[
                   { status: "400", code: "MODEL_REQUIRED",     desc: "Add a model field (for Realtime, ?model= in the address). The Models page lists the IDs." },
                   { status: "400", code: "INVALID_INPUT",      desc: "The request itself is wrong, and the message says how: not valid JSON (with where it breaks), a field of the wrong type, missing or empty messages, over 16 MB (images included), or a model name over 200 characters." },
-                  { status: "401", code: "UNAUTHORIZED",       desc: "The key is missing, isn't an ADO key (they start with ado-), isn't sent as \"Bearer <key>\", or is mistyped or rotated. Copy your current key from the dashboard." },
+                  { status: "401", code: "UNAUTHORIZED",       desc: "The key is missing, isn't an ADO key (they start with ado-), isn't sent as \"Bearer <key>\", is mistyped, or has been turned off (rotated, or a free key unused for 14 days). Get your current key from the dashboard." },
                   { status: "403", code: "BANNED",             desc: "This account has been suspended. Ask in our Discord server." },
                   { status: "404", code: "MODEL_NOT_FOUND",    desc: "No model has that ID. Check the spelling against the Models page." },
                   { status: "404", code: "NOT_FOUND",          desc: "There's no endpoint at that address. The message points out common mix-ups, like /v1 twice or a missing /v1." },

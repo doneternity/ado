@@ -511,9 +511,9 @@ $env:ADO_API_KEY = "ado-your-key"`}</Code>
           </p>
           <Tabs snippets={streamingRequest(base, model)} />
           <p>
-            To get token counts in a stream, add <C>{`"stream_options": {"include_usage": true}`}</C>; the last chunk
-            then has <C>usage</C> and an empty <C>choices</C> list. If you stop a request before the model starts
-            answering, it isn&apos;t counted.
+            To get token counts in a stream, add <C>{`"stream_options": {"include_usage": true}`}</C>; a chunk at the
+            end then carries <C>usage</C> (some models put it on the last chunk of the reply, others in a chunk of its
+            own). A request you cancel still counts against your quota, since the model may already be working on it.
           </p>
         </section>
 
@@ -522,7 +522,8 @@ $env:ADO_API_KEY = "ado-your-key"`}</Code>
           <h2 className={styles.sectionTitle}>Images</h2>
           <p>
             Models with the Vision tag can read images. Send the message content as a list of parts: text,
-            then one or more images as a data URL (base64) or a public link.
+            then one or more images as a data URL (base64) or a public link. Sending images to a model without
+            image input gets a 400 naming the models that take them, rather than an answer that ignored the image.
           </p>
           <p className={styles.dynamicNote}>
             {live === undefined

@@ -51,6 +51,24 @@ func (h *ModelHealth) Record(model string, ok bool) {
 		s.lastFail = now
 		s.fails++
 	}
+	if len(h.m) > healthPruneAt {
+		h.prune(now)
+	}
+}
+
+// healthPruneAt is the size at which entries with no recent signal are
+// dropped. Failures can be recorded for any model name a client sends, so
+// without this the map would only ever grow.
+const healthPruneAt = 512
+
+// prune drops models with no signal inside staleWindow; Status already
+// treats those as "no signal", so nothing visible changes. Caller holds h.mu.
+func (h *ModelHealth) prune(now time.Time) {
+	for model, s := range h.m {
+		if now.Sub(s.lastOK) >= staleWindow && now.Sub(s.lastFail) >= staleWindow {
+			delete(h.m, model)
+		}
+	}
 }
 
 // Status returns "available", "degraded", or "down" for a model, or "" if there

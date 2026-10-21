@@ -1,6 +1,10 @@
 package proxy
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+	"time"
+)
 
 func TestModelHealth_Status(t *testing.T) {
 	h := NewModelHealth()
@@ -33,5 +37,19 @@ func TestModelHealth_Status(t *testing.T) {
 	h.Record("solo", false)
 	if got := h.Status("solo"); got != "degraded" {
 		t.Fatalf("single fail: want degraded, got %q", got)
+	}
+}
+
+// Stale entries are dropped once the map grows, so made-up model names can't
+// make it grow forever; recent ones stay.
+func TestModelHealth_PrunesStaleEntries(t *testing.T) {
+	h := NewModelHealth()
+	old := time.Now().Add(-2 * staleWindow)
+	for i := 0; i < healthPruneAt; i++ {
+		h.m[fmt.Sprintf("junk-%d", i)] = &modelState{lastFail: old, fails: 1}
+	}
+	h.Record("real-model", true) // pushes it over the limit
+	if len(h.m) != 1 || h.Status("real-model") != "available" {
+		t.Fatalf("after prune: %d entries, real-model %q", len(h.m), h.Status("real-model"))
 	}
 }

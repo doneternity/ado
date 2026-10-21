@@ -289,6 +289,13 @@ func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path st
 			filter = &usageChunkFilter{}
 		}
 		serr := streamResponse(w, resp, cancel, tail, swap, filter)
+		if serr != nil && req.Context().Err() == nil && isEventStream(resp) {
+			// The provider stalled or dropped mid-reply while the client is
+			// still there. Say so in the stream (OpenAI's SDKs raise an error
+			// for an event with an "error" field) rather than just stopping,
+			// which looks like a finished but truncated reply.
+			writeStreamError(w, serr)
+		}
 		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, Usage: parseUsage(tail.Bytes())}, serr
 	}
 	return ForwardResult{Attempts: attempts}, lastErr
@@ -596,10 +603,30 @@ func publicModel(m map[string]any) map[string]any {
 }
 
 func isFailoverStatus(code int) bool {
-	// 401/403 mean the provider's own key is invalid — try the next provider.
-	// 429 and 5xx mean overloaded/down — same.
+	// 401/403 mean the provider's own key is invalid, and 402 that ADO's
+	// account with it is out of credit: try the next provider, and never pass
+	// those on, since a caller would read them as a problem with their own
+	// key or balance. 429 and 5xx mean overloaded/down: same.
 	return code >= 500 || code == http.StatusTooManyRequests ||
-		code == http.StatusUnauthorized || code == http.StatusForbidden
+		code == http.StatusUnauthorized || code == http.StatusPaymentRequired ||
+		code == http.StatusForbidden
+}
+
+func isEventStream(resp *http.Response) bool {
+	return strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream")
+}
+
+// writeStreamError ends a broken stream with an error event.
+func writeStreamError(w http.ResponseWriter, serr error) {
+	msg := "the provider's connection dropped partway through the reply, so it's incomplete; try again"
+	if errors.Is(serr, context.Canceled) || errors.Is(serr, context.DeadlineExceeded) {
+		msg = fmt.Sprintf("the provider stopped sending for %d seconds partway through the reply, so it's incomplete; try again", int(streamIdleTimeout.Seconds()))
+	}
+	body, _ := json.Marshal(map[string]any{"error": map[string]string{
+		"code": "STREAM_INTERRUPTED", "type": "api_error", "message": msg,
+	}})
+	_, _ = fmt.Fprintf(w, "\n\ndata: %s\n\n", body)
+	_ = http.NewResponseController(w).Flush()
 }
 
 // max gap between chunks before we treat the stream as stalled and cancel it,

@@ -443,3 +443,26 @@ func TestRefreshModels_KeepsLastGoodList(t *testing.T) {
 		t.Fatal("routing should still know the model after a rebuild")
 	}
 }
+
+// A provider saying ADO's account is out of credit (402) is failed over like
+// a bad provider key, never passed on as the caller's own problem.
+func TestForward_PaymentRequiredFailsOver(t *testing.T) {
+	broke := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusPaymentRequired)
+		_, _ = w.Write([]byte(`{"error":{"message":"Insufficient Balance"}}`))
+	}))
+	defer broke.Close()
+	ok := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[]}`))
+	}))
+	defer ok.Close()
+
+	reg := NewRegistry()
+	reg.Swap([]*Forwarder{New(broke.URL, "a"), New(ok.URL, "b")})
+	body := []byte(`{"model":"m","messages":[{"role":"user","content":"hi"}]}`)
+	rr := httptest.NewRecorder()
+	res, err := reg.Forward(rr, httptest.NewRequest("POST", "/chat/completions", bytes.NewReader(body)), "/chat/completions", body)
+	if err != nil || res.Status != http.StatusOK || strings.Contains(rr.Body.String(), "Balance") {
+		t.Fatalf("status %d, err %v, body %s", res.Status, err, rr.Body.String())
+	}
+}

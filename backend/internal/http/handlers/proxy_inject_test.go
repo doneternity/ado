@@ -63,3 +63,21 @@ func TestInjectReasoning_MalformedPassThrough(t *testing.T) {
 		t.Fatalf("body without messages should pass through, got %q", got)
 	}
 }
+
+// Only the messages change: other fields keep their exact JSON, so a large
+// integer like a seed isn't rounded through float64.
+func TestInjectReasoning_KeepsOtherFieldsExact(t *testing.T) {
+	body := []byte(`{"model":"x","seed":9007199254740993,"temperature":0.7,"messages":[{"role":"user","content":"hi","name":"bob"}]}`)
+	out := injectReasoning(body)
+	var p map[string]json.RawMessage
+	if err := json.Unmarshal(out, &p); err != nil {
+		t.Fatal(err)
+	}
+	if string(p["seed"]) != "9007199254740993" || string(p["temperature"]) != "0.7" {
+		t.Fatalf("fields changed: seed=%s temperature=%s", p["seed"], p["temperature"])
+	}
+	got := messages(t, out)
+	if len(got) != 2 || got[1]["name"] != "bob" {
+		t.Fatalf("messages: %+v", got)
+	}
+}

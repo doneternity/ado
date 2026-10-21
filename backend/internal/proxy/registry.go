@@ -87,13 +87,3 @@ func (r *Registry) Pick(ctx context.Context, model string) *Forwarder {
 // UpstreamID is the provider's own ID for a model asked for by its plain ID
 // (see alias.go); other IDs come back unchanged.
 func (f *Forwarder) UpstreamID(model string) string { return f.upstreamID(model) }
-
-// First returns the highest-priority forwarder, or nil if the chain is empty.
-// Used for endpoints that can't fail over (e.g. realtime WebSocket).
-func (r *Registry) First() *Forwarder {
-	chain := r.Get()
-	if len(chain) == 0 {
-		return nil
-	}
-	return chain[0]
-}

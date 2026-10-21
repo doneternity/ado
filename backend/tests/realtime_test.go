@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -30,6 +31,8 @@ func TestRealtime_RewritesToProvider(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+rawKey)
 	req.Header.Set("X-Forwarded-For", "203.0.113.9")
 	req.Header.Set("Cookie", "ado_session=secret")
+	req.Header.Set("X-Real-Ip", "203.0.113.9")
+	req.Header.Set("X-Vercel-Ip-City", "Lisbon")
 	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +47,22 @@ func TestRealtime_RewritesToProvider(t *testing.T) {
 	if a := got.Header.Get("Authorization"); a != "Bearer upstream-key" {
 		t.Fatalf("Authorization = %q, want the provider key", a)
 	}
-	if got.Header.Get("Cookie") != "" || got.Header.Get("X-Forwarded-For") != "" {
-		t.Fatalf("leaked headers: Cookie=%q X-Forwarded-For=%q", got.Header.Get("Cookie"), got.Header.Get("X-Forwarded-For"))
+	for _, h := range []string{"Cookie", "X-Forwarded-For", "X-Real-Ip", "X-Vercel-Ip-City"} {
+		if v := got.Header.Get(h); v != "" {
+			t.Fatalf("leaked header %s: %q", h, v)
+		}
+	}
+
+	// The connection counts as one request against the daily quota.
+	var used int
+	if err := fx.pool.QueryRow(context.Background(), `
+		SELECT COALESCE(SUM(u.used), 0) FROM daily_usage u
+		JOIN ado_keys k ON k.id = u.key_id
+		JOIN users us ON us.id = k.user_id
+		WHERE us.email = 'realtime@example.com' AND u.day = CURRENT_DATE`).Scan(&used); err != nil {
+		t.Fatal(err)
+	}
+	if used != 1 {
+		t.Fatalf("quota used = %d, want 1 for the connection", used)
 	}
 }

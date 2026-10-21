@@ -151,8 +151,10 @@ func NewRouter(d Deps) http.Handler {
 			r.Post("/messages", d.Proxy.Passthrough("/messages"))
 		})
 
-		// Realtime is a WebSocket; it can't fail over or be rate-limited per call.
-		r.Get("/realtime", d.Proxy.Realtime)
+		// Realtime is a WebSocket; it can't fail over mid-connection.
+		// It shares the chat per-minute bucket, one count per connection.
+		r.With(d.Limiter.PerKeyDynamic("rl:v1:chat:key", d.RpmCfg.Get, time.Minute, false)).
+			Get("/realtime", d.Proxy.Realtime)
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {

@@ -208,7 +208,7 @@ export function Landing() {
             </motion.div>
             <motion.p className={styles.sectionDesc} variants={fadeUp}>
               Drop-in OpenAI replacement. No SDK changes, no vendor lock-in.
-              Route to the best model for each request.
+              Switch models by changing one word.
             </motion.p>
           </motion.div>
 
@@ -226,19 +226,17 @@ export function Landing() {
                 One key. Every model. {routesTo}. Transparently.
                 No client-side changes needed.
               </p>
-              {catalog.count > 0 && (
-                <div>
-                  <span className={styles.bigStat}>{catalog.count}</span>
-                  <span className={styles.bigStatLabel}>{catalog.count === 1 ? "model" : "models"} on one key</span>
-                </div>
-              )}
+              <div>
+                <span className={styles.bigStat}>/v1</span>
+                <span className={styles.bigStatLabel}>the only address you need</span>
+              </div>
             </div>
             <div className={styles.featCardRight}>
               <pre className={styles.codeBlock}>{`import OpenAI from "openai";
 
 const client = new OpenAI({
   baseURL: "https://adoai.space/v1",
-  apiKey: "your-ado-key",
+  apiKey: process.env.ADO_API_KEY,
 });
 
 const res = await client.chat.completions.create({
@@ -382,18 +380,18 @@ const res = await client.chat.completions.create({
                 </svg>
               </div>
               <div className={styles.infraBigNum}>
-                <span className={styles.infraBigValue}>{catalog.count > 0 ? catalog.count : 1}</span>
-                <span className={styles.infraBigSuffix}>{catalog.count > 0 ? (catalog.count === 1 ? "model" : "models") : "key"}</span>
+                <span className={styles.infraBigValue}>1</span>
+                <span className={styles.infraBigSuffix}>key</span>
               </div>
               <p className={styles.infraBigLabel}>
-                {catalog.providerNames ? `From ${catalog.providerNames}, behind one key.` : "Every model we serve, behind one key."}
+                {catalog.providerNames ? `For every model from ${catalog.providerNames}.` : "For every model we serve."}
               </p>
             </motion.div>
 
             <motion.div className={styles.infraSmallCards} variants={stagger14}>
               <motion.div className={styles.infraSmallCard} variants={fadeUp}>
                 <span className={styles.infraSmallValue}>Failover</span>
-                <span className={styles.infraSmallLabel}>Across providers</span>
+                <span className={styles.infraSmallLabel}>Across provider keys</span>
               </motion.div>
               <motion.div className={styles.infraSmallCard} variants={fadeUp}>
                 <span className={styles.infraSmallValue}>SSE</span>

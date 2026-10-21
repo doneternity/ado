@@ -13,6 +13,14 @@
   ],
   "routes": [
     {
+      "src": "/(chat/completions|completions|embeddings|responses|messages|moderations|images/generations|audio/speech|audio/transcriptions)",
+      "methods": ["POST"],
+      "dest": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/missing-v1/$1",
+      "transforms": [
+        { "type": "request.headers", "op": "set", "target": { "key": "x-origin-secret" }, "args": "$ORIGIN_SECRET", "env": ["ORIGIN_SECRET"] }
+      ]
+    },
+    {
       "src": "/api/(.*)",
       "dest": "https://electric-babb-gemini-api-gateway-0468e30f.koyeb.app/api/$1",
       "transforms": [

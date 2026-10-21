@@ -53,7 +53,10 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(mw.RequireOrigin(d.OriginSecret)) // only traffic proxied by Vercel
 	r.Use(mw.ErrorLogger(d.Queries))
 	r.Use(mw.LoadSession(d.Sessions, d.Queries))
-	r.Use(mw.MaxBodySize(30 << 20)) // 30 MB backstop; per-handler caps are far lower (Bind 64KB, chat 512KB, passthrough 25MB)
+	r.Use(mw.MaxBodySize(30 << 20)) // 30 MB backstop; per-handler caps are lower (Bind 64KB, chat 16MB, passthrough 25MB)
+	// Unknown addresses and wrong methods get JSON errors, like everything else.
+	r.NotFound(handlers.NotFound)
+	r.MethodNotAllowed(handlers.MethodNotAllowed)
 
 	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -123,6 +126,10 @@ func NewRouter(d Deps) http.Handler {
 			Post("/chat/completions", d.Proxy.ChatCompletions)
 	})
 
+	// API calls sent to the site root instead of /v1 (the website routes
+	// POSTs to /chat/completions and friends here) get told what to change.
+	r.HandleFunc("/api/missing-v1/*", handlers.MissingV1)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)
 		// An address sending bad keys is cut off for a while, before the lookup.
@@ -130,6 +137,8 @@ func NewRouter(d Deps) http.Handler {
 		r.Use(mw.Bearer(d.Queries))
 		// One request_log row per keyed API call (metadata only, see the middleware).
 		r.Use(mw.RequestLog(d.Queries, "/api/v1"))
+		r.NotFound(handlers.APINotFound)
+		r.MethodNotAllowed(handlers.APIMethodNotAllowed)
 		r.With(d.Limiter.PerKey("rl:v1:models:key", 30, time.Minute, false)).
 			Get("/models", d.Proxy.Models)
 		r.With(d.Limiter.PerKeyDynamic("rl:v1:chat:key", d.RpmCfg.Get, time.Minute, false)).

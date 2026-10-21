@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/ado/ado/backend/internal/proxy"
 	"github.com/ado/ado/backend/internal/quota"
 	"github.com/ado/ado/backend/internal/store/db"
+	"github.com/ado/ado/backend/internal/validate"
 )
 
 // maxPassthroughBody caps passthrough request bodies. Larger than chat to allow
@@ -50,7 +52,7 @@ func clientGone(r *http.Request, err error) bool {
 // false for endpoints where the model is optional or the body isn't JSON.
 func (p *Proxy) checkModel(w http.ResponseWriter, r *http.Request, model string, required bool) bool {
 	if len(model) > maxModelName {
-		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "model name too long"))
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", fmt.Sprintf("the model name is %d characters long; model IDs are at most %d", len(model), maxModelName)))
 		return false
 	}
 	if strings.TrimSpace(model) == "" {
@@ -65,6 +67,65 @@ func (p *Proxy) checkModel(w http.ResponseWriter, r *http.Request, model string,
 		return false
 	}
 	return true
+}
+
+// msgNoModelList is the 503 when no provider's model list could be read.
+const msgNoModelList = "couldn't load the model list from any provider; try again in a minute"
+
+// noProvider is the 503 for a request that no provider answered: each one
+// was down, overloaded, refused it or too slow. It's never the caller's key.
+func noProvider(model string) *apperr.Error {
+	if model == "" {
+		return apperr.ServiceUnavailable("NO_PROVIDER", "no provider could answer this request right now (each was down, overloaded or too slow); try again in a minute")
+	}
+	return apperr.ServiceUnavailable("NO_PROVIDER", fmt.Sprintf(
+		"%q is unavailable right now: no provider could answer it (each was down, overloaded or too slow); try again in a minute or use another model, and see https://adoai.space/status", model))
+}
+
+// checkChatBody catches a malformed chat request before anything is charged,
+// and says what's wrong with it: not JSON, not an object, or a model that
+// isn't a string. A missing or unknown model is checkModel's to report, and
+// then checkMessages looks at the messages.
+func checkChatBody(data []byte) *apperr.Error {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return apperr.BadRequest("INVALID_INPUT", `the request body is empty: send a JSON object with "model" and "messages"`)
+	}
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(data, &body); err != nil {
+		return apperr.BadRequest("INVALID_INPUT", validate.JSONError(err))
+	}
+	if body == nil {
+		return apperr.BadRequest("INVALID_INPUT", "the request body should be a JSON object, not null")
+	}
+	if raw, ok := body["model"]; ok && !isJSONNull(raw) {
+		var s string
+		if json.Unmarshal(raw, &s) != nil {
+			return apperr.BadRequest("INVALID_INPUT", `"model" should be a string, like "deepseek-v4-pro"`)
+		}
+	}
+	return nil
+}
+
+// checkMessages reports a missing, malformed or empty messages list.
+func checkMessages(data []byte) *apperr.Error {
+	var body map[string]json.RawMessage
+	_ = json.Unmarshal(data, &body) // checkChatBody already parsed it
+	raw, ok := body["messages"]
+	if !ok || isJSONNull(raw) {
+		return apperr.BadRequest("INVALID_INPUT", `"messages" is required: a list of messages, like [{"role": "user", "content": "Hello!"}]`)
+	}
+	var msgs []json.RawMessage
+	if json.Unmarshal(raw, &msgs) != nil {
+		return apperr.BadRequest("INVALID_INPUT", `"messages" should be a list, like [{"role": "user", "content": "Hello!"}]`)
+	}
+	if len(msgs) == 0 {
+		return apperr.BadRequest("INVALID_INPUT", `"messages" is empty: add at least one message`)
+	}
+	return nil
+}
+
+func isJSONNull(raw json.RawMessage) bool {
+	return string(bytes.TrimSpace(raw)) == "null"
 }
 
 // nextQuotaReset is when today's quota resets: the next midnight UTC, the
@@ -93,7 +154,7 @@ func (p *Proxy) charge(w http.ResponseWriter, r *http.Request, bk mw.BearerKeyCo
 		return false
 	}
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't check your daily quota, so the request wasn't sent; try again in a moment"))
 		return false
 	}
 	setQuotaHeaders(w, bk.DailyLimit, used, reset)
@@ -166,26 +227,26 @@ func (p *Proxy) blocked(r *http.Request) bool {
 
 func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if p.blocked(r) {
-		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", mw.MaintenanceMessage))
 		return
 	}
 	bk, ok := mw.BearerFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing API key"))
 		return
 	}
 
 	data, err := io.ReadAll(io.LimitReader(r.Body, maxChatBody+1))
 	if err != nil {
-		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "could not read request body"))
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "could not read the request body"))
 		return
 	}
 	if int64(len(data)) > maxChatBody {
-		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "request body too large (16 MB at most)"))
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "the request body is too large: "+validate.Size(maxChatBody)+" at most, images included"))
 		return
 	}
-	if !json.Valid(data) {
-		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "invalid JSON"))
+	if e := checkChatBody(data); e != nil {
+		apperr.Write(w, e)
 		return
 	}
 
@@ -199,6 +260,10 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		note.Model, note.Stream = meta.Model, meta.Stream
 	}
 	if !p.checkModel(w, r, meta.Model, true) {
+		return
+	}
+	if e := checkMessages(data); e != nil {
+		apperr.Write(w, e)
 		return
 	}
 
@@ -234,7 +299,7 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		// No provider could serve it: the model looks unhealthy.
 		p.d.Registry.Health().Record(meta.Model, false)
 		slog.Warn("proxy no provider", "path", "/chat/completions", "model", meta.Model, "attempts", res.Attempts, "err", ferr)
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		apperr.Write(w, noProvider(meta.Model))
 		return
 	}
 	// 2xx with no stream error means the model is healthy. refund client
@@ -252,16 +317,16 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
 	if p.blocked(r) {
-		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", mw.MaintenanceMessage))
 		return
 	}
 	if _, ok := mw.BearerFromContext(r.Context()); !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing API key"))
 		return
 	}
 	if err := p.d.Registry.AggregateModels(w, r); err != nil {
 		slog.Warn("aggregate models failed", "err", err)
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", msgNoModelList))
 	}
 }
 
@@ -352,12 +417,12 @@ func mustJSON(v any) json.RawMessage {
 
 func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
 	if p.blocked(r) {
-		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", mw.MaintenanceMessage))
 		return
 	}
 	if err := p.d.Registry.AggregateModels(w, r); err != nil {
 		slog.Warn("aggregate models failed", "err", err)
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", msgNoModelList))
 	}
 }
 
@@ -368,34 +433,36 @@ func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
 func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if p.blocked(r) {
-			apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+			apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", mw.MaintenanceMessage))
 			return
 		}
 		bk, ok := mw.BearerFromContext(r.Context())
 		if !ok {
-			apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
+			apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing API key"))
 			return
 		}
 
 		data, err := io.ReadAll(io.LimitReader(r.Body, maxPassthroughBody+1))
 		if err != nil {
-			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "could not read request body"))
+			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "could not read the request body"))
 			return
 		}
 		if int64(len(data)) > maxPassthroughBody {
-			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "request body too large"))
+			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "the request body is too large: "+validate.Size(maxPassthroughBody)+" at most"))
 			return
 		}
 
 		// JSON bodies (embeddings, images, responses...) usually name the model;
 		// multipart uploads (audio) are left unparsed.
 		note := mw.RequestNoteFrom(r.Context())
+		var model string
 		if json.Valid(data) {
 			var meta struct {
 				Model  string `json:"model"`
 				Stream bool   `json:"stream"`
 			}
 			_ = json.Unmarshal(data, &meta)
+			model = meta.Model
 			if note != nil {
 				note.Model, note.Stream = meta.Model, meta.Stream
 			}
@@ -418,7 +485,7 @@ func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 				return
 			}
 			slog.Warn("passthrough no provider", "path", upstreamPath, "attempts", res.Attempts, "err", ferr)
-			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+			apperr.Write(w, noProvider(model))
 			return
 		}
 		if res.Status >= 400 && res.Status < 500 {
@@ -448,29 +515,34 @@ var realtimeHeaders = []string{
 // WebSocket, so this serves server-side clients (Bearer required).
 func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
 	if p.blocked(r) {
-		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+		apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", mw.MaintenanceMessage))
 		return
 	}
 	bk, ok := mw.BearerFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "no key"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing API key"))
 		return
 	}
 	model := r.URL.Query().Get("model")
 	if note := mw.RequestNoteFrom(r.Context()); note != nil {
 		note.Model, note.Stream = model, true
 	}
-	if !p.checkModel(w, r, model, false) {
+	if strings.TrimSpace(model) == "" {
+		apperr.Write(w, apperr.BadRequest("MODEL_REQUIRED", "add the model to the address, like /v1/realtime?model=<id>; see https://adoai.space/models for the models you can use"))
+		return
+	}
+	if !p.checkModel(w, r, model, true) {
 		return
 	}
 	fwd := p.d.Registry.Pick(r.Context(), model)
 	if fwd == nil {
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		apperr.Write(w, noProvider(model))
 		return
 	}
 	target, err := url.Parse(fwd.BaseURL)
 	if err != nil {
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+		slog.Error("realtime: bad provider base URL", "provider", fwd.Name(), "err", err)
+		apperr.Write(w, noProvider(model))
 		return
 	}
 	if !p.charge(w, r, bk) {
@@ -507,7 +579,7 @@ func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			slog.Warn("realtime proxy failed", "provider", fwd.Name(), "err", e)
-			apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
+			apperr.Write(w, noProvider(model))
 		},
 	}
 	rp.ServeHTTP(w, r)

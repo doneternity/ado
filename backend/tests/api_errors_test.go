@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -66,10 +67,10 @@ func TestAPI_ModelErrorsAndKeyHeaders(t *testing.T) {
 		t.Fatalf("missing model: %d %s", code, out)
 	}
 
-	if code, _, out := apiCall(t, fx, map[string]string{"X-Api-Key": rawKey}, `{"model":"real-model","messages":[]}`); code != http.StatusOK {
+	if code, _, out := apiCall(t, fx, map[string]string{"X-Api-Key": rawKey}, `{"model":"real-model","messages":[{"role":"user","content":"hi"}]}`); code != http.StatusOK {
 		t.Fatalf("x-api-key: %d %s", code, out)
 	}
-	if code, _, out := apiCall(t, fx, map[string]string{"Authorization": "bearer " + rawKey}, `{"model":"real-model","messages":[]}`); code != http.StatusOK {
+	if code, _, out := apiCall(t, fx, map[string]string{"Authorization": "bearer " + rawKey}, `{"model":"real-model","messages":[{"role":"user","content":"hi"}]}`); code != http.StatusOK {
 		t.Fatalf("lowercase bearer: %d %s", code, out)
 	}
 
@@ -150,5 +151,117 @@ func TestAPI_StreamUsageIsCountedButHidden(t *testing.T) {
 	}
 	if prompt != 7 || completion != 2 {
 		t.Fatalf("logged tokens %d/%d, want 7/2", prompt, completion)
+	}
+}
+
+func apiDo(t *testing.T, fx *fixture, method, path string, headers map[string]string, body string) (int, string) {
+	t.Helper()
+	req, _ := http.NewRequest(method, fx.server.URL+path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(b)
+}
+
+// TestAPI_ErrorsSayWhatIsWrong: each kind of bad request gets a message that
+// names the actual problem, and a provider's own billing error never reaches
+// the caller as if it were theirs.
+func TestAPI_ErrorsSayWhatIsWrong(t *testing.T) {
+	fx := newFixture(t)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`{"data":[{"id":"ok-model"},{"id":"broke-model"}]}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusPaymentRequired)
+		_, _ = w.Write([]byte(`{"error":{"message":"Insufficient Balance"}}`))
+	}))
+	defer provider.Close()
+	fx.reg.Swap([]*proxy.Forwarder{proxy.New(provider.URL, "k")})
+
+	jar, _ := cookiejar.New(nil)
+	_, rawKey := createDiscordUser(t, fx, &http.Client{Jar: jar}, "discord-errmsg-001", "errmsg@example.com")
+	auth := map[string]string{"Authorization": "Bearer " + rawKey}
+	const chat = "/api/v1/chat/completions"
+
+	for _, c := range []struct {
+		method, path string
+		headers      map[string]string
+		body         string
+		status       int
+		want         string
+	}{
+		{"POST", chat, auth, `{"model":`, 400, "isn't valid JSON"},
+		{"POST", chat, auth, `[1, 2]`, 400, "should be a JSON object, not array"},
+		{"POST", chat, auth, ``, 400, "the request body is empty"},
+		{"POST", chat, auth, `{"model":5,"messages":[]}`, 400, `\"model\" should be a string`},
+		{"POST", chat, auth, `{"model":"ok-model"}`, 400, `\"messages\" is required`},
+		{"POST", chat, auth, `{"model":"ok-model","messages":{}}`, 400, `\"messages\" should be a list`},
+		{"POST", chat, auth, `{"model":"ok-model","messages":[]}`, 400, `\"messages\" is empty`},
+		{"POST", "/api/v1/chat/completion", auth, `{}`, 404, "did you mean POST /v1/chat/completions"},
+		{"POST", "/api/v1/v1/chat/completions", auth, `{}`, 404, "/v1 twice"},
+		{"POST", "/api/v1/completions", auth, `{}`, 404, "older text completions"},
+		{"GET", chat, auth, ``, 405, "send a POST request"},
+		{"POST", "/api/missing-v1/chat/completions", nil, `{}`, 404, "missing /v1: use https://adoai.space/v1/chat/completions"},
+		{"POST", chat, map[string]string{"Authorization": "Bearer sk-proj-abc"}, `{}`, 401, "isn't an ADO key"},
+		{"POST", chat, map[string]string{"Authorization": rawKey}, `{}`, 401, "with the word Bearer and a space before the key"},
+		{"POST", chat, map[string]string{"Authorization": "Bearer ado-mistyped"}, `{}`, 401, "mistyped or rotated"},
+		// A provider out of credit is the provider's problem, never the caller's.
+		{"POST", chat, auth, `{"model":"broke-model","messages":[{"role":"user","content":"hi"}]}`, 503, `\"broke-model\" is unavailable right now`},
+	} {
+		code, out := apiDo(t, fx, c.method, c.path, c.headers, c.body)
+		if code != c.status || !strings.Contains(out, c.want) || strings.Contains(out, "Insufficient Balance") {
+			t.Errorf("%s %s %s: %d %s, want %d containing %q", c.method, c.path, c.body, code, out, c.status, c.want)
+		}
+	}
+
+	// None of those reached a model, so none counted.
+	var used int
+	_ = fx.pool.QueryRow(context.Background(), `
+		SELECT COALESCE(SUM(d.used), 0) FROM daily_usage d JOIN ado_keys k ON k.id = d.key_id
+		JOIN users u ON u.id = k.user_id WHERE u.email = 'errmsg@example.com'`).Scan(&used)
+	if used != 0 {
+		t.Fatalf("quota used = %d, want 0", used)
+	}
+}
+
+// TestAPI_CutStreamEndsWithAnError: when a provider drops the connection
+// mid-stream, the client gets an error event instead of a silently cut reply.
+func TestAPI_CutStreamEndsWithAnError(t *testing.T) {
+	fx := newFixture(t)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`{"data":[{"id":"flaky-model"}]}`))
+			return
+		}
+		conn, buf, err := http.NewResponseController(w).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		// A chunked SSE response that stops without its final chunk.
+		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n")
+		chunk := "data: {\"choices\":[{\"delta\":{\"content\":\"Half\"}}]}\n\n"
+		_, _ = buf.WriteString(strconv.FormatInt(int64(len(chunk)), 16) + "\r\n" + chunk + "\r\n")
+		_ = buf.Flush()
+		_ = conn.Close()
+	}))
+	defer provider.Close()
+	fx.reg.Swap([]*proxy.Forwarder{proxy.New(provider.URL, "k")})
+
+	jar, _ := cookiejar.New(nil)
+	_, rawKey := createDiscordUser(t, fx, &http.Client{Jar: jar}, "discord-cutstream-001", "cutstream@example.com")
+	code, _, out := apiCall(t, fx, map[string]string{"Authorization": "Bearer " + rawKey},
+		`{"model":"flaky-model","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
+	if code != http.StatusOK || !strings.Contains(out, "Half") || !strings.Contains(out, "STREAM_INTERRUPTED") || !strings.Contains(out, "incomplete") {
+		t.Fatalf("cut stream: %d %q", code, out)
 	}
 }

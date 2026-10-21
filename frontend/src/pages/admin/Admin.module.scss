@@ -288,6 +288,15 @@
   font-size: .75rem;
 }
 
+// Model names are whatever callers sent, so a junk one can be very long:
+// cut it off with an ellipsis (the full name is in the title).
+.cellModel {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cellSubtle {
   color: var(--silver);
   font-size: .72rem;

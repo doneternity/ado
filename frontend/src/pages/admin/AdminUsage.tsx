@@ -93,7 +93,7 @@ export function AdminUsage() {
           <tbody>
             {byModel.map((m) => (
               <tr key={m.model || "unknown"}>
-                <td className={styles.cellMono}>{m.model || "unknown"}</td>
+                <td className={`${styles.cellMono} ${styles.cellModel}`} title={m.model || undefined}>{m.model || "unknown"}</td>
                 <td style={{ fontWeight: 700 }}>{compact(m.requests)}</td>
                 <td>{m.requests ? `${Math.round((m.ok / m.requests) * 100)}%` : "-"}</td>
                 <td>{compact(m.promptTokens)}</td>
@@ -128,7 +128,7 @@ export function AdminUsage() {
                 <td className={styles.cellSubtle}>{new Date(r.createdAt).toLocaleString()}</td>
                 <td className={styles.cellMono}>{r.email}</td>
                 <td className={styles.cellMono}>{r.endpoint}{r.stream ? " (stream)" : ""}</td>
-                <td className={styles.cellMono}>{r.model ?? "-"}</td>
+                <td className={`${styles.cellMono} ${styles.cellModel}`} title={r.model ?? undefined}>{r.model ?? "-"}</td>
                 <td>
                   <span className={`${styles.badge} ${r.status < 400 ? styles.badgeGreen : styles.badgeError}`}>{r.status}</span>
                 </td>

@@ -54,9 +54,7 @@ func (a *Auth) DeleteMe(w http.ResponseWriter, r *http.Request) {
 
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(auth.CookieName); err == nil {
-		if id, derr := base64URLDecode(c.Value); derr == nil {
-			_ = a.d.Sessions.Delete(r.Context(), id)
-		}
+		_ = a.d.Sessions.DeleteByCookie(r.Context(), c.Value)
 	}
 	a.d.Sessions.ClearCookie(w)
 	w.WriteHeader(http.StatusNoContent)
@@ -87,8 +85,4 @@ func userDTO(u db.User) map[string]any {
 
 func base64URL(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
-}
-
-func base64URLDecode(s string) ([]byte, error) {
-	return base64.RawURLEncoding.DecodeString(s)
 }

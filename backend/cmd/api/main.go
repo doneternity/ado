@@ -107,7 +107,7 @@ func main() {
 		IdleDays:     cfg.SessionIdleDays,
 		AbsoluteDays: cfg.SessionAbsoluteDays,
 		CookieSecure: cfg.SessionCookieSecure,
-		CrossOrigin:  cfg.FrontendOrigin != "",
+		CrossOrigin:  auth.CrossSite(cfg.FrontendOrigin, cfg.DiscordRedirectURL),
 	})
 
 	authH := handlers.NewAuth(handlers.AuthDeps{Q: queries, Sessions: sessions})

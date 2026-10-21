@@ -3,10 +3,13 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/netip"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,15 +49,25 @@ func NewSessions(q *db.Queries, cfg SessionConfig) *Sessions {
 	return &Sessions{q: q, cfg: cfg}
 }
 
+// hashToken is how a session is stored and looked up: the SHA-256 of the
+// cookie's token, never the token, so a copy of the database (or a backup)
+// can't be used to sign in as anyone. Migration 00026 hashed the sessions
+// that existed before.
+func hashToken(token []byte) []byte {
+	h := sha256.Sum256(token)
+	return h[:]
+}
+
 func randomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	return b, err
 }
 
-// Create issues a fresh session and returns the cookie value (base64url(id)).
+// Create issues a fresh session and returns the cookie value (base64url of
+// the token). Session.ID is the stored hash.
 func (s *Sessions) Create(ctx context.Context, userID uuid.UUID, ua, ip string) (Session, string, error) {
-	id, err := randomBytes(tokenBytes)
+	token, err := randomBytes(tokenBytes)
 	if err != nil {
 		return Session{}, "", err
 	}
@@ -75,7 +88,7 @@ func (s *Sessions) Create(ctx context.Context, userID uuid.UUID, ua, ip string) 
 	}
 
 	row, err := s.q.CreateSession(ctx, db.CreateSessionParams{
-		ID:        id,
+		ID:        hashToken(token),
 		UserID:    userID,
 		CsrfToken: csrf,
 		ExpiresAt: pgtype.Timestamptz{Time: exp, Valid: true},
@@ -86,7 +99,7 @@ func (s *Sessions) Create(ctx context.Context, userID uuid.UUID, ua, ip string) 
 		return Session{}, "", err
 	}
 
-	cookieValue := base64.RawURLEncoding.EncodeToString(id)
+	cookieValue := base64.RawURLEncoding.EncodeToString(token)
 	return Session{
 		ID:         row.ID,
 		UserID:     row.UserID,
@@ -99,10 +112,11 @@ func (s *Sessions) Create(ctx context.Context, userID uuid.UUID, ua, ip string) 
 // Load resolves a cookie value to a session. Returns (Session, true) on hit;
 // (zero, false) if the cookie is missing/malformed/expired.
 func (s *Sessions) Load(ctx context.Context, cookieValue string) (Session, bool, error) {
-	id, err := base64.RawURLEncoding.DecodeString(cookieValue)
-	if err != nil || len(id) != tokenBytes {
+	token, err := base64.RawURLEncoding.DecodeString(cookieValue)
+	if err != nil || len(token) != tokenBytes {
 		return Session{}, false, nil
 	}
+	id := hashToken(token)
 	row, err := s.q.GetSession(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -126,8 +140,13 @@ func (s *Sessions) Load(ctx context.Context, cookieValue string) (Session, bool,
 	}, true, nil
 }
 
-func (s *Sessions) Delete(ctx context.Context, id []byte) error {
-	return s.q.DeleteSession(ctx, id)
+// DeleteByCookie ends the session a cookie value belongs to (sign-out).
+func (s *Sessions) DeleteByCookie(ctx context.Context, cookieValue string) error {
+	token, err := base64.RawURLEncoding.DecodeString(cookieValue)
+	if err != nil || len(token) != tokenBytes {
+		return nil
+	}
+	return s.q.DeleteSession(ctx, hashToken(token))
 }
 
 func (s *Sessions) SetCookie(w http.ResponseWriter, value string) {
@@ -160,4 +179,22 @@ func (s *Sessions) ClearCookie(w http.ResponseWriter) {
 		SameSite: sameSite,
 		MaxAge:   -1,
 	})
+}
+
+// CrossSite reports whether the website and the API it calls are on different
+// hosts, the only case where the session cookie needs SameSite=None. On
+// adoai.space the website and /api share a host (Vercel proxies the API), so
+// the cookie is Lax and browsers don't send it with requests from other sites
+// at all; CSRF tokens still guard every change. apiURL is any public URL of
+// the API (the Discord callback). When in doubt it says true, the old setting.
+func CrossSite(frontendOrigin, apiURL string) bool {
+	if frontendOrigin == "" {
+		return false // no separate frontend: the API serves the site itself
+	}
+	f, ferr := url.Parse(frontendOrigin)
+	a, aerr := url.Parse(apiURL)
+	if ferr != nil || aerr != nil || f.Hostname() == "" || a.Hostname() == "" {
+		return true
+	}
+	return !strings.EqualFold(f.Hostname(), a.Hostname())
 }

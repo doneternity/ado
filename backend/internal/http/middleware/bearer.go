@@ -33,12 +33,11 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			h := r.Header.Get("Authorization")
-			if !strings.HasPrefix(h, "Bearer ") {
-				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing bearer key"))
+			raw := apiKeyFrom(r)
+			if raw == "" {
+				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing API key: send it as \"Authorization: Bearer <key>\""))
 				return
 			}
-			raw := strings.TrimPrefix(h, "Bearer ")
 			row, err := q.GetActiveKeyByHash(r.Context(), keys.Hash(raw))
 			if errors.Is(err, pgx.ErrNoRows) {
 				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "invalid key"))
@@ -115,4 +114,15 @@ func touchKey(q *db.Queries, id uuid.UUID) {
 func BearerFromContext(ctx context.Context) (BearerKeyContext, bool) {
 	v, ok := ctx.Value(bearerKey).(BearerKeyContext)
 	return v, ok
+}
+
+// apiKeyFrom reads the ADO key from "Authorization: Bearer <key>" (the scheme
+// in any case, as HTTP allows) or from x-api-key, which the Anthropic SDK and
+// Claude Code send instead. Providers never see either header: the proxy
+// forwards only an allowlist.
+func apiKeyFrom(r *http.Request) string {
+	if h := strings.TrimSpace(r.Header.Get("Authorization")); len(h) > 7 && strings.EqualFold(h[:7], "bearer ") {
+		return strings.TrimSpace(h[7:])
+	}
+	return strings.TrimSpace(r.Header.Get("X-Api-Key"))
 }

@@ -28,6 +28,11 @@ JOIN users u ON u.id = k.user_id
 JOIN plans p ON p.id = u.plan_id
 WHERE k.key_hash = $1 AND k.revoked_at IS NULL;
 
+-- name: IsRevokedKeyHash :one
+-- Whether a key that no longer works was a real ADO key (rotated, or turned
+-- off for inactivity), so the error can say so instead of "invalid".
+SELECT EXISTS (SELECT 1 FROM ado_keys WHERE key_hash = $1 AND revoked_at IS NOT NULL);
+
 -- name: SetActiveKeyReasoningMode :exec
 UPDATE ado_keys SET reasoning_mode = $2
 WHERE user_id = $1 AND revoked_at IS NULL;

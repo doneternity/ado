@@ -190,6 +190,19 @@ func (q *Queries) GetUsageForToday(ctx context.Context, keyID uuid.UUID) (int32,
 	return used, err
 }
 
+const isRevokedKeyHash = `-- name: IsRevokedKeyHash :one
+SELECT EXISTS (SELECT 1 FROM ado_keys WHERE key_hash = $1 AND revoked_at IS NOT NULL)
+`
+
+// Whether a key that no longer works was a real ADO key (rotated, or turned
+// off for inactivity), so the error can say so instead of "invalid".
+func (q *Queries) IsRevokedKeyHash(ctx context.Context, keyHash []byte) (bool, error) {
+	row := q.db.QueryRow(ctx, isRevokedKeyHash, keyHash)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const revokeActiveKeyForUser = `-- name: RevokeActiveKeyForUser :exec
 UPDATE ado_keys SET revoked_at = now()
 WHERE user_id = $1 AND revoked_at IS NULL

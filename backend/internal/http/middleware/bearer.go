@@ -51,9 +51,14 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "that isn't an ADO key: ADO keys start with \"ado-\"; copy yours from https://adoai.space/dashboard"))
 				return
 			}
-			row, err := q.GetActiveKeyByHash(r.Context(), keys.Hash(raw))
+			hash := keys.Hash(raw)
+			row, err := q.GetActiveKeyByHash(r.Context(), hash)
 			if errors.Is(err, pgx.ErrNoRows) {
-				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "this API key isn't valid: it may be mistyped or rotated; copy your current key from https://adoai.space/dashboard"))
+				msg := "this API key isn't valid: it may be mistyped; copy your current key from https://adoai.space/dashboard"
+				if revoked, rerr := q.IsRevokedKeyHash(r.Context(), hash); rerr == nil && revoked {
+					msg = "this API key has been turned off: keys stop working when they're rotated, and free keys after 14 days without use; get a new one at https://adoai.space/dashboard"
+				}
+				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", msg))
 				return
 			}
 			if err != nil {

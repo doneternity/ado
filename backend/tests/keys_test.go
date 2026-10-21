@@ -2,8 +2,10 @@ package tests
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"strings"
 	"testing"
 )
 
@@ -46,8 +48,13 @@ func TestKeys_LazyIssuanceAndRotation(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+originalKey)
 	req.Header.Set("Content-Type", "application/json")
 	r, _ = c.Do(req)
+	out, _ := io.ReadAll(r.Body)
 	r.Body.Close()
 	if r.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("revoked key should be rejected with 401, got %d", r.StatusCode)
+	}
+	// It says the key was turned off, not that it was never valid.
+	if !strings.Contains(string(out), "has been turned off") {
+		t.Fatalf("revoked key message: %s", out)
 	}
 }

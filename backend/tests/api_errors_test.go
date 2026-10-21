@@ -213,7 +213,7 @@ func TestAPI_ErrorsSayWhatIsWrong(t *testing.T) {
 		{"POST", "/api/missing-v1/chat/completions", nil, `{}`, 404, "missing /v1: use https://adoai.space/v1/chat/completions"},
 		{"POST", chat, map[string]string{"Authorization": "Bearer sk-proj-abc"}, `{}`, 401, "isn't an ADO key"},
 		{"POST", chat, map[string]string{"Authorization": rawKey}, `{}`, 401, "with the word Bearer and a space before the key"},
-		{"POST", chat, map[string]string{"Authorization": "Bearer ado-mistyped"}, `{}`, 401, "mistyped or rotated"},
+		{"POST", chat, map[string]string{"Authorization": "Bearer ado-mistyped"}, `{}`, 401, "it may be mistyped"},
 		// A provider out of credit is the provider's problem, never the caller's.
 		{"POST", chat, auth, `{"model":"broke-model","messages":[{"role":"user","content":"hi"}]}`, 503, `\"broke-model\" is unavailable right now`},
 	} {

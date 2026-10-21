@@ -46,6 +46,14 @@ func Write(w http.ResponseWriter, err error) {
 		ae = Internal("INTERNAL", "internal error")
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(ae.Status)
+	_, _ = w.Write(ae.Body())
+}
+
+// Body is the JSON error object Write sends, for a response whose status has
+// already gone out (the proxy's keep-alive sends a 200 before it knows).
+func (ae *Error) Body() []byte {
 	body := map[string]any{
 		"error": map[string]any{"code": ae.Code, "message": ae.Message, "type": errorType(ae.Status)},
 	}
@@ -56,9 +64,8 @@ func Write(w http.ResponseWriter, err error) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(ae.Status)
-	_ = json.NewEncoder(w).Encode(body)
+	b, _ := json.Marshal(body)
+	return append(b, '\n')
 }
 
 // errorType is OpenAI's error "type" for a status, so OpenAI-compatible

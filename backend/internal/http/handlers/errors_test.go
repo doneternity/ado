@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	mw "github.com/ado/ado/backend/internal/http/middleware"
+	"github.com/ado/ado/backend/internal/proxy"
 )
 
 func TestCheckChatBody(t *testing.T) {
@@ -58,5 +62,29 @@ func TestNoProviderNamesTheModel(t *testing.T) {
 	}
 	if e := noProvider(""); strings.Contains(e.Message, `""`) {
 		t.Fatalf("no model: %+v", e)
+	}
+}
+
+// After a keep-alive sent 200, an error goes in the body (an event in a
+// stream) and the request log gets the real status.
+func TestWriteForwardError_AfterKeepAlive(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		w := httptest.NewRecorder()
+		note := &mw.RequestNote{}
+		writeForwardError(w, proxy.ForwardResult{KeptAlive: true}, note, stream, noProvider("m"))
+		out := w.Body.String()
+		if note.Status != 503 || !strings.Contains(out, `"code":"NO_PROVIDER"`) {
+			t.Fatalf("stream=%v: status %d body %q", stream, note.Status, out)
+		}
+		if stream != strings.HasPrefix(out, "data: {") || stream != strings.HasSuffix(out, "}\n\n") {
+			t.Fatalf("stream=%v: body %q", stream, out)
+		}
+	}
+
+	// Without a keep-alive it's an ordinary error response.
+	w := httptest.NewRecorder()
+	writeForwardError(w, proxy.ForwardResult{}, &mw.RequestNote{}, true, noProvider("m"))
+	if w.Code != 503 {
+		t.Fatalf("code %d", w.Code)
 	}
 }

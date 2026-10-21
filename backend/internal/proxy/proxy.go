@@ -18,14 +18,29 @@ import (
 
 const (
 	dialTimeout = 5 * time.Second
-	// generous on purpose: a non-streamed completion may not send headers until
-	// the whole answer is ready. fast failover comes from the breaker, not here.
-	responseHeaderTimeout = 120 * time.Second
+	// A non-streamed reply comes in one piece once the model is done, which
+	// for a long reasoning answer can take minutes, so a provider gets this
+	// long to start answering (DeepSeek gives up on a queued request after 10
+	// minutes too). Fast failover comes from the breaker, not here.
+	responseHeaderTimeout = 10 * time.Minute
 
 	// breaker: after this many consecutive failures, skip a provider for the
 	// cooldown so a dead upstream stops slowing every request.
 	breakerThreshold = 2
 	breakerCooldown  = 30 * time.Second
+)
+
+// Variables so tests can shorten them.
+var (
+	// A stream starts (sends its headers) right away, so one that hasn't
+	// within this long is stuck: fail over.
+	streamHeaderWait = 120 * time.Second
+
+	// keepAliveAfter is how long a request waits for a provider before ADO
+	// starts sending keep-alive padding, then every keepAliveEvery. Vercel
+	// drops a request that has sent nothing for 120 seconds.
+	keepAliveAfter = 30 * time.Second
+	keepAliveEvery = 15 * time.Second
 )
 
 type Forwarder struct {
@@ -215,6 +230,9 @@ type ForwardResult struct {
 	Provider string // base url of the provider that served (empty if none)
 	Attempts int    // providers tried
 	Usage    Usage  // token counts, when the provider reported them
+	// KeptAlive: a keep-alive already sent a 200 and the headers, so an
+	// error has to go in the body (see apperr.Error.Body).
+	KeptAlive bool
 }
 
 // ForwardOptions adjusts one Forward call.
@@ -223,6 +241,13 @@ type ForwardOptions struct {
 	// receives (its usage is still read): set when ADO turned on
 	// stream_options.include_usage and the client hadn't.
 	HideUsageChunk bool
+	// Stream: the client asked for a stream. Its headers must arrive within
+	// streamHeaderWait, and keep-alives are SSE comments.
+	Stream bool
+	// KeepAlive sends padding while waiting on a slow provider (blank lines
+	// before a JSON reply, comments in a stream), which clients ignore. Only
+	// for JSON or SSE replies.
+	KeepAlive bool
 }
 
 // Forward streams the first non-failover provider response to the client.
@@ -243,9 +268,14 @@ func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path st
 	attempts := 0
 	model := modelOf(body)
 	chain = r.forModel(req.Context(), chain, model)
+	var ka *keepAlive
+	if opts.KeepAlive {
+		ka = startKeepAlive(w, opts.Stream)
+	}
+	defer ka.stop()
 	for _, f := range failoverOrder(rotateGroups(chain, r.rr.Add(1))) {
 		if cerr := req.Context().Err(); cerr != nil {
-			return ForwardResult{Attempts: attempts}, cerr
+			return ForwardResult{Attempts: attempts, KeptAlive: ka.stop()}, cerr
 		}
 		attempts++
 
@@ -260,12 +290,23 @@ func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path st
 			sendBody = withModel(body, up)
 			swap = newQuotedSwap(up, model)
 		}
+		var stalled atomic.Bool
+		var headerWait *time.Timer
+		if opts.Stream {
+			headerWait = time.AfterFunc(streamHeaderWait, func() { stalled.Store(true); cancel() })
+		}
 		resp, derr := f.do(streamCtx, req, path, sendBody)
+		if headerWait != nil {
+			headerWait.Stop()
+		}
 		if derr != nil {
 			cancel()
 			// client cancel isn't the provider's fault: don't trip it, just stop.
 			if cerr := req.Context().Err(); cerr != nil {
-				return ForwardResult{Attempts: attempts}, cerr
+				return ForwardResult{Attempts: attempts, KeptAlive: ka.stop()}, cerr
+			}
+			if stalled.Load() {
+				derr = fmt.Errorf("stream didn't start within %s", streamHeaderWait)
 			}
 			lastErr = derr
 			f.tripBreaker()
@@ -282,13 +323,20 @@ func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path st
 			continue
 		}
 		f.resetBreaker()
+		committed := ka.stop()
+		if committed && resp.StatusCode >= 300 {
+			// The 200 is already sent: pass the provider's error on in the body.
+			writeLateProviderError(w, resp, opts.Stream)
+			cancel()
+			return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, KeptAlive: true}, nil
+		}
 		// Keep the end of the response to read its token usage; content is not kept.
 		tail := newTailBuffer(16 << 10)
 		var filter *usageChunkFilter
 		if opts.HideUsageChunk {
 			filter = &usageChunkFilter{}
 		}
-		serr := streamResponse(w, resp, cancel, tail, swap, filter)
+		serr := streamResponse(w, resp, cancel, tail, swap, filter, committed)
 		if serr != nil && req.Context().Err() == nil && isEventStream(resp) {
 			// The provider stalled or dropped mid-reply while the client is
 			// still there. Say so in the stream (OpenAI's SDKs raise an error
@@ -296,9 +344,96 @@ func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path st
 			// which looks like a finished but truncated reply.
 			writeStreamError(w, serr)
 		}
-		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, Usage: parseUsage(tail.Bytes())}, serr
+		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, Usage: parseUsage(tail.Bytes()), KeptAlive: committed}, serr
 	}
-	return ForwardResult{Attempts: attempts}, lastErr
+	return ForwardResult{Attempts: attempts, KeptAlive: ka.stop()}, lastErr
+}
+
+// keepAlive holds the client's connection open while providers are slow to
+// answer: after keepAliveAfter it sends a 200 with the headers, then padding
+// every keepAliveEvery (a blank line before JSON, a comment in a stream),
+// which clients ignore. Without it Vercel cuts a request after 120 seconds of
+// silence, and the client gets a gateway error page instead of the reply.
+type keepAlive struct {
+	w       http.ResponseWriter
+	sse     bool
+	done    chan struct{}
+	exited  chan struct{}
+	started atomic.Bool
+	once    sync.Once
+}
+
+func startKeepAlive(w http.ResponseWriter, sse bool) *keepAlive {
+	k := &keepAlive{w: w, sse: sse, done: make(chan struct{}), exited: make(chan struct{})}
+	go k.run()
+	return k
+}
+
+func (k *keepAlive) run() {
+	defer close(k.exited)
+	t := time.NewTimer(keepAliveAfter)
+	defer t.Stop()
+	rc := http.NewResponseController(k.w)
+	for {
+		select {
+		case <-k.done:
+			return
+		case <-t.C:
+		}
+		if !k.started.Load() {
+			h := k.w.Header()
+			if k.sse {
+				h.Set("Content-Type", "text/event-stream")
+				h.Set("Cache-Control", "no-cache")
+			} else {
+				h.Set("Content-Type", "application/json")
+			}
+			k.w.WriteHeader(http.StatusOK)
+			k.started.Store(true)
+		}
+		pad := "\n"
+		if k.sse {
+			pad = ": keep-alive\n\n"
+		}
+		if _, err := io.WriteString(k.w, pad); err != nil {
+			return
+		}
+		_ = rc.Flush()
+		t.Reset(keepAliveEvery)
+	}
+}
+
+// stop ends the keep-alive and says whether it already sent the headers.
+// Once it returns, nothing else writes to w. Safe to call more than once, and
+// on a nil keepAlive.
+func (k *keepAlive) stop() bool {
+	if k == nil {
+		return false
+	}
+	k.once.Do(func() { close(k.done) })
+	<-k.exited
+	return k.started.Load()
+}
+
+// writeLateProviderError passes on a provider's error response after a
+// keep-alive already sent a 200: as is for JSON, as an error event in a
+// stream (OpenAI's SDKs raise an error for it).
+func writeLateProviderError(w http.ResponseWriter, resp *http.Response, sse bool) {
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	var parsed map[string]json.RawMessage
+	if json.Unmarshal(body, &parsed) != nil || parsed["error"] == nil {
+		body, _ = json.Marshal(map[string]any{"error": map[string]any{
+			"message": fmt.Sprintf("the provider returned an error (HTTP %d)", resp.StatusCode),
+			"type":    "api_error",
+		}})
+	}
+	if sse {
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", bytes.TrimSpace(body))
+	} else {
+		_, _ = w.Write(body)
+	}
+	_ = http.NewResponseController(w).Flush()
 }
 
 // rotateGroups spreads load across a provider's keys: within each run of
@@ -638,18 +773,21 @@ const streamIdleTimeout = 120 * time.Second
 // tail, if non-nil, receives a copy of what is streamed (it keeps only the end).
 // swap, if non-nil, replaces the provider's tagged model ID in the body.
 // filter, if non-nil, drops the usage-only event after tail has seen it.
-func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer, swap *quotedSwap, filter *usageChunkFilter) error {
+// committed means a keep-alive already sent the status and headers.
+func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer, swap *quotedSwap, filter *usageChunkFilter, committed bool) error {
 	defer resp.Body.Close()
 	defer cancel()
-	for _, k := range forwardedResponseHeaders {
-		if swap != nil && k == "Content-Length" {
-			continue // the swap changes the length
+	if !committed {
+		for _, k := range forwardedResponseHeaders {
+			if swap != nil && k == "Content-Length" {
+				continue // the swap changes the length
+			}
+			for _, v := range resp.Header.Values(k) {
+				w.Header().Add(k, v)
+			}
 		}
-		for _, v := range resp.Header.Values(k) {
-			w.Header().Add(k, v)
-		}
+		w.WriteHeader(resp.StatusCode)
 	}
-	w.WriteHeader(resp.StatusCode)
 
 	idle := time.AfterFunc(streamIdleTimeout, cancel)
 	defer idle.Stop()

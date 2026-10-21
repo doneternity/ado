@@ -21,6 +21,9 @@ type RequestNote struct {
 	Stream           bool
 	PromptTokens     *int32
 	CompletionTokens *int32
+	// Status is the real outcome when it differs from the status sent: the
+	// proxy's keep-alive sends 200 before it knows how a request will end.
+	Status int
 }
 
 type requestNoteKey struct{}
@@ -49,6 +52,9 @@ func RequestLog(q *db.Queries, prefix string) func(http.Handler) http.Handler {
 			next.ServeHTTP(rec, r.WithContext(context.WithValue(r.Context(), requestNoteKey{}, note)))
 
 			status := rec.status
+			if note.Status != 0 {
+				status = note.Status
+			}
 			if status == 0 {
 				status = http.StatusSwitchingProtocols // hijacked (websocket); nothing was written
 			}

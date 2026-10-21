@@ -276,7 +276,9 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Streams only report token usage when asked to; ask, so usage is logged
 	// (and counted once plans go by tokens), and hide the extra chunk from a
 	// client that didn't ask for it.
-	var opts proxy.ForwardOptions
+	// Keep-alive padding stops Vercel cutting slow requests (a long
+	// non-streamed reasoning reply can take minutes before any byte).
+	opts := proxy.ForwardOptions{Stream: meta.Stream, KeepAlive: true}
 	if meta.Stream {
 		data, opts.HideUsageChunk = withStreamUsage(data)
 	}
@@ -293,13 +295,13 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if clientGone(r, ferr) {
 			// The client left before any provider answered (Stop, a closed tab,
 			// a tool's timeout). Not the model's fault and not a server error.
-			apperr.Write(w, apperr.New(statusClientClosed, "CLIENT_CLOSED", "client closed the request"))
+			writeForwardError(w, res, note, meta.Stream, apperr.New(statusClientClosed, "CLIENT_CLOSED", "client closed the request"))
 			return
 		}
 		// No provider could serve it: the model looks unhealthy.
 		p.d.Registry.Health().Record(meta.Model, false)
 		slog.Warn("proxy no provider", "path", "/chat/completions", "model", meta.Model, "attempts", res.Attempts, "err", ferr)
-		apperr.Write(w, noProvider(meta.Model))
+		writeForwardError(w, res, note, meta.Stream, noProvider(meta.Model))
 		return
 	}
 	// 2xx with no stream error means the model is healthy. refund client
@@ -595,4 +597,27 @@ func noteResult(note *mw.RequestNote, res proxy.ForwardResult) {
 		note.Provider = u.Host
 	}
 	note.PromptTokens, note.CompletionTokens = res.Usage.PromptTokens, res.Usage.CompletionTokens
+	if res.KeptAlive && res.Started {
+		note.Status = res.Status // the keep-alive sent 200 whatever happened
+	}
+}
+
+// writeForwardError sends an error for a request no provider answered. When
+// a keep-alive already sent a 200 and the headers, the error goes in the body
+// instead (an error event for a stream, the JSON error object otherwise), and
+// the request log gets the real status.
+func writeForwardError(w http.ResponseWriter, res proxy.ForwardResult, note *mw.RequestNote, stream bool, e *apperr.Error) {
+	if !res.KeptAlive {
+		apperr.Write(w, e)
+		return
+	}
+	if note != nil {
+		note.Status = e.Status
+	}
+	if stream {
+		_, _ = fmt.Fprintf(w, "data: %s\n", e.Body()) // Body ends with a newline
+	} else {
+		_, _ = w.Write(e.Body())
+	}
+	_ = http.NewResponseController(w).Flush()
 }

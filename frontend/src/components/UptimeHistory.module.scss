@@ -59,18 +59,57 @@
   strong { color: #ffffff; font-weight: 600; }
 }
 
+.stripWrap { position: relative; }
+
 .strip {
   display: flex;
   gap: 2px;
   height: 28px;
+  border-radius: 3px;
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 }
 
 .bar {
   flex: 1;
   min-width: 2px;
   border-radius: 2px;
-  transition: opacity var(--t-fast);
-  &:hover { opacity: 0.75; }
+  cursor: pointer;
+  transition: opacity var(--t-fast), box-shadow var(--t-fast);
+}
+
+// The slot the tooltip is about; the others dim a little.
+.barActive { box-shadow: 0 0 0 2px #ffffff; }
+.strip:has(.barActive) .bar:not(.barActive) { opacity: 0.6; }
+
+// Tooltip above a slot: when it covers, then how it did.
+.tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  background: #121218;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tipTime {
+  font-size: .8rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.tipRate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .74rem;
+  color: rgba(255,255,255,0.72);
 }
 
 .bar_good { background: rgba(74,222,128,0.8); }
@@ -87,11 +126,12 @@
   color: rgba(255,255,255,0.5);
 }
 
+// Not overflow: hidden, so a tooltip on the top row isn't clipped; the rows
+// round their own corners instead.
 .models {
   margin-top: 12px;
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: var(--r-lg);
-  overflow: hidden;
 }
 
 .modelRow {
@@ -99,7 +139,9 @@
   border-bottom: 1px solid rgba(255,255,255,0.06);
   background: rgba(255,255,255,0.015);
 
-  &:last-child { border-bottom: none; }
+  &:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  &:last-child { border-bottom: none; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+  &:only-child { border-radius: var(--r-lg); }
 
   .strip { height: 18px; }
 

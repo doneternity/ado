@@ -72,14 +72,21 @@ func (p *Proxy) checkModel(w http.ResponseWriter, r *http.Request, model string,
 // msgNoModelList is the 503 when no provider's model list could be read.
 const msgNoModelList = "couldn't load the model list from any provider; try again in a minute"
 
+// retryNoProvider is the Retry-After for a 503 no provider answered: a
+// failing provider is skipped for 30 seconds (the breaker cooldown), so an
+// immediate retry, which SDKs make by default, would only meet it again.
+const retryNoProvider = 30
+
 // noProvider is the 503 for a request that no provider answered: each one
 // was down, overloaded, refused it or too slow. It's never the caller's key.
 func noProvider(model string) *apperr.Error {
 	if model == "" {
-		return apperr.ServiceUnavailable("NO_PROVIDER", "no provider could answer this request right now (each was down, overloaded or too slow); try again in a minute")
+		return apperr.ServiceUnavailable("NO_PROVIDER", "no provider could answer this request right now (each was down, overloaded or too slow); try again in a minute").
+			WithRetryAfter(retryNoProvider)
 	}
 	return apperr.ServiceUnavailable("NO_PROVIDER", fmt.Sprintf(
-		"%q is unavailable right now: no provider could answer it (each was down, overloaded or too slow); try again in a minute or use another model, and see https://adoai.space/status", model))
+		"%q is unavailable right now: no provider could answer it (each was down, overloaded or too slow); try again in a minute or use another model, and see https://adoai.space/status", model)).
+		WithRetryAfter(retryNoProvider)
 }
 
 // checkChatBody catches a malformed chat request before anything is charged,
@@ -328,7 +335,7 @@ func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := p.d.Registry.AggregateModels(w, r); err != nil {
 		slog.Warn("aggregate models failed", "err", err)
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", msgNoModelList))
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", msgNoModelList).WithRetryAfter(retryNoProvider))
 	}
 }
 
@@ -424,7 +431,7 @@ func (p *Proxy) PublicModels(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := p.d.Registry.AggregateModels(w, r); err != nil {
 		slog.Warn("aggregate models failed", "err", err)
-		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", msgNoModelList))
+		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", msgNoModelList).WithRetryAfter(retryNoProvider))
 	}
 }
 

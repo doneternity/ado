@@ -66,6 +66,16 @@ type Forwarder struct {
 	ModelSuffix string
 	aliases     atomic.Pointer[map[string]string]
 
+	// ProviderID is the provider (Admin → Providers) this key belongs to, and
+	// Models which of its models ADO offers. Hidden models are left out of
+	// everything setModels produces, so they aren't listed, routed to or
+	// probed, and a request for one gets MODEL_NOT_FOUND.
+	ProviderID string
+	Models     ModelFilter
+	// rawList is the provider's own /models list as last fetched, before
+	// filtering, for Admin's model picker and for re-filtering on Swap.
+	rawList atomic.Pointer[[]map[string]any]
+
 	// lastList is this provider's model list as last fetched (already in its
 	// public form), shown again when a fetch fails so one slow or failed
 	// /models call doesn't hide its models from the site.
@@ -702,6 +712,8 @@ func (f *Forwarder) fetchModels(ctx context.Context) (list []map[string]any, ok 
 // It returns the list as ADO shows it: with ModelSuffix set, plain IDs and
 // names. Both the plain and the provider's own ID count as served.
 func (f *Forwarder) setModels(list []map[string]any) []map[string]any {
+	raw := append([]map[string]any(nil), list...)
+	f.rawList.Store(&raw)
 	ids := make(map[string]bool, len(list))
 	aliases := map[string]string{}
 	nameRe := suffixNamePattern(f.ModelSuffix)
@@ -711,8 +723,11 @@ func (f *Forwarder) setModels(list []map[string]any) []map[string]any {
 		if id == "" {
 			continue
 		}
-		ids[id] = true
 		pub := f.publicID(id)
+		if !f.Models.Allows(pub) {
+			continue // hidden in Admin → Providers → Models
+		}
+		ids[id] = true
 		if pub != id {
 			ids[pub] = true
 			aliases[pub] = id

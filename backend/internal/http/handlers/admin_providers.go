@@ -47,8 +47,12 @@ type providerItem struct {
 	IsActive bool      `json:"isActive"`
 	Priority int32     `json:"priority"`
 	// ModelSuffix is stripped from this provider's model IDs ("" for none).
-	ModelSuffix string            `json:"modelSuffix"`
-	Keys        []providerKeyItem `json:"keys"`
+	ModelSuffix string `json:"modelSuffix"`
+	// ModelMode and ModelIDs: which models ADO offers ("all" except the IDs,
+	// or "only" the IDs). See Models / SetModels.
+	ModelMode string            `json:"modelMode"`
+	ModelIDs  []string          `json:"modelIds"`
+	Keys      []providerKeyItem `json:"keys"`
 }
 
 // keySuffix is the last 4 characters of a decrypted key: enough to tell keys
@@ -93,6 +97,8 @@ func RebuildChain(ctx context.Context, q *db.Queries, secret string, reg *proxy.
 		f := proxy.New(row.BaseUrl, key)
 		f.Group = group
 		f.ModelSuffix = row.ModelSuffix
+		f.ProviderID = row.ProviderID.String()
+		f.Models = proxy.NewModelFilter(row.ModelMode, row.ModelIds)
 		f.Label = fmt.Sprintf("%s …%s", row.Name, keySuffix(row.ApiKey, secret))
 		if row.Label != "" {
 			f.Label = fmt.Sprintf("%s %q …%s", row.Name, row.Label, keySuffix(row.ApiKey, secret))
@@ -127,7 +133,12 @@ func (h *AdminProviders) List(w http.ResponseWriter, r *http.Request) {
 		if ks == nil {
 			ks = []providerKeyItem{}
 		}
-		out[i] = providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, ModelSuffix: p.ModelSuffix, Keys: ks}
+		ids := p.ModelIds
+		if ids == nil {
+			ids = []string{}
+		}
+		out[i] = providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, ModelSuffix: p.ModelSuffix,
+			ModelMode: p.ModelMode, ModelIDs: ids, Keys: ks}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
@@ -227,7 +238,7 @@ func (h *AdminProviders) Create(w http.ResponseWriter, r *http.Request) {
 	mw.NoteAudit(r.Context(), p.Name, map[string]any{"baseUrl": p.BaseUrl, "keys": len(added), "modelSuffix": p.ModelSuffix})
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, ModelSuffix: p.ModelSuffix, Keys: added})
+	_ = json.NewEncoder(w).Encode(providerItem{ID: p.ID, Name: p.Name, BaseURL: p.BaseUrl, IsActive: p.IsActive, Priority: p.Priority, ModelSuffix: p.ModelSuffix, ModelMode: p.ModelMode, ModelIDs: []string{}, Keys: added})
 }
 
 func (h *AdminProviders) Update(w http.ResponseWriter, r *http.Request) {

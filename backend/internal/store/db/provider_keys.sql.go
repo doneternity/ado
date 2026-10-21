@@ -55,7 +55,7 @@ func (q *Queries) DeleteProviderKey(ctx context.Context, arg DeleteProviderKeyPa
 }
 
 const listActiveProviderKeys = `-- name: ListActiveProviderKeys :many
-SELECT k.id, k.provider_id, k.label, k.api_key, p.name, p.base_url, p.model_suffix
+SELECT k.id, k.provider_id, k.label, k.api_key, p.name, p.base_url, p.model_suffix, p.model_mode, p.model_ids
 FROM provider_keys k
 JOIN providers p ON p.id = k.provider_id
 WHERE p.is_active AND k.is_active
@@ -70,6 +70,8 @@ type ListActiveProviderKeysRow struct {
 	Name        string
 	BaseUrl     string
 	ModelSuffix string
+	ModelMode   string
+	ModelIds    []string
 }
 
 // The proxy chain: every active key of every active provider, in failover
@@ -91,6 +93,8 @@ func (q *Queries) ListActiveProviderKeys(ctx context.Context) ([]ListActiveProvi
 			&i.Name,
 			&i.BaseUrl,
 			&i.ModelSuffix,
+			&i.ModelMode,
+			&i.ModelIds,
 		); err != nil {
 			return nil, err
 		}

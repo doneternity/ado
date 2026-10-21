@@ -4,7 +4,7 @@ SELECT * FROM provider_keys ORDER BY provider_id, created_at;
 -- name: ListActiveProviderKeys :many
 -- The proxy chain: every active key of every active provider, in failover
 -- order (provider priority, then the order keys were added).
-SELECT k.id, k.provider_id, k.label, k.api_key, p.name, p.base_url, p.model_suffix
+SELECT k.id, k.provider_id, k.label, k.api_key, p.name, p.base_url, p.model_suffix, p.model_mode, p.model_ids
 FROM provider_keys k
 JOIN providers p ON p.id = k.provider_id
 WHERE p.is_active AND k.is_active

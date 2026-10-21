@@ -16,6 +16,9 @@ SET name = $2, base_url = $3, priority = $4, model_suffix = $5, updated_at = NOW
 WHERE id = $1
 RETURNING *;
 
+-- name: SetProviderModels :execrows
+UPDATE providers SET model_mode = $2, model_ids = $3, updated_at = NOW() WHERE id = $1;
+
 -- name: SetProviderActiveState :exec
 UPDATE providers SET is_active = $2, updated_at = NOW() WHERE id = $1;
 

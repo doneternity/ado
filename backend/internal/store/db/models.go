@@ -72,6 +72,8 @@ type Provider struct {
 	UpdatedAt   pgtype.Timestamptz
 	Priority    int32
 	ModelSuffix string
+	ModelMode   string
+	ModelIds    []string
 }
 
 type ProviderKey struct {

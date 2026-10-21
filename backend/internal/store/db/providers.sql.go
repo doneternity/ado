@@ -36,7 +36,7 @@ func (q *Queries) CountProviders(ctx context.Context) (int64, error) {
 const createProvider = `-- name: CreateProvider :one
 INSERT INTO providers (name, base_url, is_active, priority, model_suffix)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix
+RETURNING id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix, model_mode, model_ids
 `
 
 type CreateProviderParams struct {
@@ -67,6 +67,8 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 		&i.UpdatedAt,
 		&i.Priority,
 		&i.ModelSuffix,
+		&i.ModelMode,
+		&i.ModelIds,
 	)
 	return i, err
 }
@@ -81,7 +83,7 @@ func (q *Queries) DeleteProvider(ctx context.Context, id uuid.UUID) error {
 }
 
 const getProvider = `-- name: GetProvider :one
-SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix FROM providers WHERE id = $1
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix, model_mode, model_ids FROM providers WHERE id = $1
 `
 
 func (q *Queries) GetProvider(ctx context.Context, id uuid.UUID) (Provider, error) {
@@ -97,12 +99,14 @@ func (q *Queries) GetProvider(ctx context.Context, id uuid.UUID) (Provider, erro
 		&i.UpdatedAt,
 		&i.Priority,
 		&i.ModelSuffix,
+		&i.ModelMode,
+		&i.ModelIds,
 	)
 	return i, err
 }
 
 const listProviders = `-- name: ListProviders :many
-SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix FROM providers ORDER BY created_at ASC
+SELECT id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix, model_mode, model_ids FROM providers ORDER BY created_at ASC
 `
 
 func (q *Queries) ListProviders(ctx context.Context) ([]Provider, error) {
@@ -124,6 +128,8 @@ func (q *Queries) ListProviders(ctx context.Context) ([]Provider, error) {
 			&i.UpdatedAt,
 			&i.Priority,
 			&i.ModelSuffix,
+			&i.ModelMode,
+			&i.ModelIds,
 		); err != nil {
 			return nil, err
 		}
@@ -149,11 +155,29 @@ func (q *Queries) SetProviderActiveState(ctx context.Context, arg SetProviderAct
 	return err
 }
 
+const setProviderModels = `-- name: SetProviderModels :execrows
+UPDATE providers SET model_mode = $2, model_ids = $3, updated_at = NOW() WHERE id = $1
+`
+
+type SetProviderModelsParams struct {
+	ID        uuid.UUID
+	ModelMode string
+	ModelIds  []string
+}
+
+func (q *Queries) SetProviderModels(ctx context.Context, arg SetProviderModelsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setProviderModels, arg.ID, arg.ModelMode, arg.ModelIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateProviderMeta = `-- name: UpdateProviderMeta :one
 UPDATE providers
 SET name = $2, base_url = $3, priority = $4, model_suffix = $5, updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix
+RETURNING id, name, base_url, api_key, is_active, created_at, updated_at, priority, model_suffix, model_mode, model_ids
 `
 
 type UpdateProviderMetaParams struct {
@@ -183,6 +207,8 @@ func (q *Queries) UpdateProviderMeta(ctx context.Context, arg UpdateProviderMeta
 		&i.UpdatedAt,
 		&i.Priority,
 		&i.ModelSuffix,
+		&i.ModelMode,
+		&i.ModelIds,
 	)
 	return i, err
 }

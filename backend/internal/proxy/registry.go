@@ -53,6 +53,12 @@ func (r *Registry) Swap(chain []*Forwarder) {
 	}
 	for _, f := range chain {
 		if prev := old[f.identity()]; prev != nil && prev != f {
+			if raw := prev.rawList.Load(); raw != nil {
+				// Re-filter the provider's own list, so a change to which
+				// models are offered takes effect at once.
+				f.setModels(*raw)
+				continue
+			}
 			f.models.Store(prev.models.Load())
 			f.aliases.Store(prev.aliases.Load())
 			f.lastList.Store(prev.lastList.Load())

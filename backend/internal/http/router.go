@@ -185,6 +185,8 @@ func NewRouter(d Deps) http.Handler {
 		r.Put("/providers/{id}", d.AdminProviders.Update)
 		r.Delete("/providers/{id}", d.AdminProviders.Delete)
 		r.Patch("/providers/{id}/active", d.AdminProviders.SetActive)
+		r.Get("/providers/{id}/models", d.AdminProviders.Models)
+		r.Put("/providers/{id}/models", d.AdminProviders.SetModels)
 		r.Post("/providers/{id}/keys", d.AdminProviders.AddKeys)
 		r.Patch("/providers/{id}/keys/{keyId}/active", d.AdminProviders.SetKeyActive)
 		r.Delete("/providers/{id}/keys/{keyId}", d.AdminProviders.DeleteKey)

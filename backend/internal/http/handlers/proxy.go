@@ -131,6 +131,33 @@ func checkMessages(data []byte) *apperr.Error {
 	return nil
 }
 
+// hasImages reports whether any message has an image part.
+func hasImages(data []byte) bool {
+	var body struct {
+		Messages []struct {
+			Content json.RawMessage `json:"content"`
+		} `json:"messages"`
+	}
+	if json.Unmarshal(data, &body) != nil {
+		return false
+	}
+	for _, m := range body.Messages {
+		var parts []struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(m.Content, &parts) != nil {
+			continue // plain text
+		}
+		for _, part := range parts {
+			switch part.Type {
+			case "image_url", "image", "input_image":
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func isJSONNull(raw json.RawMessage) bool {
 	return string(bytes.TrimSpace(raw)) == "null"
 }
@@ -272,6 +299,18 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if e := checkMessages(data); e != nil {
 		apperr.Write(w, e)
 		return
+	}
+	// A model without image input would drop the image (DeepSeek reads it as
+	// "[Unsupported Image]") and answer anyway, charged. Say so instead.
+	if hasImages(data) {
+		if takes, known, withImages := p.d.Registry.ImageModels(meta.Model); known && !takes {
+			msg := fmt.Sprintf("%q doesn't take images; send text only", meta.Model)
+			if len(withImages) > 0 {
+				msg = fmt.Sprintf("%q doesn't take images; use a model that does (%s), or send text only", meta.Model, strings.Join(withImages, ", "))
+			}
+			apperr.Write(w, apperr.BadRequest("INVALID_INPUT", msg))
+			return
+		}
 	}
 
 	// When the key has reasoning mode on, ask the model to show its step-by-step

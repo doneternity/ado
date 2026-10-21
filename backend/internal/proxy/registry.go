@@ -106,3 +106,44 @@ func (r *Registry) Serves(ctx context.Context, model string) bool {
 	}
 	return len(serving) > 0 || len(unknown) > 0
 }
+
+// ImageModels says whether model takes image input, going by the cached model
+// list (input_modalities, or a capabilities.vision flag), and which listed
+// models do. known is false when the list doesn't say, so callers let the
+// request through rather than guess.
+func (r *Registry) ImageModels(model string) (takes, known bool, withImages []string) {
+	r.mcMu.Lock()
+	var list []map[string]any
+	if r.mc != nil {
+		list = r.mc.data
+	}
+	r.mcMu.Unlock()
+	for _, m := range list {
+		id, _ := m["id"].(string)
+		t, k := takesImages(m)
+		if t {
+			withImages = append(withImages, id)
+		}
+		if id == model {
+			takes, known = t, k
+		}
+	}
+	return takes, known, withImages
+}
+
+func takesImages(m map[string]any) (takes, known bool) {
+	if mods, ok := m["input_modalities"].([]any); ok {
+		for _, v := range mods {
+			if v == "image" {
+				return true, true
+			}
+		}
+		return false, true
+	}
+	if caps, ok := m["capabilities"].(map[string]any); ok {
+		if v, ok := caps["vision"].(bool); ok {
+			return v, true
+		}
+	}
+	return false, false
+}

@@ -88,3 +88,11 @@ func TestWriteForwardError_AfterKeepAlive(t *testing.T) {
 		t.Fatalf("code %d", w.Code)
 	}
 }
+
+func TestHasImages(t *testing.T) {
+	with := `{"messages":[{"role":"user","content":[{"type":"text","text":"hi"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AA"}}]}]}`
+	without := `{"messages":[{"role":"user","content":"hi"},{"role":"user","content":[{"type":"text","text":"x"}]}]}`
+	if !hasImages([]byte(with)) || hasImages([]byte(without)) {
+		t.Fatal("hasImages got it wrong")
+	}
+}

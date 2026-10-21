@@ -5,6 +5,7 @@ import {
   useAdminProviders, useCreateProvider, useUpdateProvider,
   useSetProviderActive, useDeleteProvider,
   useAddProviderKeys, useSetProviderKeyActive, useDeleteProviderKey,
+  useProviderModels, useSetProviderModels,
 } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
 import type { AdminProvider } from "../../types/api";
@@ -294,6 +295,7 @@ function ProviderCard({
       </div>
 
       <ProviderKeys provider={p} />
+      <ProviderModels provider={p} />
 
       <div className={styles.providerCardActions}>
         <button className={styles.btnSecondary} style={{ fontSize: ".7rem", padding: "4px 12px" }} onClick={onEdit}>
@@ -394,6 +396,141 @@ function ProviderKeys({ provider: p }: { provider: AdminProvider }) {
         </form>
       ) : (
         <button className={styles.keyAddBtn} onClick={() => setAdding(true)}>+ Add keys</button>
+      )}
+    </div>
+  );
+}
+
+// Which of a provider's models ADO offers. The ticks are what's shown; the
+// mode decides what happens to models the provider adds later.
+function ProviderModels({ provider: p }: { provider: AdminProvider }) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading, refetch, isFetching } = useProviderModels(p.id, open);
+  const save = useSetProviderModels();
+  const showToast = useUiStore((s) => s.showToast);
+  const [mode, setMode] = useState<"all" | "only">(p.modelMode ?? "all");
+  const [shown, setShown] = useState<Set<string> | null>(null);
+  const [query, setQuery] = useState("");
+
+  const models = data?.models ?? [];
+  const savedIds = data?.ids ?? p.modelIds ?? [];
+  // What the saved choice shows, until the admin changes a tick.
+  const savedShown = new Set(
+    models.map((m) => m.id).filter((id) => (data?.mode ?? p.modelMode) === "only" ? savedIds.includes(id) : !savedIds.includes(id)),
+  );
+  const current = shown ?? savedShown;
+  const q = query.trim().toLowerCase();
+  const visible = q ? models.filter((m) => m.id.toLowerCase().includes(q) || (m.name ?? "").toLowerCase().includes(q)) : models;
+
+  function toggle(id: string) {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setShown(next);
+  }
+  function setAll(on: boolean) {
+    const next = new Set(current);
+    for (const m of visible) {
+      if (on) next.add(m.id); else next.delete(m.id);
+    }
+    setShown(next);
+  }
+  function submit() {
+    const listed = new Set(models.map((m) => m.id));
+    // IDs saved earlier that the provider doesn't list right now are kept, so
+    // a model that comes back keeps its setting.
+    const extras = savedIds.filter((id) => !listed.has(id));
+    const ids = mode === "only"
+      ? [...models.filter((m) => current.has(m.id)).map((m) => m.id), ...extras]
+      : [...models.filter((m) => !current.has(m.id)).map((m) => m.id), ...extras];
+    save.mutate({ id: p.id, mode, ids }, {
+      onSuccess: () => {
+        showToast(`Saved: ${current.size} of ${models.length} ${p.name} models shown`);
+        setShown(null);
+        setOpen(false);
+      },
+      onError: (err) => showToast(errMsg(err, "Could not save the model choice")),
+    });
+  }
+
+  const summary = p.modelMode === "only"
+    ? `only ${p.modelIds.length} picked model${p.modelIds.length === 1 ? "" : "s"} shown`
+    : p.modelIds.length > 0
+      ? `all models shown except ${p.modelIds.length} hidden`
+      : "all models shown";
+
+  return (
+    <div className={styles.modelsBox}>
+      <button type="button" className={styles.modelsToggle} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span>Models</span>
+        <span className={styles.modelsSummary}>{summary}</span>
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+
+      {open && (
+        <div className={styles.modelsBody}>
+          {isLoading ? (
+            <p className={styles.modelsNote}>Loading {p.name}&apos;s models…</p>
+          ) : data?.error ? (
+            <div className={styles.modelsNote}>
+              {data.error}.{" "}
+              <button type="button" className={styles.linkBtn} onClick={() => refetch()} disabled={isFetching}>Try again</button>
+            </div>
+          ) : (
+            <>
+              <div className={styles.modelsModes} role="radiogroup" aria-label="Which models to show">
+                <label>
+                  <input type="radio" name={`mode-${p.id}`} checked={mode === "all"} onChange={() => setMode("all")} />
+                  Show all, except the ones I untick
+                </label>
+                <label>
+                  <input type="radio" name={`mode-${p.id}`} checked={mode === "only"} onChange={() => setMode("only")} />
+                  Show only the ones I tick
+                </label>
+              </div>
+              <p className={styles.modelsNote}>
+                {mode === "only"
+                  ? "Models this provider adds later stay hidden until you tick them."
+                  : "Models this provider adds later show up automatically."}
+                {" "}Hidden models leave the Models page and the API, and requests for them get &ldquo;model isn&apos;t available&rdquo;.
+              </p>
+
+              <div className={styles.modelsTools}>
+                {models.length > 8 && (
+                  <input
+                    className={styles.input}
+                    placeholder="Search models"
+                    aria-label={`Search ${p.name}'s models`}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                )}
+                <button type="button" className={styles.linkBtn} onClick={() => setAll(true)}>Tick {q ? "these" : "all"}</button>
+                <button type="button" className={styles.linkBtn} onClick={() => setAll(false)}>Untick {q ? "these" : "all"}</button>
+                <span className={styles.modelsCount}>{current.size} of {models.length} shown</span>
+              </div>
+
+              <div className={styles.modelsList}>
+                {visible.map((m) => (
+                  <label key={m.id} className={`${styles.modelRow}${current.has(m.id) ? "" : ` ${styles.modelRowOff}`}`}>
+                    <input type="checkbox" checked={current.has(m.id)} onChange={() => toggle(m.id)} />
+                    <code className={styles.keyMask}>{m.id}</code>
+                    {m.name && m.name !== m.id && <span className={styles.keyLabel}>{m.name}</span>}
+                  </label>
+                ))}
+                {visible.length === 0 && <p className={styles.modelsNote}>No models match &ldquo;{query}&rdquo;.</p>}
+              </div>
+
+              <div className={styles.btnRow}>
+                <button className={styles.btnPrimary} type="button" onClick={submit} disabled={save.isPending || models.length === 0}>
+                  {save.isPending ? "Saving…" : "Save"}
+                </button>
+                <button className={styles.btnSecondary} type="button" onClick={() => { setShown(null); setMode(p.modelMode ?? "all"); setOpen(false); }}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

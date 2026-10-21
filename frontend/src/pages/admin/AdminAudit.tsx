@@ -12,6 +12,7 @@ const ACTIONS: Record<string, string | ((d: Record<string, unknown>) => string)>
   "PUT /providers/{id}": "Edited provider",
   "DELETE /providers/{id}": "Deleted provider",
   "PATCH /providers/{id}/active": (d) => (d.active ? "Turned provider on" : "Turned provider off"),
+  "PUT /providers/{id}/models": (d) => (d.mode === "only" ? `Chose ${d.models} models to show` : Number(d.models) > 0 ? `Hid ${d.models} models` : "Showed all models"),
   "POST /providers/{id}/keys": "Added provider keys",
   "PATCH /providers/{id}/keys/{keyId}/active": (d) => (d.active ? "Turned a provider key on" : "Turned a provider key off"),
   "DELETE /providers/{id}/keys/{keyId}": "Deleted a provider key",

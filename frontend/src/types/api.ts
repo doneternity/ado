@@ -66,7 +66,18 @@ export type AdminProvider = {
   priority: number;
   // Stripped from the end of this provider's model IDs ("" for none).
   modelSuffix: string;
+  // Which models ADO offers: "all" except modelIds, or "only" modelIds.
+  modelMode: "all" | "only";
+  modelIds: string[];
   keys: AdminProviderKey[];
+};
+
+// Admin → Providers → Models: everything a provider offers, and the choice.
+export type ProviderModelChoice = {
+  mode: "all" | "only";
+  ids: string[];
+  models: { id: string; name?: string }[];
+  error?: string; // why the provider's list couldn't be read
 };
 
 export type AdminUser = {

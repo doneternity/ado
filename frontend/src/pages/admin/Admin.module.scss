@@ -809,6 +809,99 @@
   min-height: 64px;
 }
 
+/* ── Provider models (which ones ADO offers) ── */
+.modelsBox {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-sub);
+  padding-top: 10px;
+}
+.modelsToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: var(--black);
+  font-family: inherit;
+  font-size: .74rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  svg { color: var(--silver); margin-left: auto; }
+}
+.modelsSummary {
+  font-size: .68rem;
+  font-weight: 400;
+  color: var(--silver);
+}
+.modelsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.modelsModes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: .74rem;
+  color: var(--black);
+  label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+}
+.modelsNote {
+  margin: 0;
+  font-size: .7rem;
+  line-height: 1.55;
+  color: var(--silver);
+}
+.modelsTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  .input { flex: 1 1 200px; max-width: 320px; }
+}
+.modelsCount {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: var(--silver);
+}
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: .7rem;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+  &:disabled { opacity: .5; cursor: default; }
+}
+.modelsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.modelRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-sub);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .keyLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.modelRowOff { opacity: .5; }
+
 /* ── Inactive account cleanup ── */
 .cleanup {
   margin-top: 40px;

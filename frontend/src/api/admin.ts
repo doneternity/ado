@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { apiFetch } from "./client";
 import type { Announcement, ModelUsage } from "./queries";
 import type {
+  ProviderModelChoice,
   AdminProvider, AdminProviderKey, AdminUser, AdminStats, AdminQuotas,
   AdminErrorsResponse, MaintenanceStatus, AdminPlan,
 } from "../types/api";
@@ -66,6 +67,29 @@ export function useSetProviderKeyActive() {
         method: "PATCH", body: JSON.stringify({ active }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "providers"] }),
+  });
+}
+
+// A provider's models and which ones ADO offers. Fetched only when opened.
+export function useProviderModels(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "providers", id, "models"],
+    queryFn: () => apiFetch<ProviderModelChoice>(`/api/admin/providers/${id}/models`),
+    enabled,
+  });
+}
+
+export function useSetProviderModels() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, mode, ids }: { id: string; mode: "all" | "only"; ids: string[] }) =>
+      apiFetch<{ mode: string; ids: string[] }>(`/api/admin/providers/${id}/models`, {
+        method: "PUT", body: JSON.stringify({ mode, ids }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "providers"] });
+      qc.invalidateQueries({ queryKey: ["models"] }); // the site's own model list
+    },
   });
 }
 

@@ -7,6 +7,9 @@ import (
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
+// MaintenanceMessage is what callers see while maintenance mode is on.
+const MaintenanceMessage = "ADO is down for maintenance; try again in a few minutes"
+
 // MaintenanceGate returns 503 MAINTENANCE while maintenance mode is on, except
 // for signed-in admins, who keep full access so they can work on the site.
 func MaintenanceGate(flag interface{ Enabled() bool }, q *db.Queries) func(http.Handler) http.Handler {
@@ -22,7 +25,7 @@ func MaintenanceGate(flag interface{ Enabled() bool }, q *db.Queries) func(http.
 					return
 				}
 			}
-			apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", "service temporarily unavailable"))
+			apperr.Write(w, apperr.ServiceUnavailable("MAINTENANCE", MaintenanceMessage))
 		})
 	}
 }

@@ -35,7 +35,7 @@ func LoadSession(s *auth.Sessions, q *db.Queries) func(http.Handler) http.Handle
 				return
 			}
 			if user.Banned {
-				apperr.Write(w, apperr.Forbidden("BANNED", "account suspended"))
+				apperr.Write(w, apperr.Forbidden("BANNED", BannedMessage))
 				return
 			}
 			ctx := context.WithValue(r.Context(), sessionKey, sess)

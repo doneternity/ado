@@ -75,7 +75,7 @@ func (h *UsageLog) AdminRecent(w http.ResponseWriter, r *http.Request) {
 		Email: email, RowLimit: int32(intParam(r, "limit", 100, 500)),
 	})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "list requests"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the request log; try again in a moment"))
 		return
 	}
 	out := make([]requestDTO, len(rows))
@@ -93,7 +93,7 @@ func (h *UsageLog) AdminRecent(w http.ResponseWriter, r *http.Request) {
 func (h *UsageLog) AdminByModel(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.q.UsageByModel(r.Context(), since(intParam(r, "days", 7, 90)))
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "usage by model"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load usage by model; try again in a moment"))
 		return
 	}
 	out := make([]modelUsageDTO, len(rows))
@@ -109,14 +109,14 @@ func (h *UsageLog) AdminByModel(w http.ResponseWriter, r *http.Request) {
 func (h *UsageLog) MineByModel(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	rows, err := h.q.UserUsageByModel(r.Context(), db.UserUsageByModelParams{
 		UserID: sess.UserID, Since: since(intParam(r, "days", 30, 90)),
 	})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "usage by model"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load usage by model; try again in a moment"))
 		return
 	}
 	out := make([]modelUsageDTO, len(rows))

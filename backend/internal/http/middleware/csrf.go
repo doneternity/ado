@@ -17,19 +17,20 @@ func CSRF(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		const staleCSRF = "this page is out of date (its security token doesn't match your session); reload the page and try again"
 		sess, ok := SessionFromContext(r.Context())
 		if !ok {
-			apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "session required"))
+			apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 			return
 		}
 		hdr := r.Header.Get("X-CSRF-Token")
 		got, err := base64.RawURLEncoding.DecodeString(hdr)
 		if err != nil {
-			apperr.Write(w, apperr.Forbidden("INVALID_CSRF", "missing or malformed CSRF token"))
+			apperr.Write(w, apperr.Forbidden("INVALID_CSRF", staleCSRF))
 			return
 		}
 		if subtle.ConstantTimeCompare(got, sess.CSRFToken) != 1 {
-			apperr.Write(w, apperr.Forbidden("INVALID_CSRF", "CSRF mismatch"))
+			apperr.Write(w, apperr.Forbidden("INVALID_CSRF", staleCSRF))
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -45,7 +45,7 @@ func RequireOrigin(secrets string) func(http.Handler) http.Handler {
 				ok |= subtle.ConstantTimeCompare(got, want)
 			}
 			if ok != 1 {
-				apperr.Write(w, apperr.Forbidden("DIRECT_ACCESS", "use https://adoai.space"))
+				apperr.Write(w, apperr.Forbidden("DIRECT_ACCESS", "call ADO through https://adoai.space (the API is at https://adoai.space/v1), not this server's own address"))
 				return
 			}
 			next.ServeHTTP(w, r)

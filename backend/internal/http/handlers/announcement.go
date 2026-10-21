@@ -93,7 +93,7 @@ func (h *Announcement) Get(w http.ResponseWriter, r *http.Request) {
 	h.mu.Unlock()
 	a, err := h.load(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "load announcement"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the announcement; try again in a moment"))
 		return
 	}
 	writeAnnouncement(w, a)
@@ -141,7 +141,7 @@ func (h *Announcement) Set(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, _ := json.Marshal(a)
 	if err := h.q.SetSetting(r.Context(), db.SetSettingParams{Key: settingAnnouncement, Value: string(raw)}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "save announcement"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't save the announcement; try again in a moment"))
 		return
 	}
 	h.mu.Lock()

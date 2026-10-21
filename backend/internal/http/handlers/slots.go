@@ -24,13 +24,13 @@ func (h *SlotsHandler) Get(w http.ResponseWriter, r *http.Request) {
 			limit = int32(n)
 		}
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.Internal("INTERNAL", "get setting"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't check free plan spaces; try again in a moment"))
 		return
 	}
 
 	used, err := h.q.CountFreeTierUsers(r.Context())
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "count users"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't check free plan spaces; try again in a moment"))
 		return
 	}
 

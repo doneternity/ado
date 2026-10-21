@@ -17,6 +17,11 @@ import (
 
 const bearerKey ctxKey = "bearerKey"
 
+const keyLookupFailed = "couldn't check your API key because of a problem on ADO's side; try again in a moment"
+
+// BannedMessage is what a suspended account sees on every request.
+const BannedMessage = "this account is suspended; ask in ADO's Discord server if you think this is a mistake"
+
 type BearerKeyContext struct {
 	KeyID      uuid.UUID
 	UserID     uuid.UUID
@@ -35,20 +40,28 @@ func Bearer(q *db.Queries) func(http.Handler) http.Handler {
 			}
 			raw := apiKeyFrom(r)
 			if raw == "" {
-				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "missing API key: send it as \"Authorization: Bearer <key>\""))
+				msg := "missing API key: send it as \"Authorization: Bearer <key>\""
+				if strings.TrimSpace(r.Header.Get("Authorization")) != "" {
+					msg = "the Authorization header should be \"Bearer <key>\", with the word Bearer and a space before the key"
+				}
+				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", msg))
+				return
+			}
+			if !strings.HasPrefix(raw, "ado-") {
+				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "that isn't an ADO key: ADO keys start with \"ado-\"; copy yours from https://adoai.space/dashboard"))
 				return
 			}
 			row, err := q.GetActiveKeyByHash(r.Context(), keys.Hash(raw))
 			if errors.Is(err, pgx.ErrNoRows) {
-				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "invalid key"))
+				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "this API key isn't valid: it may be mistyped or rotated; copy your current key from https://adoai.space/dashboard"))
 				return
 			}
 			if err != nil {
-				apperr.Write(w, apperr.Internal("INTERNAL", "key lookup"))
+				apperr.Write(w, apperr.Internal("INTERNAL", keyLookupFailed))
 				return
 			}
 			if row.Banned {
-				apperr.Write(w, apperr.Forbidden("BANNED", "account suspended"))
+				apperr.Write(w, apperr.Forbidden("BANNED", BannedMessage))
 				return
 			}
 			touchKey(q, row.ID)
@@ -75,16 +88,16 @@ func SessionKey(q *db.Queries) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sess, ok := SessionFromContext(r.Context())
 			if !ok {
-				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "sign in to use the playground"))
+				apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in to use the Playground"))
 				return
 			}
 			row, err := q.GetActiveKeyWithQuotaByUser(r.Context(), sess.UserID)
 			if errors.Is(err, pgx.ErrNoRows) {
-				apperr.Write(w, apperr.Forbidden("NO_KEY", "you have no active key; get one on the dashboard"))
+				apperr.Write(w, apperr.Forbidden("NO_KEY", "you don't have an active API key; create one on the dashboard"))
 				return
 			}
 			if err != nil {
-				apperr.Write(w, apperr.Internal("INTERNAL", "key lookup"))
+				apperr.Write(w, apperr.Internal("INTERNAL", keyLookupFailed))
 				return
 			}
 			touchKey(q, row.ID)

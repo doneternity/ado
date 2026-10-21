@@ -84,7 +84,7 @@ func (h *StatusHistory) Public(w http.ResponseWriter, r *http.Request) {
 	start := historyStart(now, rng)
 	rows, err := h.q.ModelOutcomesByHour(r.Context(), pgtype.Timestamptz{Time: start, Valid: true})
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "status history"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load the status history; try again in a moment"))
 		return
 	}
 	data := buildHistory(rows, h.served(r.Context()), now, rng)

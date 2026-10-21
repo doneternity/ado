@@ -60,7 +60,9 @@ func (l *Limiter) hit(ctx context.Context, key string, window time.Duration) (co
 	return res[0], time.Duration(res[1]) * time.Millisecond, nil
 }
 
-func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Handler, prefix, redisKey string, limit int, window time.Duration, failClosed bool) {
+// enforce counts the request against redisKey. who names what the limit
+// applies to in the error message ("your API key", "your address").
+func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Handler, prefix, redisKey, who string, limit int, window time.Duration, failClosed bool) {
 	if limit <= 0 {
 		next.ServeHTTP(w, r)
 		return
@@ -69,7 +71,7 @@ func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Hand
 	if err != nil {
 		slog.Warn("rate limiter check failed", "prefix", prefix, "failClosed", failClosed, "err", err)
 		if failClosed {
-			apperr.Write(w, apperr.ServiceUnavailable("RATE_LIMITER_DOWN", "rate limiter unavailable"))
+			apperr.Write(w, apperr.ServiceUnavailable("RATE_LIMITER_DOWN", "this can't be done right now because ADO's rate limiter is unavailable; try again in a few minutes"))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -85,7 +87,7 @@ func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Hand
 	}
 	if count > int64(limit) {
 		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(reset.Seconds()))))
-		apperr.Write(w, apperr.TooMany("RATE_LIMITED", fmt.Sprintf("too many requests: %d %s at most; try again in %ds", limit, per(window), int(math.Ceil(reset.Seconds())))))
+		apperr.Write(w, apperr.TooMany("RATE_LIMITED", fmt.Sprintf("too many requests: %s allows %d %s; try again in %s", who, limit, per(window), waitFor(reset))))
 		return
 	}
 	next.ServeHTTP(w, r)
@@ -95,7 +97,7 @@ func (l *Limiter) enforce(w http.ResponseWriter, r *http.Request, next http.Hand
 func (l *Limiter) PerIP(prefix string, limit int, window time.Duration, failClosed bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			l.enforce(w, r, next, prefix, prefix+":"+ClientIP(r), limit, window, failClosed)
+			l.enforce(w, r, next, prefix, prefix+":"+ClientIP(r), "your address", limit, window, failClosed)
 		})
 	}
 }
@@ -105,11 +107,11 @@ func (l *Limiter) PerIP(prefix string, limit int, window time.Duration, failClos
 func (l *Limiter) PerKey(prefix string, limit int, window time.Duration, failClosed bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			redisKey := prefix + ":ip:" + ClientIP(r)
+			redisKey, who := prefix+":ip:"+ClientIP(r), "your address"
 			if bk, ok := BearerFromContext(r.Context()); ok {
-				redisKey = prefix + ":" + bk.KeyID.String()
+				redisKey, who = prefix+":"+bk.KeyID.String(), "your API key"
 			}
-			l.enforce(w, r, next, prefix, redisKey, limit, window, failClosed)
+			l.enforce(w, r, next, prefix, redisKey, who, limit, window, failClosed)
 		})
 	}
 }
@@ -119,15 +121,15 @@ func (l *Limiter) PerKey(prefix string, limit int, window time.Duration, failClo
 func (l *Limiter) PerKeyDynamic(prefix string, getLimit func() int, window time.Duration, failClosed bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			redisKey := prefix + ":ip:" + ClientIP(r)
+			redisKey, who := prefix+":ip:"+ClientIP(r), "your address"
 			limit := getLimit()
 			if bk, ok := BearerFromContext(r.Context()); ok {
-				redisKey = prefix + ":" + bk.KeyID.String()
+				redisKey, who = prefix+":"+bk.KeyID.String(), "your API key"
 				if bk.PlanRPM > 0 {
 					limit = int(bk.PlanRPM)
 				}
 			}
-			l.enforce(w, r, next, prefix, redisKey, limit, window, failClosed)
+			l.enforce(w, r, next, prefix, redisKey, who, limit, window, failClosed)
 		})
 	}
 }
@@ -138,15 +140,34 @@ func (l *Limiter) RPMUsed(ctx context.Context, keyID string) int64 {
 	return v
 }
 
-// per names a limit window for messages: "a minute", "an hour".
+// per names a limit window for messages: "a minute", "an hour", "every 10 minutes".
 func per(window time.Duration) string {
-	switch window {
-	case time.Minute:
-		return "a minute"
-	case time.Hour:
-		return "an hour"
+	switch {
+	case window == time.Minute:
+		return "requests a minute"
+	case window == time.Hour:
+		return "requests an hour"
+	case window%time.Hour == 0:
+		return fmt.Sprintf("requests every %d hours", int(window/time.Hour))
+	case window%time.Minute == 0:
+		return fmt.Sprintf("requests every %d minutes", int(window/time.Minute))
 	default:
-		return "per " + window.String()
+		return "requests every " + window.String()
+	}
+}
+
+// waitFor says how long until a limit resets: "42s", "3 minutes".
+func waitFor(d time.Duration) string {
+	secs := int(math.Ceil(d.Seconds()))
+	switch {
+	case secs < 1:
+		return "a moment"
+	case secs < 120:
+		return fmt.Sprintf("%ds", secs)
+	case secs < 2*3600:
+		return fmt.Sprintf("%d minutes", (secs+59)/60)
+	default:
+		return fmt.Sprintf("%d hours", (secs+3599)/3600)
 	}
 }
 
@@ -163,10 +184,13 @@ func (l *Limiter) LimitFailedAuth(prefix string, limit int, window time.Duration
 			}
 			key := prefix + ":" + ClientIP(r)
 			if n, err := l.rdb.Get(r.Context(), key).Int64(); err == nil && n >= int64(limit) {
+				wait := "a few minutes"
 				if ttl, err := l.rdb.PTTL(r.Context(), key).Result(); err == nil && ttl > 0 {
 					w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(ttl.Seconds()))))
+					wait = waitFor(ttl)
 				}
-				apperr.Write(w, apperr.TooMany("TOO_MANY_BAD_KEYS", "too many requests with an invalid API key from this address; try again later"))
+				apperr.Write(w, apperr.TooMany("TOO_MANY_BAD_KEYS", fmt.Sprintf(
+					"blocked for now: your address sent %d requests with a missing or invalid API key; fix the key, then try again in %s", limit, wait)))
 				return
 			}
 			rec := &statusRecorder{ResponseWriter: w}

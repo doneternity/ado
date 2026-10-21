@@ -23,12 +23,12 @@ func NewAuth(d AuthDeps) *Auth { return &Auth{d: d} }
 func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	user, err := a.d.Q.GetUserByID(r.Context(), sess.UserID)
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "load user"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load your account; try again in a moment"))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -41,11 +41,11 @@ func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 func (a *Auth) DeleteMe(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	if err := a.d.Q.DeleteUser(r.Context(), sess.UserID); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "delete user"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't delete your account, so nothing was removed; try again in a moment"))
 		return
 	}
 	a.d.Sessions.ClearCookie(w)

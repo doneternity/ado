@@ -32,16 +32,16 @@ func NewKeys(d KeysDeps) *Keys { return &Keys{d: d} }
 func (k *Keys) Current(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	row, err := k.d.Q.GetActiveKeyWithQuotaByUser(r.Context(), sess.UserID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		apperr.Write(w, apperr.NotFound("NOT_FOUND", "no active key"))
+		apperr.Write(w, apperr.NotFound("NOT_FOUND", "you don't have an active API key; create one on the dashboard"))
 		return
 	}
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "load key"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load your API key; try again in a moment"))
 		return
 	}
 	used := int32(0)
@@ -85,12 +85,12 @@ func (k *Keys) Current(w http.ResponseWriter, r *http.Request) {
 func (k *Keys) Rotate(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	issued, err := k.d.Keys.Rotate(r.Context(), sess.UserID)
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "rotate"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't rotate your key, so your current key still works; try again in a moment"))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -105,7 +105,7 @@ func (k *Keys) Rotate(w http.ResponseWriter, r *http.Request) {
 func (k *Keys) SetReasoning(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	var req struct {
@@ -119,7 +119,7 @@ func (k *Keys) SetReasoning(w http.ResponseWriter, r *http.Request) {
 		UserID:        sess.UserID,
 		ReasoningMode: req.Enabled,
 	}); err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "set reasoning mode"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't change reasoning mode; try again in a moment"))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -129,7 +129,7 @@ func (k *Keys) SetReasoning(w http.ResponseWriter, r *http.Request) {
 func (k *Keys) Usage(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	key, err := k.d.Q.GetActiveKeyByUser(r.Context(), sess.UserID)
@@ -139,12 +139,12 @@ func (k *Keys) Usage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "load key"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load your API key; try again in a moment"))
 		return
 	}
 	rows, err := k.d.Q.GetKeyUsageHistory(r.Context(), key.ID)
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "load usage"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load today's usage; try again in a moment"))
 		return
 	}
 	type dayUsage struct {
@@ -165,13 +165,13 @@ func (k *Keys) Usage(w http.ResponseWriter, r *http.Request) {
 func (k *Keys) Flash(w http.ResponseWriter, r *http.Request) {
 	sess, ok := mw.SessionFromContext(r.Context())
 	if !ok {
-		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "not signed in"))
+		apperr.Write(w, apperr.Unauthorized("UNAUTHORIZED", "you're signed out: sign in again"))
 		return
 	}
 	hexID := hex.EncodeToString(sess.ID)
 	issued, err := k.d.Keys.PopFlash(r.Context(), hexID)
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "flash"))
+		apperr.Write(w, apperr.Internal("INTERNAL", "couldn't load your new key; rotate it on the dashboard to get one you can copy"))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

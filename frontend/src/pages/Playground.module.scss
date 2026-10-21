@@ -680,6 +680,16 @@
 
 .msgUser .msgActions { align-self: flex-end; }
 
+// Token count for a reply, after the action buttons.
+.msgTokens {
+  align-self: center;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: rgba(255,255,255,0.55);
+  cursor: default;
+}
+
 .msgAction {
   display: inline-flex;
   align-items: center;

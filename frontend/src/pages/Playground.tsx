@@ -30,7 +30,11 @@ type Msg = {
   // when reasoning started arriving, and how long until the answer began
   thinkStart?: number;
   thinkMs?: number;
+  // assistant only: tokens the request used, from the stream's usage chunk
+  usage?: Usage;
 };
+
+type Usage = { prompt: number; completion: number };
 
 function fmtThinkTime(ms: number): string {
   const s = Math.max(1, Math.round(ms / 1000));
@@ -201,6 +205,7 @@ async function streamCompletion(
   messages: { role: Role; content: string | ContentPart[] }[],
   signal: AbortSignal,
   onDelta: (content: string, reasoning: string) => void,
+  onUsage: (usage: Usage) => void,
   onDone: () => void,
   onError: (msg: string, status?: number) => void,
 ) {
@@ -212,7 +217,8 @@ async function streamCompletion(
         "Content-Type": "application/json",
         "X-CSRF-Token": getCsrfToken() ?? "",
       },
-      body: JSON.stringify({ ...params, messages, stream: true }),
+      // include_usage adds a last chunk with the token counts.
+      body: JSON.stringify({ ...params, messages, stream: true, stream_options: { include_usage: true } }),
       signal,
     });
 
@@ -253,7 +259,11 @@ async function streamCompletion(
           const chunk = JSON.parse(d) as {
             choices?: [{ delta?: { content?: string | null; reasoning_content?: string | null; reasoning?: string | null } }];
             error?: { message?: string };
+            usage?: { prompt_tokens?: number; completion_tokens?: number } | null;
           };
+          if (chunk.usage && typeof chunk.usage.completion_tokens === "number") {
+            onUsage({ prompt: chunk.usage.prompt_tokens ?? 0, completion: chunk.usage.completion_tokens });
+          }
           // The stream broke partway (the provider stalled or dropped): ADO
           // ends it with an error event rather than letting it stop silently.
           if (chunk.error) {
@@ -694,6 +704,7 @@ export function Playground() {
           return next;
         }));
       },
+      (usage) => setMessages((prev) => prev.map((m) => (m.id === assistantMsg.id ? { ...m, usage } : m))),
       () => setStreaming(false),
       (msg) => {
         setError(msg);
@@ -964,6 +975,14 @@ export function Playground() {
                     <ActionButton label="Regenerate" onClick={regenerate} disabled={!canRun}>
                       <RefreshCw size={13} />
                     </ActionButton>
+                  )}
+                  {msg.usage && (
+                    <span
+                      className={styles.msgTokens}
+                      title={`${msg.usage.prompt.toLocaleString()} tokens in (the conversation so far), ${msg.usage.completion.toLocaleString()} out (this reply, thinking included)`}
+                    >
+                      {msg.usage.completion.toLocaleString()} tokens
+                    </span>
                   )}
                 </div>
               )}

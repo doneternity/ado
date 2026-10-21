@@ -121,16 +121,25 @@ describe("Playground", () => {
 
     // A stream that breaks partway keeps what arrived and says it was cut off.
     nextReply = () => new Response(
-      `data: ${JSON.stringify({ choices: [{ delta: { content: "Half an answ" } }] })}
-
-` +
-      `data: ${JSON.stringify({ error: { code: "STREAM_INTERRUPTED", message: "the provider's connection dropped partway through the reply, so it's incomplete; try again" } })}
-
-`,
+      `data: ${JSON.stringify({ choices: [{ delta: { content: "Half an answ" } }] })}\n\n` +
+      `data: ${JSON.stringify({ error: { code: "STREAM_INTERRUPTED", message: "the provider's connection dropped partway through the reply, so it's incomplete; try again" } })}\n\n`,
       { status: 200, headers: { "Content-Type": "text/event-stream" } });
     await say("five");
     expect(await screen.findByText("The provider's connection dropped partway through the reply, so it's incomplete; try again.")).toBeInTheDocument();
     expect(screen.getByText("Half an answ")).toBeInTheDocument();
+  });
+
+  it("asks for token counts and shows them under the reply", async () => {
+    nextReply = () => new Response(
+      `data: ${JSON.stringify({ choices: [{ delta: { content: "Hi there" } }] })}\n\n` +
+      `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 1234, completion_tokens: 9 } })}\n\n` +
+      "data: [DONE]\n\n",
+      { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    renderPage();
+    await say("hi");
+    expect(await screen.findByText("9 tokens")).toHaveAttribute("title", expect.stringMatching(/^1\D?234 tokens in/));
+    const body = JSON.parse(calls.find((c) => c.url.includes("/api/playground/chat/completions"))!.init!.body as string);
+    expect(body.stream_options).toEqual({ include_usage: true });
   });
 
   it("points to the dashboard when there is no active key", async () => {

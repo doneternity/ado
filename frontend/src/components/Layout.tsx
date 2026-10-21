@@ -74,7 +74,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {me ? (
               <>
                 <span className={styles.email}>{me.user.email}</span>
-                <Link to="/dashboard" className={styles.navLink}>Dashboard</Link>
+                <Link to="/dashboard" className={`${styles.navLink} ${styles.wideOnly}`}>Dashboard</Link>
                 {me.user.role === "admin" && (
                   <Link to="/admin" className={styles.navLink} style={{ color: "var(--accent)" }}>Admin</Link>
                 )}

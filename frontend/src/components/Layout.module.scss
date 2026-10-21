@@ -96,14 +96,31 @@
   .headerScrolled & { font-size: .82rem; }
 }
 
-.actions { display: flex; align-items: center; gap: 12px; }
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 
+  // Phones: the bottom bar already has the main links, so the header keeps
+  // only what it alone offers, at a size that fits next to the wordmark.
+  @media (max-width: 859px) {
+    gap: 4px;
+    .navLink { padding: 8px 10px; }
+  }
+}
+
+// Links the bottom bar repeats on phones (Dashboard).
+.wideOnly {
+  @media (max-width: 859px) { display: none; }
+}
+
+// The signed-in email only fits beside the full nav on wide screens.
 .email {
   display: none;
   font-size: .78rem;
   color: var(--silver);
 
-  @media (min-width: 640px) { display: inline; }
+  @media (min-width: 1180px) { display: inline; }
 }
 
 .signOut {
@@ -117,6 +134,7 @@
   transition: color var(--t-fast), border-color var(--t-fast);
   &:hover:not(:disabled) { color: var(--black); border-color: rgba(255,255,255,.3); }
   &:disabled { opacity: .55; cursor: not-allowed; }
+  @media (max-width: 859px) { padding: 6px 12px; font-size: .8rem; }
 }
 
 .getStarted {

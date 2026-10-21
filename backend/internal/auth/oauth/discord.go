@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -26,7 +24,6 @@ type Discord struct {
 	clientSecret string
 	redirectURL  string
 	guildID      string
-	rdb          *redis.Client
 }
 
 type DiscordConfig struct {
@@ -36,24 +33,23 @@ type DiscordConfig struct {
 	GuildID      string
 }
 
-func NewDiscord(c DiscordConfig, rdb *redis.Client) *Discord {
+func NewDiscord(c DiscordConfig) *Discord {
 	return &Discord{
 		clientID:     c.ClientID,
 		clientSecret: c.ClientSecret,
 		redirectURL:  c.RedirectURL,
 		guildID:      c.GuildID,
-		rdb:          rdb,
 	}
 }
 
-// AuthURL generates a state token, stores it in Redis (10m TTL), and returns
-// the Discord authorization URL and the state token.
-func (d *Discord) AuthURL(ctx context.Context) (authURL, state string, err error) {
+// AuthURL generates a state token and returns the Discord authorization URL
+// with it. The caller binds the state to the browser with a cookie and checks
+// it on the callback; that alone stops login CSRF, and Discord's codes are
+// single-use, so the state isn't also kept server-side (sign-in no longer
+// depends on Redis being up).
+func (d *Discord) AuthURL() (authURL, state string, err error) {
 	state, err = randURL(32)
 	if err != nil {
-		return "", "", err
-	}
-	if err := d.rdb.Set(ctx, "oauth_state:discord:"+state, "1", 10*time.Minute).Err(); err != nil {
 		return "", "", err
 	}
 	params := url.Values{
@@ -90,17 +86,10 @@ type DiscordMember struct {
 	Roles   []string
 }
 
-// Exchange validates the state (one-shot via GETDEL), exchanges the code for
-// an access token, and fetches the user identity + guild member info.
-func (d *Discord) Exchange(ctx context.Context, code, state string) (DiscordIdentity, DiscordMember, error) {
-	val, err := d.rdb.GetDel(ctx, "oauth_state:discord:"+state).Result()
-	if err == redis.Nil || val == "" {
-		return DiscordIdentity{}, DiscordMember{}, ErrInvalidState
-	}
-	if err != nil {
-		return DiscordIdentity{}, DiscordMember{}, err
-	}
-
+// Exchange exchanges the code for an access token and fetches the user
+// identity + guild member info. The caller has already checked the state
+// against the browser's cookie.
+func (d *Discord) Exchange(ctx context.Context, code string) (DiscordIdentity, DiscordMember, error) {
 	accessToken, err := d.exchangeCode(ctx, code)
 	if err != nil {
 		return DiscordIdentity{}, DiscordMember{}, fmt.Errorf("discord token exchange: %w", err)

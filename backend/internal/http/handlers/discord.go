@@ -48,9 +48,9 @@ func (h *DiscordHandler) setStateCookie(w http.ResponseWriter, value string, max
 }
 
 func (h *DiscordHandler) Start(w http.ResponseWriter, r *http.Request) {
-	authURL, state, err := h.d.Discord.AuthURL(r.Context())
+	authURL, state, err := h.d.Discord.AuthURL()
 	if err != nil {
-		apperr.Write(w, apperr.Internal("INTERNAL", "auth url"))
+		http.Redirect(w, r, h.frontendBase()+"/login?error=internal", http.StatusFound)
 		return
 	}
 	h.setStateCookie(w, state, 600)
@@ -75,11 +75,7 @@ func (h *DiscordHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	h.setStateCookie(w, "", -1)
 
-	ident, member, err := h.d.Discord.Exchange(r.Context(), code, state)
-	if errors.Is(err, oauth.ErrInvalidState) {
-		http.Redirect(w, r, base+"/login?error=auth_failed", http.StatusFound)
-		return
-	}
+	ident, member, err := h.d.Discord.Exchange(r.Context(), code)
 	if err != nil {
 		http.Redirect(w, r, base+"/login?error=internal", http.StatusFound)
 		return

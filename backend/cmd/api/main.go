@@ -122,7 +122,7 @@ func main() {
 			ClientSecret: cfg.DiscordClientSecret,
 			RedirectURL:  cfg.DiscordRedirectURL,
 			GuildID:      cfg.DiscordGuildID,
-		}, rdb)
+		})
 		discordH = handlers.NewDiscord(handlers.DiscordDeps{
 			Cfg: cfg, Q: queries, Sessions: sessions, Discord: discordClient, Keys: keysSvc,
 		})

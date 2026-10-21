@@ -49,6 +49,11 @@ type Forwarder struct {
 	ModelSuffix string
 	aliases     atomic.Pointer[map[string]string]
 
+	// lastList is this provider's model list as last fetched (already in its
+	// public form), shown again when a fetch fails so one slow or failed
+	// /models call doesn't hide its models from the site.
+	lastList atomic.Pointer[[]map[string]any]
+
 	mu        sync.Mutex
 	fails     int
 	openUntil time.Time
@@ -120,12 +125,8 @@ func (f *Forwarder) do(ctx context.Context, r *http.Request, path string, body [
 	if err != nil {
 		return nil, err
 	}
-	skip := skipRequestHeaders(r.Header)
-	for k, vs := range r.Header {
-		if skip[http.CanonicalHeaderKey(k)] {
-			continue
-		}
-		for _, v := range vs {
+	for _, k := range forwardedRequestHeaders {
+		for _, v := range r.Header.Values(k) {
 			req.Header.Add(k, v)
 		}
 	}
@@ -391,8 +392,8 @@ func (r *Registry) AggregateModels(w http.ResponseWriter, req *http.Request) err
 
 // refreshModels fetches every provider's model list concurrently, records
 // which models each one serves (for forModel), and caches the merged,
-// deduplicated list. Providers that fail are skipped (their previous list is
-// kept), so a partial list is returned rather than an error.
+// deduplicated list. A provider whose fetch fails contributes the list it
+// served last time, if any, so a blip doesn't empty the site's model list.
 func (r *Registry) refreshModels(ctx context.Context) []map[string]any {
 	r.lastRefresh.Store(time.Now().UnixNano())
 	chain := r.Get()
@@ -404,45 +405,11 @@ func (r *Registry) refreshModels(ctx context.Context) []map[string]any {
 		wg.Add(1)
 		go func(idx int, fwd *Forwarder) {
 			defer wg.Done()
-			// bound each fetch so one slow upstream can't stall the aggregation.
-			ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-			defer cancel()
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/models", nil)
-			if err != nil {
-				return
+			if list, ok := fwd.fetchModels(ctx); ok {
+				results[idx] = list
+			} else if last := fwd.lastList.Load(); last != nil {
+				results[idx] = *last // keep showing what it served last time
 			}
-			resp, err := fwd.do(ctx, req, "/models", nil)
-			if err != nil {
-				slog.Warn("aggregate models: request failed", "url", fwd.BaseURL+"/models", "err", err)
-				return
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				slog.Warn("aggregate models: non-200 response", "url", fwd.BaseURL+"/models", "status", resp.StatusCode)
-				return
-			}
-			raw, err := io.ReadAll(resp.Body)
-			if err != nil {
-				slog.Warn("aggregate models: read body failed", "url", fwd.BaseURL+"/models", "err", err)
-				return
-			}
-			// standard OpenAI envelope: {"data": [...]}
-			var envelope struct {
-				Data []modelItem `json:"data"`
-			}
-			if json.Unmarshal(raw, &envelope) == nil && len(envelope.Data) > 0 {
-				slog.Info("aggregate models: ok", "url", fwd.BaseURL+"/models", "count", len(envelope.Data))
-				results[idx] = fwd.setModels(envelope.Data)
-				return
-			}
-			// some providers return a bare array
-			var arr []modelItem
-			if json.Unmarshal(raw, &arr) == nil && len(arr) > 0 {
-				slog.Info("aggregate models: ok (bare array)", "url", fwd.BaseURL+"/models", "count", len(arr))
-				results[idx] = fwd.setModels(arr)
-				return
-			}
-			slog.Warn("aggregate models: unparseable response", "url", fwd.BaseURL+"/models", "body", string(raw[:min(len(raw), 300)]))
 		}(i, f)
 	}
 	wg.Wait()
@@ -464,6 +431,49 @@ func (r *Registry) refreshModels(ctx context.Context) []map[string]any {
 	r.mc = &cachedModels{data: all, fetchedAt: time.Now()}
 	r.mcMu.Unlock()
 	return all
+}
+
+// fetchModels gets this provider's /models list and records it (setModels).
+// ok is false when the list couldn't be fetched or read.
+func (f *Forwarder) fetchModels(ctx context.Context) (list []map[string]any, ok bool) {
+	// bound each fetch so one slow upstream can't stall the aggregation.
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/models", nil)
+	if err != nil {
+		return nil, false
+	}
+	resp, err := f.do(ctx, req, "/models", nil)
+	if err != nil {
+		slog.Warn("aggregate models: request failed", "url", f.BaseURL+"/models", "err", err)
+		return nil, false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		slog.Warn("aggregate models: non-200 response", "url", f.BaseURL+"/models", "status", resp.StatusCode)
+		return nil, false
+	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Warn("aggregate models: read body failed", "url", f.BaseURL+"/models", "err", err)
+		return nil, false
+	}
+	// standard OpenAI envelope: {"data": [...]}
+	var envelope struct {
+		Data []map[string]any `json:"data"`
+	}
+	if json.Unmarshal(raw, &envelope) == nil && len(envelope.Data) > 0 {
+		slog.Info("aggregate models: ok", "url", f.BaseURL+"/models", "count", len(envelope.Data))
+		return f.setModels(envelope.Data), true
+	}
+	// some providers return a bare array
+	var arr []map[string]any
+	if json.Unmarshal(raw, &arr) == nil && len(arr) > 0 {
+		slog.Info("aggregate models: ok (bare array)", "url", f.BaseURL+"/models", "count", len(arr))
+		return f.setModels(arr), true
+	}
+	slog.Warn("aggregate models: unparseable response", "url", f.BaseURL+"/models", "body", string(raw[:min(len(raw), 300)]))
+	return nil, false
 }
 
 // setModels records the model IDs from this provider's /models response.
@@ -490,6 +500,7 @@ func (f *Forwarder) setModels(list []map[string]any) []map[string]any {
 	}
 	f.models.Store(&ids)
 	f.aliases.Store(&aliases)
+	f.lastList.Store(&out)
 	return out
 }
 
@@ -533,14 +544,11 @@ const streamIdleTimeout = 120 * time.Second
 func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer, swap *quotedSwap) error {
 	defer resp.Body.Close()
 	defer cancel()
-	for k, vs := range resp.Header {
-		if isHopByHop(k) || isUpstreamOnly(k) {
-			continue
-		}
-		if swap != nil && http.CanonicalHeaderKey(k) == "Content-Length" {
+	for _, k := range forwardedResponseHeaders {
+		if swap != nil && k == "Content-Length" {
 			continue // the swap changes the length
 		}
-		for _, v := range vs {
+		for _, v := range resp.Header.Values(k) {
 			w.Header().Add(k, v)
 		}
 	}
@@ -588,50 +596,24 @@ func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.C
 	}
 }
 
-func skipRequestHeaders(h http.Header) map[string]bool {
-	// Accept-Encoding is stripped so Go's transport negotiates compression
-	// itself (adds gzip, auto-decompresses). Forwarding the client's value
-	// (which includes "br") causes providers to send brotli, which Go doesn't
-	// transparently decompress.
-	skip := map[string]bool{"Cookie": true, "Accept-Encoding": true}
-	for name := range hopByHop {
-		skip[name] = true
-	}
-	for _, v := range h.Values("Connection") {
-		for _, token := range strings.Split(v, ",") {
-			if t := strings.TrimSpace(token); t != "" {
-				skip[http.CanonicalHeaderKey(t)] = true
-			}
-		}
-	}
-	return skip
+// forwardedRequestHeaders are the only client headers a provider receives
+// (Authorization is replaced by the provider's own key). Everything else stays
+// with ADO: the visitor's IP and location (X-Forwarded-For, X-Real-Ip,
+// Vercel's X-Vercel-IP-* headers), cookies, the Playground's CSRF token, and
+// a second copy of the ADO key some clients send as x-api-key.
+// Accept-Encoding is left out on purpose: Go's transport then asks for gzip
+// itself and decompresses it, where a client's "br" would come back as
+// brotli it can't read.
+var forwardedRequestHeaders = []string{
+	"Content-Type", "Accept", "Idempotency-Key",
+	"Openai-Beta", "Anthropic-Version", "Anthropic-Beta",
 }
 
-var hopByHop = map[string]struct{}{
-	"Connection": {}, "Keep-Alive": {}, "Proxy-Authenticate": {},
-	"Proxy-Authorization": {}, "Te": {}, "Trailer": {},
-	"Transfer-Encoding": {}, "Upgrade": {},
-}
-
-// upstreamOnly lists headers that describe the upstream's own CORS/security
-// policy. They must not be forwarded to clients — our middleware sets the
-// correct values and forwarding upstream copies creates duplicate headers that
-// browsers/iOS reject.
-var upstreamOnly = map[string]struct{}{
-	"Access-Control-Allow-Origin":      {},
-	"Access-Control-Allow-Methods":     {},
-	"Access-Control-Allow-Headers":     {},
-	"Access-Control-Allow-Credentials": {},
-	"Access-Control-Expose-Headers":    {},
-	"Access-Control-Max-Age":           {},
-}
-
-func isHopByHop(k string) bool {
-	_, ok := hopByHop[http.CanonicalHeaderKey(k)]
-	return ok
-}
-
-func isUpstreamOnly(k string) bool {
-	_, ok := upstreamOnly[http.CanonicalHeaderKey(k)]
-	return ok
+// forwardedResponseHeaders are the only provider headers a client receives.
+// The rest describe the provider, not ADO: cookies it would set on adoai.space
+// (the Playground runs there), its own rate limits and request IDs, CORS and
+// security headers (ADO's middleware sets those), connection headers.
+var forwardedResponseHeaders = []string{
+	"Content-Type", "Content-Length", "Content-Encoding",
+	"Content-Disposition", "Content-Language", "Cache-Control",
 }

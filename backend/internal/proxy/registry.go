@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,16 +34,6 @@ func NewRegistry() *Registry {
 // Health exposes the per-model availability tracker.
 func (r *Registry) Health() *ModelHealth { return r.health }
 
-// First returns the highest-priority forwarder, or nil if the chain is empty.
-// Used for endpoints that can't fail over (e.g. realtime WebSocket).
-func (r *Registry) First() *Forwarder {
-	chain := r.Get()
-	if len(chain) == 0 {
-		return nil
-	}
-	return chain[0]
-}
-
 func (r *Registry) Get() []*Forwarder {
 	if p := r.chain.Load(); p != nil {
 		return *p
@@ -53,9 +44,56 @@ func (r *Registry) Get() []*Forwarder {
 // Swap atomically replaces the provider chain and clears the models cache so
 // the next /models request fetches fresh data from the new chain.
 func (r *Registry) Swap(chain []*Forwarder) {
+	// Admin changes rebuild the whole chain; a provider key that's unchanged
+	// keeps what it knew (its models, aliases and last list), so routing and
+	// the fallback list work straight away instead of after the next fetch.
+	old := map[string]*Forwarder{}
+	for _, f := range r.Get() {
+		old[f.identity()] = f
+	}
+	for _, f := range chain {
+		if prev := old[f.identity()]; prev != nil && prev != f {
+			f.models.Store(prev.models.Load())
+			f.aliases.Store(prev.aliases.Load())
+			f.lastList.Store(prev.lastList.Load())
+		}
+	}
 	r.chain.Store(&chain)
 	r.lastRefresh.Store(0)
 	r.mcMu.Lock()
 	r.mc = nil
 	r.mcMu.Unlock()
+}
+
+// identity is what makes two forwarders the same provider key across chain
+// rebuilds.
+func (f *Forwarder) identity() string {
+	return f.BaseURL + "\x00" + f.APIKey + "\x00" + f.ModelSuffix
+}
+
+// Pick returns the provider key to use for one model, in the same order
+// Forward would try them (model-aware, keys taking turns, tripped ones last),
+// for connections that can't fail over (the realtime WebSocket). Nil if the
+// chain is empty.
+func (r *Registry) Pick(ctx context.Context, model string) *Forwarder {
+	chain := r.Get()
+	if len(chain) == 0 {
+		return nil
+	}
+	order := failoverOrder(rotateGroups(r.forModel(ctx, chain, model), r.rr.Add(1)))
+	return order[0]
+}
+
+// UpstreamID is the provider's own ID for a model asked for by its plain ID
+// (see alias.go); other IDs come back unchanged.
+func (f *Forwarder) UpstreamID(model string) string { return f.upstreamID(model) }
+
+// First returns the highest-priority forwarder, or nil if the chain is empty.
+// Used for endpoints that can't fail over (e.g. realtime WebSocket).
+func (r *Registry) First() *Forwarder {
+	chain := r.Get()
+	if len(chain) == 0 {
+		return nil
+	}
+	return chain[0]
 }

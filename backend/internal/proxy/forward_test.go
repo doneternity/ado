@@ -348,3 +348,98 @@ func TestForModel_UnreadableListIsLastResort(t *testing.T) {
 		t.Fatalf("want [good, broken], got %v", got)
 	}
 }
+
+// Only allowlisted headers cross the proxy, either way: providers never see a
+// visitor's IP or location, cookies, or a stray copy of the ADO key, and
+// clients never get a provider's cookies or rate-limit headers.
+func TestForward_HeaderAllowlists(t *testing.T) {
+	var got http.Header
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Set-Cookie", "__cf_bm=abc; Domain=adoai.space")
+		w.Header().Set("X-Ratelimit-Remaining-Requests", "4")
+		w.Header().Set("Cf-Ray", "8abc-FRA")
+		w.Header().Set("Openai-Organization", "provider-org")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer up.Close()
+
+	req := chatReq()
+	for k, v := range map[string]string{
+		"X-Forwarded-For":     "203.0.113.7, 76.76.21.1",
+		"X-Real-Ip":           "203.0.113.7",
+		"X-Vercel-Ip-City":    "Lisbon",
+		"X-Vercel-Ip-Country": "PT",
+		"Cookie":              "ado_session=secret",
+		"X-Csrf-Token":        "csrf",
+		"X-Api-Key":           "ado-userkey",
+		"Authorization":       "Bearer ado-userkey",
+		"Anthropic-Version":   "2023-06-01",
+		"Openai-Beta":         "assistants=v2",
+	} {
+		req.Header.Set(k, v)
+	}
+	reg := NewRegistry()
+	reg.Swap([]*Forwarder{New(up.URL, "provider-key")})
+	rr := httptest.NewRecorder()
+	if _, err := reg.Forward(rr, req, "/chat/completions", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, k := range []string{"X-Forwarded-For", "X-Real-Ip", "X-Vercel-Ip-City", "X-Vercel-Ip-Country", "Cookie", "X-Csrf-Token", "X-Api-Key"} {
+		if v := got.Get(k); v != "" {
+			t.Errorf("provider received %s: %q", k, v)
+		}
+	}
+	if got.Get("Authorization") != "Bearer provider-key" {
+		t.Errorf("provider auth = %q", got.Get("Authorization"))
+	}
+	if got.Get("Content-Type") != "application/json" || got.Get("Anthropic-Version") != "2023-06-01" || got.Get("Openai-Beta") != "assistants=v2" {
+		t.Errorf("needed headers missing: %v", got)
+	}
+
+	for _, k := range []string{"Set-Cookie", "X-Ratelimit-Remaining-Requests", "Cf-Ray", "Openai-Organization"} {
+		if v := rr.Header().Get(k); v != "" {
+			t.Errorf("client received provider header %s: %q", k, v)
+		}
+	}
+	if rr.Header().Get("Content-Type") != "application/json" {
+		t.Error("Content-Type must reach the client")
+	}
+}
+
+// A provider whose /models fails keeps showing the list it served last time,
+// also after the chain is rebuilt (any admin change), so one failed fetch
+// doesn't empty the site's model list.
+func TestRefreshModels_KeepsLastGoodList(t *testing.T) {
+	var failing atomic.Bool
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if failing.Load() {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"m1"}]}`))
+	}))
+	defer up.Close()
+
+	reg := NewRegistry()
+	reg.Swap([]*Forwarder{New(up.URL, "k")})
+	if got := reg.refreshModels(context.Background()); len(got) != 1 {
+		t.Fatalf("first fetch: %v", got)
+	}
+
+	failing.Store(true)
+	if got := reg.refreshModels(context.Background()); len(got) != 1 || got[0]["id"] != "m1" {
+		t.Fatalf("failed fetch should keep the last list, got %v", got)
+	}
+
+	// An admin change rebuilds the chain with new forwarders for the same key.
+	reg.Swap([]*Forwarder{New(up.URL, "k")})
+	if got := reg.refreshModels(context.Background()); len(got) != 1 {
+		t.Fatalf("after a rebuild the last list should carry over, got %v", got)
+	}
+	if s, _ := splitByModel(reg.Get(), "m1"); len(s) != 1 {
+		t.Fatal("routing should still know the model after a rebuild")
+	}
+}

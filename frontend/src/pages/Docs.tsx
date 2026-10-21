@@ -16,6 +16,13 @@ const NAV = [
     ],
   },
   {
+    group: "Apps",
+    links: [
+      { id: "sillytavern", label: "SillyTavern" },
+      { id: "janitorai",   label: "JanitorAI" },
+    ],
+  },
+  {
     group: "API Reference",
     links: [
       { id: "chat-completions", label: "Chat completions" },
@@ -34,7 +41,7 @@ const NAV = [
     group: "Usage",
     links: [
       { id: "rate-limits", label: "Rate limits" },
-      { id: "errors",      label: "Error codes" },
+      { id: "errors",      label: "Errors and fixes" },
     ],
   },
   {
@@ -209,6 +216,10 @@ export function Docs() {
           </p>
           <Code lang="http">Authorization: Bearer ado-xxxxxxxxxxxxxxxx</Code>
           <p>
+            Tools built for Anthropic&apos;s API (the Anthropic SDK, Claude Code) send the key as{" "}
+            <code className={styles.inlineCode}>x-api-key</code> instead, which works too.
+          </p>
+          <p>
             Keys are issued on signup and can be rotated from the dashboard.
             Rotating immediately invalidates the old key.
           </p>
@@ -216,6 +227,40 @@ export function Docs() {
             <strong>Keep your key private.</strong>{" "}
             Treat it like a password. If it leaks, rotate it from the dashboard immediately.
           </div>
+        </section>
+
+        {/* SillyTavern */}
+        <section id="sillytavern" className={styles.section}>
+          <h2 className={styles.sectionTitle}>SillyTavern</h2>
+          <p>Connect SillyTavern to ADO as a custom OpenAI-compatible source:</p>
+          <ol className={styles.stepList}>
+            <li>Open <strong>API Connections</strong> (the plug icon in the top bar).</li>
+            <li>Set <strong>API</strong> to <strong>Chat Completion</strong>, and <strong>Chat Completion Source</strong> to <strong>Custom (OpenAI-compatible)</strong>.</li>
+            <li>In <strong>Custom Endpoint (Base URL)</strong>, enter <code className={styles.inlineCode}>{PROXY_BASE}</code></li>
+            <li>Paste your ADO key into <strong>Custom API Key</strong>.</li>
+            <li>Click <strong>Connect</strong>, then pick a model from the list, or type an ID such as <code className={styles.inlineCode}>{model}</code> into <strong>Enter a Model ID</strong>.</li>
+          </ol>
+          <p>
+            Every message, swipe and regenerate is one request against your daily quota. Streaming works as usual.
+            If SillyTavern can&apos;t connect, check that the base URL ends in <code className={styles.inlineCode}>/v1</code> with nothing after it.
+          </p>
+        </section>
+
+        {/* JanitorAI */}
+        <section id="janitorai" className={styles.section}>
+          <h2 className={styles.sectionTitle}>JanitorAI</h2>
+          <p>Use ADO as JanitorAI&apos;s proxy:</p>
+          <ol className={styles.stepList}>
+            <li>In a chat, open the menu and choose <strong>API Settings</strong>.</li>
+            <li>Choose <strong>Proxy</strong>.</li>
+            <li>For the model, enter a model ID such as <code className={styles.inlineCode}>{model}</code>. The <a href="/models">Models page</a> lists them all.</li>
+            <li>For the proxy URL, enter the full chat address: <code className={styles.inlineCode}>{PROXY_BASE}/chat/completions</code></li>
+            <li>Paste your ADO key as the API key, save, and reload the chat.</li>
+          </ol>
+          <p>
+            JanitorAI needs the whole address ending in <code className={styles.inlineCode}>/chat/completions</code>,
+            unlike SillyTavern, which takes the base URL. Field names can differ a little between versions.
+          </p>
         </section>
 
         {/* Chat Completions */}
@@ -473,28 +518,44 @@ const ws = new WebSocket("${PROXY_BASE.replace(/^http/, "ws")}/realtime", {
           </div>
 
           <p>
-            Each key has a daily request quota set by the admin.
-            The quota resets at 00:00 UTC regardless of your timezone.
+            Each key has a daily request quota, which resets at 00:00 UTC whatever your timezone,
+            and a per-minute limit shared by every endpoint.
             Calls to <code className={styles.inlineCode}>/models</code> are free and not counted.
+            Your dashboard shows today&apos;s usage.
           </p>
-          <p>When your limit is exceeded:</p>
+          <p>Every response says where you stand, so your app can slow down before it hits a limit:</p>
+          <Code lang="http">{`X-Ado-Quota-Limit: 100
+X-Ado-Quota-Remaining: 58
+X-Ado-Quota-Reset: 2026-10-22T00:00:00Z
+X-Ratelimit-Limit-Requests: 20
+X-Ratelimit-Remaining-Requests: 19
+X-Ratelimit-Reset-Requests: 42s`}</Code>
+          <p>
+            When the daily quota is used up, the error says when it resets, and{" "}
+            <code className={styles.inlineCode}>Retry-After</code> gives the seconds to wait:
+          </p>
           <Code lang="json">{`HTTP/1.1 429 Too Many Requests
+Retry-After: 22380
 
 {
   "error": {
     "code": "QUOTA_EXCEEDED",
-    "message": "daily quota exceeded"
+    "type": "rate_limit_error",
+    "message": "you've used all 100 requests for today; the quota resets at 00:00 UTC, in 6h 13m",
+    "limit": 100,
+    "resets_at": "2026-10-22T00:00:00Z"
   }
 }`}</Code>
         </section>
 
         {/* Error Codes */}
         <section id="errors" className={styles.section}>
-          <h2 className={styles.sectionTitle}>Error codes</h2>
-          <p>All errors follow the same envelope shape:</p>
+          <h2 className={styles.sectionTitle}>Errors and fixes</h2>
+          <p>All errors follow the same shape, like OpenAI&apos;s:</p>
           <Code lang="json">{`{
   "error": {
     "code": "ERROR_CODE",
+    "type": "invalid_request_error",
     "message": "human-readable description"
   }
 }`}</Code>
@@ -502,14 +563,21 @@ const ws = new WebSocket("${PROXY_BASE.replace(/^http/, "ws")}/realtime", {
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
-                <tr><th>HTTP</th><th>Code</th><th>Description</th></tr>
+                <tr><th>HTTP</th><th>Code</th><th>What to do</th></tr>
               </thead>
               <tbody>
                 {[
-                  { status: "401", code: "UNAUTHORIZED",  desc: "Key is missing, malformed, or has been revoked." },
-                  { status: "429", code: "QUOTA_EXCEEDED", desc: "Daily request limit reached. Resets at UTC midnight." },
-                  { status: "403", code: "INVALID_CSRF",  desc: "CSRF token missing or invalid. Only applies to the web dashboard API." },
-                  { status: "500", code: "INTERNAL",      desc: "Unexpected server error. Safe to retry after a short delay." },
+                  { status: "400", code: "MODEL_REQUIRED",    desc: "Add a model field. The Models page lists the IDs." },
+                  { status: "400", code: "INVALID_INPUT",     desc: "The request isn't valid: bad JSON, over 16 MB (images included), or a model name over 200 characters." },
+                  { status: "401", code: "UNAUTHORIZED",      desc: "The key is missing, mistyped, or was rotated. Copy your current key from the dashboard." },
+                  { status: "403", code: "BANNED",            desc: "This account has been suspended. Ask in our Discord server." },
+                  { status: "404", code: "MODEL_NOT_FOUND",   desc: "No model has that ID. Check the spelling against the Models page." },
+                  { status: "429", code: "RATE_LIMITED",      desc: "Too many requests this minute. Wait for Retry-After seconds, then retry." },
+                  { status: "429", code: "QUOTA_EXCEEDED",    desc: "Today's quota is used up. It resets at 00:00 UTC, and the message says how long that is." },
+                  { status: "429", code: "TOO_MANY_BAD_KEYS", desc: "Too many requests with an invalid key from your address. Fix the key and wait a few minutes." },
+                  { status: "503", code: "NO_PROVIDER",       desc: "No provider could answer right now. Try again shortly or use another model; the Status page shows what's affected." },
+                  { status: "503", code: "MAINTENANCE",       desc: "ADO is in maintenance. Try again in a few minutes." },
+                  { status: "500", code: "INTERNAL",          desc: "Unexpected server error. Safe to retry after a short delay." },
                 ].map(({ status, code, desc }) => (
                   <tr key={code}>
                     <td><span className={styles.statusCode}>{status}</span></td>

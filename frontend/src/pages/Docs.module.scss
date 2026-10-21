@@ -381,3 +381,18 @@
 .tokKeyword { color: #ffffff; font-weight: 700; }
 .tokNumber  { color: var(--green); }
 .tokFlag    { color: var(--electric); }
+
+// Numbered setup steps (the Apps guides).
+.stepList {
+  margin: 0 0 18px;
+  padding-left: 1.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: .9rem;
+  line-height: 1.65;
+  color: rgba(255,255,255,.7);
+
+  strong { color: #ffffff; font-weight: 600; }
+  a { color: var(--accent); }
+}

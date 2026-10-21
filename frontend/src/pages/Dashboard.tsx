@@ -7,7 +7,8 @@ import {
   Activity, Shield, BookOpen, Zap, Terminal,
   Lock, ChevronRight, Code, Brain,
 } from "lucide-react";
-import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels, usePublicModelStatuses, useMyUsageByModel } from "../api/queries";
+import { useCurrentKey, useRawKey, fetchFlashKeyOnce, useMe, useKeyUsageHistory, useSampleModel, usePublicModels, useMyUsageByModel } from "../api/queries";
+import { HEALTH_TEXT, useServiceStatus } from "../api/service-status";
 import { compact } from "../data/format";
 import { fmtDuration, localTime, quotaState } from "../data/quota";
 import { MODELS } from "../data/models";
@@ -50,13 +51,6 @@ const fade = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.24, ease: "easeOut" as const } },
 };
 
-const HEALTH_TEXT: Record<ServiceStatus["tone"], string> = {
-  ok: "All models live",
-  warn: "Some models degraded",
-  down: "Models unavailable",
-  unknown: "Checking…",
-};
-
 // Re-renders every `ms` so relative times ("resets in 6h 12m") stay current.
 function useNow(ms = 30_000) {
   const [now, setNow] = useState(Date.now());
@@ -65,20 +59,6 @@ function useNow(ms = 30_000) {
     return () => clearInterval(id);
   }, [ms]);
   return now;
-}
-
-type ServiceStatus = { tone: "ok" | "warn" | "down" | "unknown"; label: string; detail: string };
-
-// What the live model list says right now, never a fixed "all systems live".
-function useServiceStatus(): ServiceStatus {
-  const { data, isError } = usePublicModelStatuses();
-  if (isError) return { tone: "unknown", label: "Unknown", detail: "status couldn't be checked" };
-  if (!data) return { tone: "unknown", label: "Checking", detail: "checking the models" };
-  if (data.length === 0) return { tone: "down", label: "Down", detail: "no models are being served" };
-  const trouble = data.filter((m) => m.status !== "available").length;
-  if (data.every((m) => m.status === "down")) return { tone: "down", label: "Down", detail: "no models are answering" };
-  if (trouble > 0) return { tone: "warn", label: "Degraded", detail: `${trouble} of ${data.length} models having trouble` };
-  return { tone: "ok", label: "Live", detail: `all ${data.length} model${data.length === 1 ? "" : "s"} available` };
 }
 
 // Shown above the stats once today's requests are used up.

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { HEALTH_TEXT, useServiceStatus } from "../api/service-status";
 import styles from "./Footer.module.scss";
 
 const DISCORD_URL = import.meta.env.VITE_DISCORD_INVITE_URL as string;
@@ -19,9 +20,8 @@ const NAV: Record<string, NavLink[]> = {
     { name: "API Reference",  to: "/docs#chat-completions" },
     { name: "Status",         to: "/status" },
   ],
-  Company: [
-    { name: "About",   to: "/docs" },
-    { name: "Contact", href: DISCORD_URL },
+  Community: [
+    { name: "Discord", href: DISCORD_URL },
   ],
   Legal: [
     { name: "Privacy", to: "/privacy" },
@@ -30,6 +30,7 @@ const NAV: Record<string, NavLink[]> = {
 };
 
 export function Footer() {
+  const health = useServiceStatus();
   return (
     <footer className={styles.footer}>
       <div className={styles.inner}>
@@ -62,10 +63,10 @@ export function Footer() {
 
         <div className={styles.bottom}>
           <p className={styles.copy}>© {new Date().getFullYear()} ADO. All rights reserved.</p>
-          <div className={styles.bottomRight}>
-            <span className={styles.statusDot} />
-            <span className={styles.statusText}>All systems operational</span>
-          </div>
+          <Link to="/status" className={styles.bottomRight} title={health.detail}>
+            <span className={`${styles.statusDot} ${styles[`dot_${health.tone}`] ?? ""}`} />
+            <span className={styles.statusText}>{HEALTH_TEXT[health.tone]}</span>
+          </Link>
         </div>
       </div>
     </footer>

@@ -86,14 +86,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: opacity var(--t-fast);
+  &:hover .statusText { color: #ffffff; }
 }
 .statusDot {
   display: block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
+  background: rgba(255,255,255,0.35);
 }
+.dot_ok      { background: var(--green); }
+.dot_warn    { background: var(--orange); }
+.dot_down    { background: var(--error); }
 .statusText {
   font-size: .78rem;
   color: rgba(255,255,255,0.58);

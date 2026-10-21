@@ -149,37 +149,47 @@ function groupByProvider(models: EnrichedModel[]): [ModelProvider, EnrichedModel
   return [...groups.entries()];
 }
 
+function sentence(s: string): string {
+  const t = s.trim();
+  return t.charAt(0).toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".");
+}
+
 // Translate the backend's error code/status into a message that tells the user
 // whether the problem is their key, our quota, or the upstream provider.
-function friendlyError(status: number, code: string, rawMsg: string, model: string): string {
+// Anything not listed is the server's or provider's own message, which says
+// what's wrong (bad JSON, a context that's too long, and so on).
+function friendlyError(status: number, code: string, rawMsg: string, model: string, retryAfter: string | null): string {
   switch (code) {
     case "NO_PROVIDER":
-      return `No upstream provider could serve "${model}" right now. This is on the provider side, not your key. Try another model or try again shortly.`;
+      return `"${model}" isn't answering right now: every provider for it is down, overloaded or too slow. This isn't your key. Try again in a minute or pick another model.`;
+    case "MODEL_NOT_FOUND":
+      return `The model "${model}" isn't available anymore. Pick another from the model list.`;
     case "MAINTENANCE":
-      return "ADO is in maintenance mode right now. Please try again in a few minutes.";
+      return "ADO is down for maintenance. Try again in a few minutes.";
     case "QUOTA_EXCEEDED": {
       const now = new Date();
       const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
       return `You've used all of today's requests. More are available in ${fmtDuration(new Date(reset).getTime() - now.getTime())}, at ${localTime(reset)} your time.`;
     }
-    case "RATE_LIMITED":
-      return "You're sending requests too quickly. Wait a moment and try again.";
+    case "RATE_LIMITED": {
+      const secs = Number(retryAfter);
+      return secs > 0
+        ? `You're sending requests faster than your per-minute limit. Try again in ${fmtDuration(secs * 1000)}.`
+        : "You're sending requests faster than your per-minute limit. Wait a moment and try again.";
+    }
     case "BANNED":
-      return "This account has been suspended.";
+      return "This account has been suspended. Ask in ADO's Discord server if you think this is a mistake.";
     case "NO_KEY":
-      return "You don't have an active key right now. Get one on the dashboard, then come back.";
+      return "You don't have an active API key right now. Create one on the dashboard, then come back.";
     case "UNAUTHORIZED":
-      return "Your session has expired. Sign in again to keep chatting.";
+      return "You're signed out. Sign in again to keep chatting.";
     case "INVALID_CSRF":
       return "This page is out of date. Reload it and try again.";
   }
-  if (status === 401) {
-    return "Your session has expired. Sign in again to keep chatting.";
-  }
-  if (status === 404) {
-    return `The model "${model}" isn't available. Pick another from the model list.`;
-  }
-  return rawMsg || `Request failed (HTTP ${status}).`;
+  if (rawMsg) return sentence(rawMsg);
+  if (status === 413) return "This message is too large to send. Remove an image or shorten it.";
+  if (status >= 500) return `ADO couldn't be reached (HTTP ${status}). Try again in a minute.`;
+  return `Request failed (HTTP ${status}).`;
 }
 
 // Model plus the optional generation settings; unset ones are left out so
@@ -210,11 +220,16 @@ async function streamCompletion(
       let rawMsg = "";
       let code = "";
       try {
-        const j = (await resp.json()) as { error?: { message?: string; code?: string } };
-        rawMsg = j.error?.message ?? "";
-        code = j.error?.code ?? "";
-      } catch { /* ignore */ }
-      onError(friendlyError(resp.status, code, rawMsg, params.model), resp.status);
+        // ADO's errors and most providers' use { error: { message } }; some
+        // providers put the message at the top level instead.
+        const j = (await resp.json()) as { error?: { message?: string; code?: string } | string; message?: string; detail?: string };
+        if (typeof j.error === "string") rawMsg = j.error;
+        else {
+          rawMsg = j.error?.message ?? j.message ?? (typeof j.detail === "string" ? j.detail : "");
+          code = j.error?.code ?? "";
+        }
+      } catch { /* not JSON, e.g. a gateway error page */ }
+      onError(friendlyError(resp.status, code, rawMsg, params.model, resp.headers.get("Retry-After")), resp.status);
       return;
     }
 
@@ -237,7 +252,14 @@ async function streamCompletion(
           // DeepSeek, Z.ai and Moonshot as reasoning_content, others as reasoning.
           const chunk = JSON.parse(d) as {
             choices?: [{ delta?: { content?: string | null; reasoning_content?: string | null; reasoning?: string | null } }];
+            error?: { message?: string };
           };
+          // The stream broke partway (the provider stalled or dropped): ADO
+          // ends it with an error event rather than letting it stop silently.
+          if (chunk.error) {
+            onError(chunk.error.message ? sentence(chunk.error.message) : "The reply was cut off partway. Try again.");
+            return;
+          }
           const delta = chunk.choices?.[0]?.delta;
           const content = delta?.content ?? "";
           const reasoning = delta?.reasoning_content ?? (typeof delta?.reasoning === "string" ? delta.reasoning : "");
@@ -249,7 +271,7 @@ async function streamCompletion(
   } catch (err) {
     // an aborted stream (stop / navigation) isn't an error
     if (err instanceof DOMException && err.name === "AbortError") return;
-    onError(err instanceof Error ? err.message : "Network error");
+    onError("Couldn't reach ADO. Check your connection and try again.");
   }
 }
 

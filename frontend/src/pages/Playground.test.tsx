@@ -95,6 +95,44 @@ describe("Playground", () => {
     expect(headers).not.toHaveProperty("Authorization");
   });
 
+  it("explains each kind of failed reply", async () => {
+    const err = (status: number, error: Record<string, string>, headers: Record<string, string> = {}) => () =>
+      new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json", ...headers } });
+    renderPage();
+    await screen.findByText("0 / 100 today");
+
+    nextReply = err(503, { code: "NO_PROVIDER", message: "x" });
+    await say("one");
+    expect(await screen.findByText(/"deepseek-v4-pro" isn't answering right now.*This isn't your key/)).toBeInTheDocument();
+
+    nextReply = err(429, { code: "RATE_LIMITED", message: "x" }, { "Retry-After": "42" });
+    await say("two");
+    expect(await screen.findByText(/faster than your per-minute limit. Try again in less than a minute/)).toBeInTheDocument();
+
+    // A provider's own error (here, a context that's too long) is shown as it says it.
+    nextReply = err(400, { message: "this model's maximum context length is 131072 tokens" });
+    await say("three");
+    expect(await screen.findByText("This model's maximum context length is 131072 tokens.")).toBeInTheDocument();
+
+    // A gateway error page that isn't JSON.
+    nextReply = () => new Response("<html>Bad Gateway</html>", { status: 502 });
+    await say("four");
+    expect(await screen.findByText("ADO couldn't be reached (HTTP 502). Try again in a minute.")).toBeInTheDocument();
+
+    // A stream that breaks partway keeps what arrived and says it was cut off.
+    nextReply = () => new Response(
+      `data: ${JSON.stringify({ choices: [{ delta: { content: "Half an answ" } }] })}
+
+` +
+      `data: ${JSON.stringify({ error: { code: "STREAM_INTERRUPTED", message: "the provider's connection dropped partway through the reply, so it's incomplete; try again" } })}
+
+`,
+      { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    await say("five");
+    expect(await screen.findByText("The provider's connection dropped partway through the reply, so it's incomplete; try again.")).toBeInTheDocument();
+    expect(screen.getByText("Half an answ")).toBeInTheDocument();
+  });
+
   it("points to the dashboard when there is no active key", async () => {
     hasKey = false;
     renderPage();

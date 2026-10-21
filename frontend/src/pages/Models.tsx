@@ -35,6 +35,8 @@ const PROVIDER_CLASS: Record<ModelDef["provider"], string> = {
 
 const PROVIDER_LABEL = PROVIDER_NAME;
 
+const LOAD_FAILED = "Couldn't load the model list. Try again in a minute, or check the Status page.";
+
 function CopyId({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   function copy() {
@@ -74,11 +76,17 @@ export function Models() {
     setLoadErr(null);
     try {
       const r = await fetch(`${API_BASE}/api/models`);
-      const d = await r.json() as { data?: LiveModel[]; error?: { message?: string } };
-      if (!r.ok) throw new Error(d.error?.message ?? `HTTP ${r.status}`);
+      const d = await r.json().catch(() => ({})) as { data?: LiveModel[]; error?: { message?: string } };
+      const msg = d.error?.message;
+      if (!r.ok) {
+        // ADO says why (rate limited, maintenance, no provider list).
+        setLoadErr(msg ? msg.charAt(0).toUpperCase() + msg.slice(1) + "." : LOAD_FAILED);
+        return;
+      }
       setLiveModels(d.data ?? []);
-    } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : "Failed to load models");
+    } catch {
+      // A network failure or a gateway error page.
+      setLoadErr(LOAD_FAILED);
     } finally {
       setLoading(false);
     }

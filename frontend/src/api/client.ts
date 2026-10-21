@@ -20,7 +20,14 @@ export class ApiError extends Error {
       // not JSON
     }
     const code = body?.error?.code ?? "UNKNOWN";
-    const message = body?.error?.message ?? `HTTP ${res.status}`;
+    // Server messages are lower-case clauses ("couldn't rotate your key; ...");
+    // shown on their own, they read better as sentences.
+    const raw = body?.error?.message;
+    const message = raw
+      ? raw.charAt(0).toUpperCase() + raw.slice(1) + (/[.!?]$/.test(raw) ? "" : ".")
+      : res.status >= 500
+        ? `ADO couldn't be reached (HTTP ${res.status}). Try again in a minute.`
+        : `Request failed (HTTP ${res.status}).`;
     const data: Record<string, unknown> = {};
     if (body?.error) {
       for (const [k, v] of Object.entries(body.error)) {

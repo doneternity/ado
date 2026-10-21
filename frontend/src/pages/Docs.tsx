@@ -727,17 +727,19 @@ Retry-After: 22380
               </thead>
               <tbody>
                 {[
-                  { status: "400", code: "MODEL_REQUIRED",    desc: "Add a model field. The Models page lists the IDs." },
-                  { status: "400", code: "INVALID_INPUT",     desc: "The request isn't valid: bad JSON, over 16 MB (images included), or a model name over 200 characters." },
-                  { status: "401", code: "UNAUTHORIZED",      desc: "The key is missing, mistyped, or was rotated. Copy your current key from the dashboard." },
-                  { status: "403", code: "BANNED",            desc: "This account has been suspended. Ask in our Discord server." },
-                  { status: "404", code: "MODEL_NOT_FOUND",   desc: "No model has that ID. Check the spelling against the Models page." },
-                  { status: "429", code: "RATE_LIMITED",      desc: "Too many requests this minute. Wait for Retry-After seconds, then retry." },
-                  { status: "429", code: "QUOTA_EXCEEDED",    desc: "Today's quota is used up. It resets at 00:00 UTC, and the message says how long that is." },
-                  { status: "429", code: "TOO_MANY_BAD_KEYS", desc: "Too many requests with an invalid key from your address. Fix the key and wait a few minutes." },
-                  { status: "503", code: "NO_PROVIDER",       desc: "No provider could answer right now. Try again shortly or use another model; the Status page shows what's affected." },
-                  { status: "503", code: "MAINTENANCE",       desc: "ADO is in maintenance. Try again in a few minutes." },
-                  { status: "500", code: "INTERNAL",          desc: "Something went wrong on our side. Safe to retry after a short delay." },
+                  { status: "400", code: "MODEL_REQUIRED",     desc: "Add a model field (for Realtime, ?model= in the address). The Models page lists the IDs." },
+                  { status: "400", code: "INVALID_INPUT",      desc: "The request itself is wrong, and the message says how: not valid JSON (with where it breaks), a field of the wrong type, missing or empty messages, over 16 MB (images included), or a model name over 200 characters." },
+                  { status: "401", code: "UNAUTHORIZED",       desc: "The key is missing, isn't an ADO key (they start with ado-), isn't sent as \"Bearer <key>\", or is mistyped or rotated. Copy your current key from the dashboard." },
+                  { status: "403", code: "BANNED",             desc: "This account has been suspended. Ask in our Discord server." },
+                  { status: "404", code: "MODEL_NOT_FOUND",    desc: "No model has that ID. Check the spelling against the Models page." },
+                  { status: "404", code: "NOT_FOUND",          desc: "There's no endpoint at that address. The message points out common mix-ups, like /v1 twice or a missing /v1." },
+                  { status: "405", code: "METHOD_NOT_ALLOWED", desc: "Wrong method for that endpoint: /models and /realtime take GET, the rest POST." },
+                  { status: "429", code: "RATE_LIMITED",       desc: "Over your per-minute limit. Wait for Retry-After seconds, then retry." },
+                  { status: "429", code: "QUOTA_EXCEEDED",     desc: "Today's quota is used up. It resets at 00:00 UTC, and the message says how long that is." },
+                  { status: "429", code: "TOO_MANY_BAD_KEYS",  desc: "Your address sent too many requests with a missing or invalid key. Fix the key and wait for Retry-After." },
+                  { status: "503", code: "NO_PROVIDER",        desc: "Every provider for that model was down, overloaded or too slow. It isn't your key. Try again shortly or use another model; the Status page shows what's affected." },
+                  { status: "503", code: "MAINTENANCE",        desc: "ADO is down for maintenance. Try again in a few minutes." },
+                  { status: "500", code: "INTERNAL",           desc: "Something went wrong on our side, and the message says what couldn't be done. Safe to retry after a short delay." },
                 ].map(({ status, code, desc }) => (
                   <tr key={code}>
                     <td>
@@ -753,8 +755,14 @@ Retry-After: 22380
             </table>
           </div>
           <p>
-            Errors with a different code come from the model&apos;s provider, passed on as they are.
-            429s and 5xx errors are worth retrying after a wait; other 4xx errors need a change to the request first.
+            Errors with a different code come from the model&apos;s provider, passed on as they are (a conversation
+            longer than the model&apos;s context, say). 429s and 5xx errors are worth retrying after a wait; other 4xx
+            errors need a change to the request first.
+          </p>
+          <p>
+            If a streamed reply breaks partway because the provider stalls or drops the connection, the stream ends
+            with an error event (code <C>STREAM_INTERRUPTED</C>) instead of just stopping, so OpenAI&apos;s SDKs raise an
+            error rather than handing you a cut-off reply. What arrived before it is kept.
           </p>
 
           <div className={styles.help}>

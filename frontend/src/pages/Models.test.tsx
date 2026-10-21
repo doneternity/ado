@@ -58,4 +58,11 @@ describe("model code snippets", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("offers provider filters for two providers, but no search for a short list", async () => {
+    renderPage();
+    expect(await screen.findByRole("button", { name: "All (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Z.ai (1)" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Search models" })).not.toBeInTheDocument();
+  });
 });

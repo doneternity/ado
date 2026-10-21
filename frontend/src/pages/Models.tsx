@@ -99,6 +99,10 @@ export function Models() {
   // Dynamic provider list for filter pills
   const providers = [...new Set(enriched.map(m => m.provider))];
 
+  // Filters only help with a choice of providers, search with a longer list.
+  const showFilters = providers.length > 1;
+  const showSearch = enriched.length > 6;
+
   // Apply filter + search
   let visible = enriched;
   if (filter !== "all") visible = visible.filter(m => m.provider === filter);
@@ -170,8 +174,10 @@ export function Models() {
           </div>
         )}
 
-        {/* Filters + search */}
+        {/* Filters + search, once there are enough models for them to help */}
+        {(showFilters || showSearch) && (
         <div className={styles.filterRow}>
+          {showFilters && (
           <div className={styles.filters}>
             <button
               className={`${styles.filterBtn}${filter === "all" ? ` ${styles.active}` : ""}`}
@@ -193,20 +199,23 @@ export function Models() {
               );
             })}
           </div>
+          )}
 
-          {liveModels && (
+          {showSearch && (
             <div className={styles.searchWrap}>
               <Search size={13} className={styles.searchIcon} />
               <input
                 className={styles.searchInput}
                 type="text"
                 placeholder="Search models…"
+                aria-label="Search models"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
           )}
         </div>
+        )}
 
       </div>
 

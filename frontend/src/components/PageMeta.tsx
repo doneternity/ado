@@ -12,7 +12,7 @@ type Meta = { title: string; description?: string; noindex?: boolean };
 export const PAGE_META: Record<string, Meta> = {
   "/":              { title: "ADO: one key, every model" },
   "/models":        { title: "Models · ADO", description: "Every model available through ADO, with live status." },
-  "/docs":          { title: "Docs · ADO", description: "How to call ADO's OpenAI-compatible API: base URL, auth, streaming, and examples." },
+  "/docs":          { title: "Docs · ADO", description: "How to use ADO's OpenAI-compatible API: base URL, keys, streaming, images, limits and errors, with examples." },
   "/pricing":       { title: "Pricing · ADO", description: "ADO is free while in early access. See daily limits and what's coming in Pro." },
   "/status":        { title: "Status · ADO", description: "Live status of the ADO API and the models behind it." },
   "/privacy":       { title: "Privacy Policy · ADO", description: "What data ADO collects, how it's used, and your choices." },

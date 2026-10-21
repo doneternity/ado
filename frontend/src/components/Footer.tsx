@@ -16,7 +16,7 @@ const NAV: Record<string, NavLink[]> = {
   ],
   Developers: [
     { name: "Documentation", to: "/docs" },
-    { name: "API Reference",  to: "/docs" },
+    { name: "API Reference",  to: "/docs#chat-completions" },
     { name: "Status",         to: "/status" },
   ],
   Company: [

@@ -1,18 +1,23 @@
 import { useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import { motion } from "framer-motion";
-import { Copy, Check } from "lucide-react";
-import { useSampleModel } from "../api/queries";
-import { API_BASE_URL } from "../config";
-import { highlight } from "../components/highlight";
+import { Link } from "react-router-dom";
+import { Copy, Check, ArrowRight } from "lucide-react";
+import { useCurrentKey, useLiveModels, useMe, useSampleModel } from "../api/queries";
+import { API_BASE_URL, DISCORD_INVITE_URL } from "../config";
+import { CodeBlock, useCopy } from "../components/CodeBlock";
+import { CodeTabs } from "../components/CodeTabs";
+import type { Lang } from "../components/CodeTabs";
+import { enrichAll } from "../data/model-meta";
+import { joinNames } from "../data/catalog";
 import styles from "./Docs.module.scss";
 
 const NAV = [
   {
-    group: "Getting Started",
+    group: "Getting started",
     links: [
-      { id: "quick-start",     label: "Quick start" },
-      { id: "base-url",        label: "Base URL" },
-      { id: "authentication",  label: "Authentication" },
+      { id: "quick-start",    label: "Quick start" },
+      { id: "authentication", label: "Authentication" },
     ],
   },
   {
@@ -23,63 +28,148 @@ const NAV = [
     ],
   },
   {
-    group: "API Reference",
+    group: "Chat",
     links: [
       { id: "chat-completions", label: "Chat completions" },
-      { id: "responses",        label: "Responses" },
-      { id: "messages",         label: "Messages (Claude)" },
-      { id: "embeddings",       label: "Embeddings" },
-      { id: "rerank",           label: "Rerank" },
-      { id: "images",           label: "Images" },
-      { id: "audio",            label: "Audio" },
-      { id: "moderations",      label: "Moderations" },
-      { id: "realtime",         label: "Realtime" },
-      { id: "list-models",      label: "List models" },
+      { id: "streaming",        label: "Streaming" },
+      { id: "vision",           label: "Images" },
+      { id: "reasoning",        label: "Reasoning" },
+    ],
+  },
+  {
+    group: "Reference",
+    links: [
+      { id: "list-models",     label: "List models" },
+      { id: "other-endpoints", label: "Other endpoints" },
+      { id: "messages",        label: "Messages (Anthropic)" },
+      { id: "realtime",        label: "Realtime" },
     ],
   },
   {
     group: "Usage",
     links: [
-      { id: "rate-limits", label: "Rate limits" },
+      { id: "rate-limits", label: "Limits" },
       { id: "errors",      label: "Errors and fixes" },
-    ],
-  },
-  {
-    group: "Examples",
-    links: [
-      { id: "example-curl",   label: "cURL" },
-      { id: "example-js",     label: "JavaScript" },
-      { id: "example-python", label: "Python" },
     ],
   },
 ];
 
 const ALL_IDS = NAV.flatMap(g => g.links.map(l => l.id));
 
-const TOKEN_CLASSES = {
-  comment: styles.tokComment, string: styles.tokString, key: styles.tokKey,
-  keyword: styles.tokKeyword, number: styles.tokNumber, flag: styles.tokFlag,
-};
+// The first-request and streaming examples, in each language. The key comes
+// from ADO_API_KEY, like the Models page snippets.
+function firstRequest(base: string, model: string): Record<Lang, string> {
+  const id = JSON.stringify(model);
+  return {
+    curl: `curl ${base}/chat/completions \\
+  -H "Authorization: Bearer $ADO_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": ${id},
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'`,
+    python: `import os
+from openai import OpenAI
+
+client = OpenAI(base_url="${base}", api_key=os.environ["ADO_API_KEY"])
+
+reply = client.chat.completions.create(
+    model=${id},
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"},
+    ],
+)
+print(reply.choices[0].message.content)`,
+    javascript: `import OpenAI from "openai";
+
+const client = new OpenAI({ baseURL: "${base}", apiKey: process.env.ADO_API_KEY });
+
+const reply = await client.chat.completions.create({
+  model: ${id},
+  messages: [
+    { role: "system", content: "You are a helpful assistant." },
+    { role: "user", content: "Hello!" },
+  ],
+});
+console.log(reply.choices[0].message.content);`,
+  };
+}
+
+function streamingRequest(base: string, model: string): Record<Lang, string> {
+  const id = JSON.stringify(model);
+  return {
+    curl: `curl ${base}/chat/completions \\
+  -H "Authorization: Bearer $ADO_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  --no-buffer \\
+  -d '{
+    "model": ${id},
+    "messages": [{"role": "user", "content": "Write a haiku."}],
+    "stream": true
+  }'`,
+    python: `import os
+from openai import OpenAI
+
+client = OpenAI(base_url="${base}", api_key=os.environ["ADO_API_KEY"])
+
+stream = client.chat.completions.create(
+    model=${id},
+    messages=[{"role": "user", "content": "Write a haiku."}],
+    stream=True,
+)
+for chunk in stream:
+    if chunk.choices:
+        print(chunk.choices[0].delta.content or "", end="", flush=True)`,
+    javascript: `import OpenAI from "openai";
+
+const client = new OpenAI({ baseURL: "${base}", apiKey: process.env.ADO_API_KEY });
+
+const stream = await client.chat.completions.create({
+  model: ${id},
+  messages: [{ role: "user", content: "Write a haiku." }],
+  stream: true,
+});
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+}`,
+  };
+}
+
+// Scrolls to a section and puts it in the address bar. Plain #links don't
+// work here: the router's scroll restoration puts the page back where it was.
+function jump(id: string) {
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  document.getElementById(id)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+  history.replaceState(history.state, "", `#${id}`);
+}
+
+function SectionLink({ to, className, children, current }: { to: string; className?: string; children: ReactNode; current?: boolean }) {
+  return (
+    <a
+      href={`#${to}`}
+      className={className}
+      aria-current={current ? "location" : undefined}
+      onClick={e => { e.preventDefault(); jump(to); }}
+    >
+      {children}
+    </a>
+  );
+}
 
 function Code({ children, lang }: { children: string; lang?: string }) {
-  const [copied, setCopied] = useState(false);
-  function copy() {
-    navigator.clipboard.writeText(children);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }
-  return (
-    <div className={styles.codeBlock}>
-      <div className={styles.codeTop}>
-        {lang && <span className={styles.codeLang}>{lang}</span>}
-        <button className={styles.codeCopy} onClick={copy}>
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-          {copied ? "copied" : "copy"}
-        </button>
-      </div>
-      <pre className={styles.codePre}><code>{highlight(children, lang, TOKEN_CLASSES)}</code></pre>
-    </div>
-  );
+  return <div className={styles.code}><CodeBlock code={children} lang={lang} /></div>;
+}
+
+function Tabs({ snippets }: { snippets: Record<Lang, string> }) {
+  return <div className={styles.code}><CodeTabs snippets={snippets} /></div>;
+}
+
+function C({ children }: { children: ReactNode }) {
+  return <code className={styles.inlineCode}>{children}</code>;
 }
 
 function Badge({ method }: { method: "GET" | "POST" }) {
@@ -91,28 +181,85 @@ function Badge({ method }: { method: "GET" | "POST" }) {
 }
 
 function Param({
-  name, type, required, desc,
+  name, type, required, children,
 }: {
-  name: string; type: string; required?: boolean; desc: string;
+  name: string; type: string; required?: boolean; children: ReactNode;
 }) {
   return (
     <tr>
-      <td><code className={styles.paramName}>{name}</code></td>
-      <td><span className={styles.paramType}>{type}</span></td>
       <td>
-        <span className={required ? styles.tagRequired : styles.tagOptional}>
-          {required ? "required" : "optional"}
-        </span>
+        <div className={styles.nameCell}>
+          <code className={styles.paramName}>{name}</code>
+          <span className={styles.paramType}>{type}</span>
+          {required && <span className={styles.tagRequired}>required</span>}
+        </div>
       </td>
-      <td className={styles.paramDesc}>{desc}</td>
+      <td className={styles.paramDesc}>{children}</td>
     </tr>
+  );
+}
+
+function BaseUrl({ url }: { url: string }) {
+  const [copied, copy] = useCopy();
+  return (
+    <button type="button" className={styles.baseUrl} onClick={() => copy(url)} aria-label={`Copy the base URL, ${url}`}>
+      <span className={styles.baseUrlLabel}>Base URL</span>
+      <code className={styles.baseUrlValue}>{url}</code>
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+}
+
+// The visitor's own limits when they're signed in, so the numbers in the
+// examples below aren't the only ones they see.
+function YourLimits() {
+  const { data: me } = useMe();
+  const { data: key } = useCurrentKey({ enabled: !!me });
+  if (!me) {
+    return (
+      <p className={styles.limitsNote}>
+        <Link to="/login">Sign in</Link> to see your own limits here. Plans and their limits are on the{" "}
+        <Link to="/pricing">Pricing page</Link>.
+      </p>
+    );
+  }
+  if (!key) return null;
+  return (
+    <div className={styles.limitCards}>
+      <div className={styles.limitCard}>
+        <span className={styles.limitNum}>{key.dailyLimit.toLocaleString()}</span>
+        <span className={styles.limitLabel}>requests a day</span>
+      </div>
+      {key.rpmLimit !== undefined && key.rpmLimit > 0 && (
+        <div className={styles.limitCard}>
+          <span className={styles.limitNum}>{key.rpmLimit}</span>
+          <span className={styles.limitLabel}>requests a minute</span>
+        </div>
+      )}
+      <div className={styles.limitCard}>
+        <span className={styles.limitNum}>{key.used.toLocaleString()}</span>
+        <span className={styles.limitLabel}>used today</span>
+      </div>
+      {key.plan && (
+        <div className={styles.limitCard}>
+          <span className={styles.limitNum}>{key.plan.name}</span>
+          <span className={styles.limitLabel}>plan</span>
+        </div>
+      )}
+    </div>
   );
 }
 
 export function Docs() {
   const [activeId, setActiveId] = useState("quick-start");
-  const PROXY_BASE = API_BASE_URL;
+  const base = API_BASE_URL;
   const model = useSampleModel();
+  const { data: me } = useMe();
+  const { data: live } = useLiveModels();
+  const enriched = live ? enrichAll(live) : [];
+  const vision = enriched.filter(m => m.capabilities.includes("Vision"));
+  const visionModel = vision[0]?.id ?? model;
+  const effortModel = enriched.find(m => m.effortLevels?.length);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -130,6 +277,12 @@ export function Docs() {
     return () => observer.disconnect();
   }, []);
 
+  // A link to /docs#section from another page lands on that section.
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (id && ALL_IDS.includes(id)) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   return (
     <motion.div
       className={styles.page}
@@ -140,92 +293,118 @@ export function Docs() {
 
       {/* ── sidebar ── */}
       <aside className={styles.sidebar}>
-        <p className={styles.sidebarTitle}>Documentation</p>
-        {NAV.map(group => (
-          <div key={group.group} className={styles.sidebarGroup}>
-            <p className={styles.sidebarGroupLabel}>{group.group}</p>
-            {group.links.map(link => (
-              <a
-                key={link.id}
-                href={`#${link.id}`}
-                className={`${styles.sidebarLink}${activeId === link.id ? ` ${styles.active}` : ""}`}
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        ))}
+        <nav aria-label="Docs sections">
+          {NAV.map(group => (
+            <div key={group.group} className={styles.sidebarGroup}>
+              <p className={styles.sidebarGroupLabel}>{group.group}</p>
+              {group.links.map(link => (
+                <SectionLink
+                  key={link.id}
+                  to={link.id}
+                  className={`${styles.sidebarLink}${activeId === link.id ? ` ${styles.active}` : ""}`}
+                  current={activeId === link.id}
+                >
+                  {link.label}
+                </SectionLink>
+              ))}
+            </div>
+          ))}
+        </nav>
       </aside>
 
       {/* ── content ── */}
       <div className={styles.content}>
 
-        {/* Quick Start */}
-        <section id="quick-start" className={styles.section}>
-          <h1 className={styles.pageTitle}>Quick start</h1>
-          <p className={styles.lead}>
-            ADO exposes an OpenAI-compatible API that routes to every model on the models page.
-            Any client that works with the OpenAI API works with ADO. Swap the base URL and key, nothing else.
+        <header className={styles.hero}>
+          <h1 className={styles.headline}>swap the url.<br />keep your code.</h1>
+          <p className={styles.lede}>
+            ADO speaks the OpenAI API. Point any OpenAI client or app at the base URL below,
+            use your ADO key, and pick a model. Nothing else changes.
           </p>
-          <div className={styles.steps}>
-            {[
-              {
-                n: "01",
-                title: "Get your key",
-                body: "Sign up and copy your key from the dashboard. Keys start with ado- and are shown once on account creation.",
-              },
-              {
-                n: "02",
-                title: "Set the base URL",
-                body: `Point your client at ${PROXY_BASE} instead of the default OpenAI endpoint.`,
-              },
-              {
-                n: "03",
-                title: "Pick a model",
-                body: `Use any model ID from the /models list, e.g. ${model}. The model field is required on every request.`,
-              },
-            ].map(({ n, title, body }) => (
-              <div key={n} className={styles.step}>
-                <span className={styles.stepNum}>{n}</span>
-                <div>
-                  <p className={styles.stepTitle}>{title}</p>
-                  <p className={styles.stepBody}>{body}</p>
-                </div>
-              </div>
-            ))}
+          <BaseUrl url={base} />
+          <div className={styles.heroLinks}>
+            <Link to={me ? "/dashboard" : "/login"} className={styles.heroLink}>
+              {me ? "Your key" : "Get a key"} <ArrowRight size={13} />
+            </Link>
+            <Link to="/models" className={styles.heroLink}>Models <ArrowRight size={13} /></Link>
+            {me && <Link to="/playground" className={styles.heroLink}>Playground <ArrowRight size={13} /></Link>}
           </div>
-        </section>
 
-        {/* Base URL */}
-        <section id="base-url" className={styles.section}>
-          <h2 className={styles.sectionTitle}>Base URL</h2>
-          <p>All proxy requests go to:</p>
-          <Code lang="plaintext">{PROXY_BASE}</Code>
+          <label className={styles.mobileJump}>
+            <span>Jump to</span>
+            <select value="" onChange={e => { if (e.target.value) jump(e.target.value); }}>
+              <option value="">Choose a section</option>
+              {NAV.map(group => (
+                <optgroup key={group.group} label={group.group}>
+                  {group.links.map(link => <option key={link.id} value={link.id}>{link.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+        </header>
+
+        {/* Quick start */}
+        <section id="quick-start" className={styles.section}>
+          <h2 className={styles.sectionTitle}>Quick start</h2>
+          <ol className={styles.steps}>
+            <li className={styles.step}>
+              <span className={styles.stepNum}>01</span>
+              <div>
+                <p className={styles.stepTitle}>Get your key</p>
+                <p className={styles.stepBody}>
+                  Sign in with Discord and copy your key from the <Link to="/dashboard">dashboard</Link>.
+                  Keys start with <C>ado-</C> and are shown in full once, when they&apos;re created or rotated.
+                </p>
+              </div>
+            </li>
+            <li className={styles.step}>
+              <span className={styles.stepNum}>02</span>
+              <div>
+                <p className={styles.stepTitle}>Put it in an environment variable</p>
+                <p className={styles.stepBody}>The examples on this page read it from <C>ADO_API_KEY</C>, so they&apos;re safe to share.</p>
+              </div>
+            </li>
+            <li className={styles.step}>
+              <span className={styles.stepNum}>03</span>
+              <div>
+                <p className={styles.stepTitle}>Pick a model</p>
+                <p className={styles.stepBody}>
+                  Copy an ID from the <Link to="/models">Models page</Link>, such as <C>{model}</C>.
+                  Every request needs one.
+                </p>
+              </div>
+            </li>
+          </ol>
+          <Code lang="bash">{`# macOS and Linux
+export ADO_API_KEY="ado-your-key"
+
+# Windows PowerShell
+$env:ADO_API_KEY = "ado-your-key"`}</Code>
+          <h3 className={styles.subTitle}>Your first request</h3>
+          <Tabs snippets={firstRequest(base, model)} />
           <p>
-            This is the drop-in replacement for{" "}
-            <code className={styles.inlineCode}>https://api.openai.com/v1</code>.
-            The request and response shapes are identical to the OpenAI spec.
+            The Python and JavaScript examples use OpenAI&apos;s own SDKs (<C>pip install openai</C>,{" "}
+            <C>npm install openai</C>). Any library or app that lets you change the base URL works the same way.
           </p>
         </section>
 
         {/* Authentication */}
         <section id="authentication" className={styles.section}>
           <h2 className={styles.sectionTitle}>Authentication</h2>
+          <p>Send your key in the <C>Authorization</C> header on every request:</p>
+          <Code lang="http">Authorization: Bearer ado-your-key</Code>
           <p>
-            Pass your ADO key in the <code className={styles.inlineCode}>Authorization</code> header on every proxy request.
-          </p>
-          <Code lang="http">Authorization: Bearer ado-xxxxxxxxxxxxxxxx</Code>
-          <p>
-            Tools built for Anthropic&apos;s API (the Anthropic SDK, Claude Code) send the key as{" "}
-            <code className={styles.inlineCode}>x-api-key</code> instead, which works too.
+            Tools built for Anthropic&apos;s API (the Anthropic SDK, Claude Code) send it as <C>x-api-key</C> instead,
+            which works too.
           </p>
           <p>
-            Keys are issued on signup and can be rotated from the dashboard.
-            Rotating immediately invalidates the old key.
+            Rotating your key on the dashboard gives you a new one and stops the old one at once.
+            Too many requests with a wrong key from one address are blocked for a few minutes.
           </p>
           <div className={styles.callout}>
             <strong>Keep your key private.</strong>{" "}
-            Treat it like a password. If it leaks, rotate it from the dashboard immediately.
+            Treat it like a password: don&apos;t put it in a website&apos;s code or a public repository.
+            If it leaks, rotate it.
           </div>
         </section>
 
@@ -236,13 +415,13 @@ export function Docs() {
           <ol className={styles.stepList}>
             <li>Open <strong>API Connections</strong> (the plug icon in the top bar).</li>
             <li>Set <strong>API</strong> to <strong>Chat Completion</strong>, and <strong>Chat Completion Source</strong> to <strong>Custom (OpenAI-compatible)</strong>.</li>
-            <li>In <strong>Custom Endpoint (Base URL)</strong>, enter <code className={styles.inlineCode}>{PROXY_BASE}</code></li>
+            <li>In <strong>Custom Endpoint (Base URL)</strong>, enter <C>{base}</C></li>
             <li>Paste your ADO key into <strong>Custom API Key</strong>.</li>
-            <li>Click <strong>Connect</strong>, then pick a model from the list, or type an ID such as <code className={styles.inlineCode}>{model}</code> into <strong>Enter a Model ID</strong>.</li>
+            <li>Click <strong>Connect</strong>, then pick a model from the list, or type an ID such as <C>{model}</C> into <strong>Enter a Model ID</strong>.</li>
           </ol>
           <p>
             Every message, swipe and regenerate is one request against your daily quota. Streaming works as usual.
-            If SillyTavern can&apos;t connect, check that the base URL ends in <code className={styles.inlineCode}>/v1</code> with nothing after it.
+            If SillyTavern can&apos;t connect, check that the base URL ends in <C>/v1</C> with nothing after it.
           </p>
         </section>
 
@@ -253,12 +432,12 @@ export function Docs() {
           <ol className={styles.stepList}>
             <li>In a chat, open the menu and choose <strong>API Settings</strong>.</li>
             <li>Choose <strong>Proxy</strong>.</li>
-            <li>For the model, enter a model ID such as <code className={styles.inlineCode}>{model}</code>. The <a href="/models">Models page</a> lists them all.</li>
-            <li>For the proxy URL, enter the full chat address: <code className={styles.inlineCode}>{PROXY_BASE}/chat/completions</code></li>
+            <li>For the model, enter a model ID such as <C>{model}</C>. The <Link to="/models">Models page</Link> lists them all.</li>
+            <li>For the proxy URL, enter the full chat address: <C>{base}/chat/completions</C></li>
             <li>Paste your ADO key as the API key, save, and reload the chat.</li>
           </ol>
           <p>
-            JanitorAI needs the whole address ending in <code className={styles.inlineCode}>/chat/completions</code>,
+            JanitorAI needs the whole address ending in <C>/chat/completions</C>,
             unlike SillyTavern, which takes the base URL. Field names can differ a little between versions.
           </p>
         </section>
@@ -266,45 +445,36 @@ export function Docs() {
         {/* Chat Completions */}
         <section id="chat-completions" className={styles.section}>
           <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /chat/completions"}
+            <Badge method="POST" /><span className={styles.path}>/chat/completions</span>
           </h2>
           <p>
-            Generates a model response for the given messages.
-            Fully compatible with the OpenAI Chat Completions API including streaming via SSE.
+            Generates a reply to a conversation. It works like OpenAI&apos;s Chat Completions API, so the
+            request and response look the same.
           </p>
 
           <h3 className={styles.subTitle}>Request body</h3>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Parameter</th><th>Type</th><th></th><th>Description</th>
-                </tr>
-              </thead>
               <tbody>
-                <Param name="model"       type="string"  required desc="Model ID to use. See /models for the full list." />
-                <Param name="messages"    type="array"   required desc="Array of message objects with role and content fields." />
-                <Param name="stream"      type="boolean"          desc="Stream the response with SSE. Defaults to false." />
-                <Param name="max_tokens"  type="integer"          desc="Maximum number of tokens to generate." />
-                <Param name="temperature" type="number"           desc="Sampling temperature from 0 to 2. Higher = more creative." />
-                <Param name="top_p"       type="number"           desc="Nucleus sampling probability cutoff." />
+                <Param name="model" type="string" required>A model ID from the <Link to="/models">Models page</Link>.</Param>
+                <Param name="messages" type="array" required>
+                  The conversation so far: objects with a <C>role</C> (<C>system</C>, <C>user</C>, <C>assistant</C>{" "}
+                  or <C>tool</C>) and <C>content</C>. Content can also be a list of parts, to <SectionLink to="vision">send images</SectionLink>.
+                </Param>
+                <Param name="stream" type="boolean">Send the reply as it&apos;s written. See <SectionLink to="streaming">Streaming</SectionLink>.</Param>
+                <Param name="max_tokens" type="integer">The longest reply to write, in tokens.</Param>
+                <Param name="temperature" type="number">From 0 to 2. Higher is more varied, lower is more focused.</Param>
+                <Param name="top_p" type="number">Only consider the most likely tokens that add up to this probability.</Param>
+                <Param name="stop" type="string or array">Stop writing when one of these appears.</Param>
+                <Param name="tools" type="array">Functions the model can ask to call, for models with the Tools tag. Add <C>tool_choice</C> to steer it.</Param>
+                <Param name="response_format" type="object"><C>{`{"type": "json_object"}`}</C> asks for JSON, on models that support it.</Param>
+                <Param name="reasoning_effort" type="string">How hard a thinking model thinks. See <SectionLink to="reasoning">Reasoning</SectionLink>.</Param>
               </tbody>
             </table>
           </div>
+          <p>Other OpenAI fields go to the model as they are; a model that doesn&apos;t support one may ignore it or return an error.</p>
 
-          <h3 className={styles.subTitle}>Example request</h3>
-          <Code lang="bash">{`curl ${PROXY_BASE}/chat/completions \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "${model}",
-    "messages": [
-      { "role": "system", "content": "You are a helpful assistant." },
-      { "role": "user",   "content": "Hello!" }
-    ]
-  }'`}</Code>
-
-          <h3 className={styles.subTitle}>Example response</h3>
+          <h3 className={styles.subTitle}>Response</h3>
           <Code lang="json">{`{
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
@@ -325,204 +495,194 @@ export function Docs() {
     "total_tokens": 29
   }
 }`}</Code>
+          <p>
+            Each call is one request against your daily quota, however long it is. Requests the model rejects
+            (a 4xx) and ones no provider can answer aren&apos;t counted.
+          </p>
         </section>
 
-        {/* Responses */}
-        <section id="responses" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /responses"}
-          </h2>
+        {/* Streaming */}
+        <section id="streaming" className={styles.section}>
+          <h2 className={styles.sectionTitle}>Streaming</h2>
           <p>
-            OpenAI Responses API. Same request and response shape as OpenAI.
-            A compact variant is available at{" "}
-            <code className={styles.inlineCode}>/responses/compact</code>.
+            With <C>&quot;stream&quot;: true</C>, the reply arrives as server-sent events: one <C>data:</C> line per
+            chunk, each with a piece of the text in <C>choices[0].delta.content</C>, and <C>data: [DONE]</C> at the end.
           </p>
-          <div className={styles.callout}>
-            Endpoints below are OpenAI-compatible passthroughs. They forward to the
-            active upstream provider unchanged, so availability depends on which
-            models and endpoints that provider supports. Each call counts as one
-            request against your daily quota; failed requests (4xx) are refunded.
-          </div>
-          <Code lang="bash">{`curl ${PROXY_BASE}/responses \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "${model}",
-    "input": "Write a haiku about the sea."
-  }'`}</Code>
-        </section>
-
-        {/* Messages (Claude-native) */}
-        <section id="messages" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /messages"}
-          </h2>
+          <Tabs snippets={streamingRequest(base, model)} />
           <p>
-            Anthropic-native Messages API, for clients built against Claude&apos;s
-            own format rather than the OpenAI one.
+            To get token counts in a stream, add <C>{`"stream_options": {"include_usage": true}`}</C>; the last chunk
+            then has <C>usage</C> and an empty <C>choices</C> list. If you stop a request before the model starts
+            answering, it isn&apos;t counted.
           </p>
-          <Code lang="bash">{`curl ${PROXY_BASE}/messages \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "claude-opus-4-7",
-    "max_tokens": 256,
-    "messages": [{ "role": "user", "content": "Hello!" }]
-  }'`}</Code>
-        </section>
-
-        {/* Embeddings */}
-        <section id="embeddings" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /embeddings"}
-          </h2>
-          <p>
-            Returns a vector embedding for the given input. Compatible with the
-            OpenAI Embeddings API.
-          </p>
-          <Code lang="bash">{`curl ${PROXY_BASE}/embeddings \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "text-embedding-model",
-    "input": "The quick brown fox."
-  }'`}</Code>
-        </section>
-
-        {/* Rerank */}
-        <section id="rerank" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /rerank"}
-          </h2>
-          <p>
-            Reranks a set of documents against a query, returning relevance
-            scores. Useful for retrieval pipelines.
-          </p>
-          <Code lang="bash">{`curl ${PROXY_BASE}/rerank \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "rerank-model",
-    "query": "What is the capital of France?",
-    "documents": ["Paris is the capital of France.", "Berlin is in Germany."]
-  }'`}</Code>
         </section>
 
         {/* Images */}
-        <section id="images" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /images/generations"}
-          </h2>
+        <section id="vision" className={styles.section}>
+          <h2 className={styles.sectionTitle}>Images</h2>
           <p>
-            Image generation. Edits and variations are available at{" "}
-            <code className={styles.inlineCode}>/images/edits</code> and{" "}
-            <code className={styles.inlineCode}>/images/variations</code>{" "}
-            (both accept <code className={styles.inlineCode}>multipart/form-data</code> uploads).
+            Models with the Vision tag can read images. Send the message content as a list of parts: text,
+            then one or more images as a data URL (base64) or a public link.
           </p>
-          <Code lang="bash">{`curl ${PROXY_BASE}/images/generations \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "image-model",
-    "prompt": "a watercolor fox in a forest",
-    "n": 1,
-    "size": "1024x1024"
-  }'`}</Code>
+          <p className={styles.dynamicNote}>
+            {live === undefined
+              ? "Checking which models take images…"
+              : vision.length
+                ? <>Models that take images right now: {joinNames(vision.slice(0, 6).map(m => m.name))}{vision.length > 6 ? ` and ${vision.length - 6} more` : ""}.</>
+                : "No model on ADO takes images right now."}
+          </p>
+          <Code lang="json">{`{
+  "model": "${visionModel}",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "text", "text": "What's in this picture?" },
+        { "type": "image_url", "image_url": { "url": "data:image/jpeg;base64,/9j/4AAQ..." } }
+      ]
+    }
+  ]
+}`}</Code>
+          <p>
+            A request can be up to 16 MB, images included. Large photos are better shrunk first: models scale
+            them down anyway, and smaller requests are faster. The <Link to="/playground">Playground</Link> does this for you.
+          </p>
         </section>
 
-        {/* Audio */}
-        <section id="audio" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /audio/speech"}
-          </h2>
+        {/* Reasoning */}
+        <section id="reasoning" className={styles.section}>
+          <h2 className={styles.sectionTitle}>Reasoning</h2>
           <p>
-            Text-to-speech (<code className={styles.inlineCode}>/audio/speech</code>),
-            plus transcription (<code className={styles.inlineCode}>/audio/transcriptions</code>)
-            and translation (<code className={styles.inlineCode}>/audio/translations</code>),
-            which take <code className={styles.inlineCode}>multipart/form-data</code> audio uploads.
+            Thinking models work through a problem before they answer. Their reasoning comes separately from the
+            answer, in <C>reasoning_content</C> (or <C>reasoning</C>) on the message, or on each <C>delta</C> when
+            streaming. Some models put it at the start of the answer inside <C>{"<think>…</think>"}</C> instead.
+            Show it or hide it as you like, but don&apos;t send it back in later messages; only the answer belongs in the history.
           </p>
-          <Code lang="bash">{`# Text to speech (returns audio bytes)
-curl ${PROXY_BASE}/audio/speech \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{ "model": "tts-model", "input": "Hello there", "voice": "alloy" }' \\
-  --output speech.mp3
-
-# Transcription (audio file -> text)
-curl ${PROXY_BASE}/audio/transcriptions \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -F model="whisper-model" \\
-  -F file="@audio.mp3"`}</Code>
-        </section>
-
-        {/* Moderations */}
-        <section id="moderations" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="POST" />{" /moderations"}
-          </h2>
           <p>
-            Classifies text for policy violations. Compatible with the OpenAI
-            Moderations API.
+            Models that let you choose how hard they think take <C>reasoning_effort</C>.
+            {effortModel?.effortLevels
+              ? <> For example, {effortModel.name} takes {joinNames(effortModel.effortLevels.map(l => `"${l}"`))}.</>
+              : null}{" "}
+            The <Link to="/models">Models page</Link> lists the levels for each model.
           </p>
-          <Code lang="bash">{`curl ${PROXY_BASE}/moderations \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{ "input": "text to classify" }'`}</Code>
-        </section>
-
-        {/* Realtime */}
-        <section id="realtime" className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            <Badge method="GET" />{" /realtime"}
-          </h2>
           <p>
-            WebSocket endpoint for low-latency, bidirectional sessions. Connect a
-            WebSocket and pass your key in the{" "}
-            <code className={styles.inlineCode}>Authorization</code> header.
-            Browser clients cannot set that header on a WebSocket, so this is
-            intended for server-side use.
+            <strong>Reasoning mode</strong> on the dashboard is different: it asks every model to show its steps in
+            the answer itself, for all chat requests made with your key. Turn it off there if your app shows
+            replies to other people.
           </p>
-          <Code lang="javascript">{`import WebSocket from "ws";
-
-const ws = new WebSocket("${PROXY_BASE.replace(/^http/, "ws")}/realtime", {
-  headers: { Authorization: "Bearer ado-your-key" },
-});`}</Code>
         </section>
 
         {/* List Models */}
         <section id="list-models" className={styles.section}>
           <h2 className={styles.sectionTitle}>
-            <Badge method="GET" />{" /models"}
+            <Badge method="GET" /><span className={styles.path}>/models</span>
           </h2>
           <p>
-            Returns all model IDs available through ADO. Requires a valid key.
-            This endpoint does not count against your daily quota.
+            Lists every model you can use, with what each one can do and whether it&apos;s working right now.
+            It doesn&apos;t count against your quota (up to 30 calls a minute).
           </p>
-          <Code lang="bash">{`curl ${PROXY_BASE}/models \\
-  -H "Authorization: Bearer ado-your-key"`}</Code>
+          <Code lang="bash">{`curl ${base}/models -H "Authorization: Bearer $ADO_API_KEY"`}</Code>
+          <Code lang="json">{`{
+  "object": "list",
+  "data": [
+    {
+      "id": "${model}",
+      "object": "model",
+      "owned_by": "deepseek",
+      "display_name": "...",
+      "context_length": 128000,
+      "ado_status": "available"
+    }
+  ]
+}`}</Code>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <tbody>
+                <Param name="id" type="string">What to put in <C>model</C>.</Param>
+                <Param name="display_name" type="string">A readable name, when the provider gives one.</Param>
+                <Param name="context_length" type="integer">How many tokens the model can take in at once, when known.</Param>
+                <Param name="ado_status" type="string"><C>available</C>, <C>degraded</C> (some requests failing) or <C>down</C>. The <Link to="/status">Status page</Link> shows the same.</Param>
+                <Param name="owned_by" type="string">Who made the model, or <C>ado</C> when that isn&apos;t known.</Param>
+              </tbody>
+            </table>
+          </div>
+          <p>Some models also list <C>input_modalities</C>, <C>capabilities</C> or <C>effort</C> levels.</p>
+        </section>
+
+        {/* Other endpoints */}
+        <section id="other-endpoints" className={styles.section}>
+          <h2 className={styles.sectionTitle}>Other endpoints</h2>
+          <p>
+            These follow OpenAI&apos;s API too. ADO passes them to the model&apos;s provider as they are, so each one
+            works only when a provider on ADO serves that kind of model. Requests it can&apos;t serve aren&apos;t counted;
+            the rest count as one request each.
+          </p>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <tbody>
+                {[
+                  { path: "/responses", desc: "OpenAI's Responses API. /responses/compact too." },
+                  { path: "/embeddings", desc: "Vectors for search and similarity." },
+                  { path: "/rerank", desc: "Scores documents against a query." },
+                  { path: "/images/generations", desc: "Image generation. /images/edits and /images/variations take file uploads." },
+                  { path: "/audio/speech", desc: "Text to speech, returning audio." },
+                  { path: "/audio/transcriptions", desc: "Speech to text from an uploaded file. /audio/translations too." },
+                  { path: "/moderations", desc: "Checks text against content policies." },
+                ].map(({ path, desc }) => (
+                  <tr key={path}>
+                    <td><div className={styles.nameCell}><Badge method="POST" /><code className={styles.paramName}>{path}</code></div></td>
+                    <td className={styles.paramDesc}>{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p>Uploads can be up to 25 MB. Each request takes a <C>model</C> from the Models page, like chat does.</p>
+        </section>
+
+        {/* Messages (Anthropic) */}
+        <section id="messages" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="POST" /><span className={styles.path}>/messages</span>
+          </h2>
+          <p>
+            Anthropic&apos;s Messages format, for clients built on it rather than on OpenAI&apos;s. It&apos;s passed
+            through like the endpoints above, so it works when the model&apos;s provider offers it.
+          </p>
+          <Code lang="bash">{`curl ${base}/messages \\
+  -H "x-api-key: $ADO_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "${model}",
+    "max_tokens": 256,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'`}</Code>
+        </section>
+
+        {/* Realtime */}
+        <section id="realtime" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <Badge method="GET" /><span className={styles.path}>/realtime</span>
+          </h2>
+          <p>
+            A WebSocket for live, two-way sessions with realtime models. Name the model in the URL and send your
+            key in the <C>Authorization</C> header. Browsers can&apos;t set that header on a WebSocket, so connect from
+            a server. Each connection counts as one request.
+          </p>
+          <Code lang="javascript">{`import WebSocket from "ws";
+
+const ws = new WebSocket("${base.replace(/^http/, "ws")}/realtime?model=your-realtime-model", {
+  headers: { Authorization: \`Bearer \${process.env.ADO_API_KEY}\` },
+});`}</Code>
         </section>
 
         {/* Rate Limits */}
         <section id="rate-limits" className={styles.section}>
-          <h2 className={styles.sectionTitle}>Rate limits</h2>
-
-          <div className={styles.limitCards}>
-            <div className={styles.limitCard}>
-              <span className={styles.limitNum}>Daily</span>
-              <span className={styles.limitLabel}>request quota</span>
-            </div>
-            <div className={styles.limitCard}>
-              <span className={styles.limitNum}>UTC</span>
-              <span className={styles.limitLabel}>midnight reset</span>
-            </div>
-          </div>
-
+          <h2 className={styles.sectionTitle}>Limits</h2>
           <p>
-            Each key has a daily request quota, which resets at 00:00 UTC whatever your timezone,
-            and a per-minute limit shared by every endpoint.
-            Calls to <code className={styles.inlineCode}>/models</code> are free and not counted.
-            Your dashboard shows today&apos;s usage.
+            Each key has a daily request quota, which resets at 00:00 UTC whatever your timezone, and a per-minute
+            limit shared by every endpoint. <C>/models</C> calls aren&apos;t counted.
           </p>
+          <YourLimits />
           <p>Every response says where you stand, so your app can slow down before it hits a limit:</p>
           <Code lang="http">{`X-Ado-Quota-Limit: 100
 X-Ado-Quota-Remaining: 58
@@ -531,8 +691,8 @@ X-Ratelimit-Limit-Requests: 20
 X-Ratelimit-Remaining-Requests: 19
 X-Ratelimit-Reset-Requests: 42s`}</Code>
           <p>
-            When the daily quota is used up, the error says when it resets, and{" "}
-            <code className={styles.inlineCode}>Retry-After</code> gives the seconds to wait:
+            When the daily quota is used up, the error says when it resets, and <C>Retry-After</C> gives the
+            seconds to wait:
           </p>
           <Code lang="json">{`HTTP/1.1 429 Too Many Requests
 Retry-After: 22380
@@ -551,19 +711,19 @@ Retry-After: 22380
         {/* Error Codes */}
         <section id="errors" className={styles.section}>
           <h2 className={styles.sectionTitle}>Errors and fixes</h2>
-          <p>All errors follow the same shape, like OpenAI&apos;s:</p>
+          <p>Errors have the same shape as OpenAI&apos;s, so SDKs show the message as they would for OpenAI:</p>
           <Code lang="json">{`{
   "error": {
-    "code": "ERROR_CODE",
-    "type": "invalid_request_error",
-    "message": "human-readable description"
+    "code": "MODEL_NOT_FOUND",
+    "type": "not_found_error",
+    "message": "the model \\"gpt-4\\" isn't available; see https://adoai.space/models for the models you can use"
   }
 }`}</Code>
 
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
-                <tr><th>HTTP</th><th>Code</th><th>What to do</th></tr>
+                <tr><th>Code</th><th>What to do</th></tr>
               </thead>
               <tbody>
                 {[
@@ -577,102 +737,33 @@ Retry-After: 22380
                   { status: "429", code: "TOO_MANY_BAD_KEYS", desc: "Too many requests with an invalid key from your address. Fix the key and wait a few minutes." },
                   { status: "503", code: "NO_PROVIDER",       desc: "No provider could answer right now. Try again shortly or use another model; the Status page shows what's affected." },
                   { status: "503", code: "MAINTENANCE",       desc: "ADO is in maintenance. Try again in a few minutes." },
-                  { status: "500", code: "INTERNAL",          desc: "Unexpected server error. Safe to retry after a short delay." },
+                  { status: "500", code: "INTERNAL",          desc: "Something went wrong on our side. Safe to retry after a short delay." },
                 ].map(({ status, code, desc }) => (
                   <tr key={code}>
-                    <td><span className={styles.statusCode}>{status}</span></td>
-                    <td><code className={styles.paramName}>{code}</code></td>
+                    <td>
+                      <div className={styles.nameCell}>
+                        <span className={styles.statusCode}>{status}</span>
+                        <code className={styles.paramName}>{code}</code>
+                      </div>
+                    </td>
                     <td className={styles.paramDesc}>{desc}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </section>
-
-        {/* cURL */}
-        <section id="example-curl" className={styles.section}>
-          <h2 className={styles.sectionTitle}>cURL</h2>
-          <Code lang="bash">{`# Non-streaming
-curl ${PROXY_BASE}/chat/completions \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "${model}",
-    "messages": [{ "role": "user", "content": "Write a haiku." }]
-  }'
-
-# Streaming
-curl ${PROXY_BASE}/chat/completions \\
-  -H "Authorization: Bearer ado-your-key" \\
-  -H "Content-Type: application/json" \\
-  --no-buffer \\
-  -d '{
-    "model": "${model}",
-    "messages": [{ "role": "user", "content": "Write a haiku." }],
-    "stream": true
-  }'`}</Code>
-        </section>
-
-        {/* JavaScript */}
-        <section id="example-js" className={styles.section}>
-          <h2 className={styles.sectionTitle}>JavaScript</h2>
           <p>
-            Uses the official <code className={styles.inlineCode}>openai</code> npm package,
-            no custom client needed.
+            Errors with a different code come from the model&apos;s provider, passed on as they are.
+            429s and 5xx errors are worth retrying after a wait; other 4xx errors need a change to the request first.
           </p>
-          <Code lang="javascript">{`import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey:  "ado-your-key",
-  baseURL: "${PROXY_BASE}",
-});
-
-// Non-streaming
-const res = await client.chat.completions.create({
-  model:    "${model}",
-  messages: [{ role: "user", content: "Write a haiku." }],
-});
-console.log(res.choices[0].message.content);
-
-// Streaming
-const stream = await client.chat.completions.create({
-  model:    "${model}",
-  messages: [{ role: "user", content: "Write a haiku." }],
-  stream:   true,
-});
-for await (const chunk of stream) {
-  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
-}`}</Code>
-        </section>
-
-        {/* Python */}
-        <section id="example-python" className={styles.section}>
-          <h2 className={styles.sectionTitle}>Python</h2>
-          <p>
-            Uses the official <code className={styles.inlineCode}>openai</code> PyPI package.
-          </p>
-          <Code lang="python">{`from openai import OpenAI
-
-client = OpenAI(
-    api_key  = "ado-your-key",
-    base_url = "${PROXY_BASE}",
-)
-
-# Non-streaming
-response = client.chat.completions.create(
-    model    = "${model}",
-    messages = [{"role": "user", "content": "Write a haiku."}],
-)
-print(response.choices[0].message.content)
-
-# Streaming
-with client.chat.completions.stream(
-    model    = "${model}",
-    messages = [{"role": "user", "content": "Write a haiku."}],
-) as stream:
-    for text in stream.text_stream:
-        print(text, end="", flush=True)`}</Code>
+          <div className={styles.help}>
+            <p className={styles.helpTitle}>Still stuck?</p>
+            <p className={styles.helpBody}>
+              Ask in our <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Discord server</a>,
+              or check the <Link to="/status">Status page</Link> to see if a model is having trouble.
+            </p>
+          </div>
         </section>
 
       </div>

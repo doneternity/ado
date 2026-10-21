@@ -73,3 +73,67 @@ func parseUsage(tail []byte) Usage {
 		}
 	}
 }
+
+// usageChunkFilter drops the usage-only event that stream_options.include_usage
+// adds at the end of a stream ("choices": [] plus "usage"), for clients that
+// didn't ask for it: ADO turns it on to count tokens, and some clients read
+// choices[0] from every chunk and would break on the extra one. It works line
+// by line, carrying an unfinished line over to the next chunk.
+type usageChunkFilter struct {
+	partial   []byte
+	skipBlank bool // the dropped event's blank separator line comes next
+}
+
+func (f *usageChunkFilter) push(p []byte) []byte {
+	data := append(f.partial, p...)
+	var out []byte
+	for {
+		i := bytes.IndexByte(data, '\n')
+		if i < 0 {
+			break
+		}
+		line := data[:i+1]
+		data = data[i+1:]
+		trimmed := bytes.TrimRight(line, "\r\n")
+		if f.skipBlank && len(trimmed) == 0 {
+			f.skipBlank = false
+			continue
+		}
+		f.skipBlank = false
+		if isUsageOnlyEvent(trimmed) {
+			f.skipBlank = true
+			continue
+		}
+		out = append(out, line...)
+	}
+	f.partial = append([]byte(nil), data...)
+	return out
+}
+
+// flush returns an unfinished last line, unless it's the usage-only event.
+func (f *usageChunkFilter) flush() []byte {
+	p := f.partial
+	f.partial = nil
+	if isUsageOnlyEvent(bytes.TrimRight(p, "\r\n")) {
+		return nil
+	}
+	return p
+}
+
+func isUsageOnlyEvent(line []byte) bool {
+	if !bytes.HasPrefix(line, []byte("data:")) {
+		return false
+	}
+	payload := bytes.TrimSpace(line[len("data:"):])
+	if len(payload) == 0 || payload[0] != '{' || !bytes.Contains(payload, usageKey) {
+		return false
+	}
+	var ev struct {
+		Choices []json.RawMessage `json:"choices"`
+		Usage   json.RawMessage   `json:"usage"`
+	}
+	if json.Unmarshal(payload, &ev) != nil {
+		return false
+	}
+	return len(ev.Choices) == 0 && len(ev.Usage) > 0 && string(ev.Usage) != "null"
+}

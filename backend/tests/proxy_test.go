@@ -106,6 +106,15 @@ func TestProxy_QuotaTrips(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("call %d: expected 200, got %d", i, resp.StatusCode)
 		}
+		if i == 0 {
+			// Clients can see what's left of the day and of the minute.
+			if resp.Header.Get("X-Ado-Quota-Remaining") != "49" || resp.Header.Get("X-Ado-Quota-Limit") != "50" || resp.Header.Get("X-Ado-Quota-Reset") == "" {
+				t.Fatalf("quota headers: %v", resp.Header)
+			}
+			if resp.Header.Get("X-Ratelimit-Limit-Requests") == "" || resp.Header.Get("X-Ratelimit-Remaining-Requests") == "" {
+				t.Fatalf("rate-limit headers: %v", resp.Header)
+			}
+		}
 	}
 
 	// 51st call must be rejected.
@@ -123,11 +132,18 @@ func TestProxy_QuotaTrips(t *testing.T) {
 	}
 	var errResp struct {
 		Error struct {
-			Code string `json:"code"`
+			Code     string `json:"code"`
+			Type     string `json:"type"`
+			Message  string `json:"message"`
+			ResetsAt string `json:"resets_at"`
 		} `json:"error"`
 	}
 	json.NewDecoder(resp.Body).Decode(&errResp)
-	if errResp.Error.Code != "QUOTA_EXCEEDED" {
-		t.Fatalf("expected QUOTA_EXCEEDED, got %q", errResp.Error.Code)
+	if errResp.Error.Code != "QUOTA_EXCEEDED" || errResp.Error.Type != "rate_limit_error" {
+		t.Fatalf("expected QUOTA_EXCEEDED / rate_limit_error, got %+v", errResp.Error)
+	}
+	// API users never see the dashboard, so the error says when it resets.
+	if !strings.Contains(errResp.Error.Message, "00:00 UTC") || errResp.Error.ResetsAt == "" || resp.Header.Get("Retry-After") == "" {
+		t.Fatalf("quota error should say when it resets: %+v, Retry-After %q", errResp.Error, resp.Header.Get("Retry-After"))
 	}
 }

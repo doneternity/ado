@@ -87,3 +87,22 @@ func (r *Registry) Pick(ctx context.Context, model string) *Forwarder {
 // UpstreamID is the provider's own ID for a model asked for by its plain ID
 // (see alias.go); other IDs come back unchanged.
 func (f *Forwarder) UpstreamID(model string) string { return f.upstreamID(model) }
+
+// Serves reports whether any provider may serve model. It's false only when
+// every provider's model list is known and none lists it (after one fresh
+// look, as rarely as forModel allows), so a provider whose list can't be read
+// never turns a real model into "not found".
+func (r *Registry) Serves(ctx context.Context, model string) bool {
+	chain := r.Get()
+	if len(chain) == 0 {
+		return true // no providers at all is reported as NO_PROVIDER instead
+	}
+	serving, unknown := splitByModel(chain, model)
+	if len(serving) == 0 && time.Since(time.Unix(0, r.lastRefresh.Load())) > modelRefreshEvery {
+		rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		r.refreshModels(rctx)
+		cancel()
+		serving, unknown = splitByModel(chain, model)
+	}
+	return len(serving) > 0 || len(unknown) > 0
+}

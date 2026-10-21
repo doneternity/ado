@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,6 +42,82 @@ const statusClientClosed = 499
 // clientGone reports whether a forward ended because the client disconnected.
 func clientGone(r *http.Request, err error) bool {
 	return r.Context().Err() != nil || errors.Is(err, context.Canceled)
+}
+
+// checkModel answers for the model field before anything is charged: a missing
+// model gets a clear 400, and one no provider lists gets ADO's own 404 (rather
+// than a provider's "unknown model" error naming the provider). required is
+// false for endpoints where the model is optional or the body isn't JSON.
+func (p *Proxy) checkModel(w http.ResponseWriter, r *http.Request, model string, required bool) bool {
+	if len(model) > maxModelName {
+		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "model name too long"))
+		return false
+	}
+	if strings.TrimSpace(model) == "" {
+		if required {
+			apperr.Write(w, apperr.BadRequest("MODEL_REQUIRED", "the model field is required; see https://adoai.space/models for the models you can use"))
+			return false
+		}
+		return true
+	}
+	if !p.d.Registry.Serves(r.Context(), model) {
+		apperr.Write(w, apperr.NotFound("MODEL_NOT_FOUND", fmt.Sprintf("the model %q isn't available; see https://adoai.space/models for the models you can use", model)))
+		return false
+	}
+	return true
+}
+
+// nextQuotaReset is when today's quota resets: the next midnight UTC, the
+// same day boundary daily_usage uses.
+func nextQuotaReset(now time.Time) time.Time {
+	y, m, d := now.UTC().Date()
+	return time.Date(y, m, d+1, 0, 0, 0, 0, time.UTC)
+}
+
+// charge takes one request from the key's daily quota. On success it sets the
+// X-Ado-Quota-* headers so clients can see what's left; when the quota is
+// used up it answers 429 with the reset time and a Retry-After, since API
+// users never see the dashboard. false means the response has been written.
+func (p *Proxy) charge(w http.ResponseWriter, r *http.Request, bk mw.BearerKeyContext) bool {
+	reset := nextQuotaReset(time.Now())
+	used, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit)
+	if errors.Is(err, quota.ErrExceeded) {
+		wait := time.Until(reset)
+		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+		setQuotaHeaders(w, bk.DailyLimit, bk.DailyLimit, reset)
+		apperr.Write(w, apperr.TooMany("QUOTA_EXCEEDED", fmt.Sprintf(
+			"you've used all %d requests for today; the quota resets at 00:00 UTC, in %s",
+			bk.DailyLimit, roughDuration(wait))).
+			WithExtra("limit", bk.DailyLimit).
+			WithExtra("resets_at", reset.Format(time.RFC3339)))
+		return false
+	}
+	if err != nil {
+		apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
+		return false
+	}
+	setQuotaHeaders(w, bk.DailyLimit, used, reset)
+	return true
+}
+
+func setQuotaHeaders(w http.ResponseWriter, limit, used int32, reset time.Time) {
+	h := w.Header()
+	h.Set("X-Ado-Quota-Limit", strconv.Itoa(int(limit)))
+	h.Set("X-Ado-Quota-Remaining", strconv.Itoa(int(max(0, limit-used))))
+	h.Set("X-Ado-Quota-Reset", reset.Format(time.RFC3339))
+}
+
+// roughDuration: "6h 12m", "41m", "under a minute".
+func roughDuration(d time.Duration) string {
+	mins := int(d.Minutes())
+	switch {
+	case mins < 1:
+		return "under a minute"
+	case mins < 60:
+		return fmt.Sprintf("%dm", mins)
+	default:
+		return fmt.Sprintf("%dh %dm", mins/60, mins%60)
+	}
 }
 
 // refund returns the quota unit charged for this request. It runs detached
@@ -116,13 +194,12 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		Stream bool   `json:"stream"`
 	}
 	_ = json.Unmarshal(data, &meta)
-	if len(meta.Model) > maxModelName {
-		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "model name too long"))
-		return
-	}
 	note := mw.RequestNoteFrom(r.Context())
 	if note != nil {
 		note.Model, note.Stream = meta.Model, meta.Stream
+	}
+	if !p.checkModel(w, r, meta.Model, true) {
+		return
 	}
 
 	// When the key has reasoning mode on, ask the model to show its step-by-step
@@ -131,17 +208,19 @@ func (p *Proxy) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		data = injectReasoning(data)
 	}
 
-	if _, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit); err != nil {
-		if errors.Is(err, quota.ErrExceeded) {
-			apperr.Write(w, apperr.TooMany("QUOTA_EXCEEDED", "daily quota exceeded").
-				WithExtra("limit", bk.DailyLimit))
-			return
-		}
-		apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
+	// Streams only report token usage when asked to; ask, so usage is logged
+	// (and counted once plans go by tokens), and hide the extra chunk from a
+	// client that didn't ask for it.
+	var opts proxy.ForwardOptions
+	if meta.Stream {
+		data, opts.HideUsageChunk = withStreamUsage(data)
+	}
+
+	if !p.charge(w, r, bk) {
 		return
 	}
 	start := time.Now()
-	res, ferr := p.d.Registry.Forward(w, r, "/chat/completions", data)
+	res, ferr := p.d.Registry.ForwardWith(w, r, "/chat/completions", data, opts)
 	noteResult(note, res)
 	if !res.Started {
 		// Nothing reached the client, so nothing was used: refund.
@@ -187,6 +266,36 @@ func (p *Proxy) Models(w http.ResponseWriter, r *http.Request) {
 }
 
 const reasoningInstruction = "Before giving your final answer, reason through the problem step by step and show that reasoning in your reply. Lay out your thinking first, then clearly present your final answer."
+
+// withStreamUsage turns on stream_options.include_usage for a streaming chat
+// request whose client didn't set it, keeping every other field as sent.
+// added reports whether it did; a client's own choice (true or false) stands.
+func withStreamUsage(body []byte) (out []byte, added bool) {
+	var payload map[string]json.RawMessage
+	if json.Unmarshal(body, &payload) != nil {
+		return body, false
+	}
+	opts := map[string]json.RawMessage{}
+	if raw, ok := payload["stream_options"]; ok && string(raw) != "null" {
+		if json.Unmarshal(raw, &opts) != nil {
+			return body, false
+		}
+		if _, set := opts["include_usage"]; set {
+			return body, false
+		}
+	}
+	opts["include_usage"] = json.RawMessage("true")
+	raw, err := json.Marshal(opts)
+	if err != nil {
+		return body, false
+	}
+	payload["stream_options"] = raw
+	out, err = json.Marshal(payload)
+	if err != nil {
+		return body, false
+	}
+	return out, true
+}
 
 // injectReasoning adds a step-by-step reasoning instruction to a chat-completions
 // body. It appends to an existing leading system message, or prepends a new one.
@@ -287,22 +396,15 @@ func (p *Proxy) Passthrough(upstreamPath string) http.HandlerFunc {
 				Stream bool   `json:"stream"`
 			}
 			_ = json.Unmarshal(data, &meta)
-			if len(meta.Model) > maxModelName {
-				apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "model name too long"))
-				return
-			}
 			if note != nil {
 				note.Model, note.Stream = meta.Model, meta.Stream
 			}
-		}
-
-		if _, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit); err != nil {
-			if errors.Is(err, quota.ErrExceeded) {
-				apperr.Write(w, apperr.TooMany("QUOTA_EXCEEDED", "daily quota exceeded").
-					WithExtra("limit", bk.DailyLimit))
+			if !p.checkModel(w, r, meta.Model, false) {
 				return
 			}
-			apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
+		}
+
+		if !p.charge(w, r, bk) {
 			return
 		}
 
@@ -355,12 +457,11 @@ func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	model := r.URL.Query().Get("model")
-	if len(model) > maxModelName {
-		apperr.Write(w, apperr.BadRequest("INVALID_INPUT", "model name too long"))
-		return
-	}
 	if note := mw.RequestNoteFrom(r.Context()); note != nil {
 		note.Model, note.Stream = model, true
+	}
+	if !p.checkModel(w, r, model, false) {
+		return
 	}
 	fwd := p.d.Registry.Pick(r.Context(), model)
 	if fwd == nil {
@@ -372,13 +473,7 @@ func (p *Proxy) Realtime(w http.ResponseWriter, r *http.Request) {
 		apperr.Write(w, apperr.ServiceUnavailable("NO_PROVIDER", "upstream provider unavailable"))
 		return
 	}
-	if _, err := p.d.Quota.Charge(r.Context(), bk.KeyID, bk.DailyLimit); err != nil {
-		if errors.Is(err, quota.ErrExceeded) {
-			apperr.Write(w, apperr.TooMany("QUOTA_EXCEEDED", "daily quota exceeded").
-				WithExtra("limit", bk.DailyLimit))
-			return
-		}
-		apperr.Write(w, apperr.Internal("INTERNAL", "quota"))
+	if !p.charge(w, r, bk) {
 		return
 	}
 	rp := &httputil.ReverseProxy{

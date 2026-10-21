@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -79,5 +80,22 @@ func TestInjectReasoning_KeepsOtherFieldsExact(t *testing.T) {
 	got := messages(t, out)
 	if len(got) != 2 || got[1]["name"] != "bob" {
 		t.Fatalf("messages: %+v", got)
+	}
+}
+
+func TestWithStreamUsage(t *testing.T) {
+	out, added := withStreamUsage([]byte(`{"model":"x","stream":true,"seed":9007199254740993}`))
+	if !added || !strings.Contains(string(out), `"stream_options":{"include_usage":true}`) || !strings.Contains(string(out), "9007199254740993") {
+		t.Fatalf("added=%v out=%s", added, out)
+	}
+	// Merged into existing options.
+	out, added = withStreamUsage([]byte(`{"stream":true,"stream_options":{"other":1}}`))
+	if !added || !strings.Contains(string(out), `"include_usage":true`) || !strings.Contains(string(out), `"other":1`) {
+		t.Fatalf("merge: added=%v out=%s", added, out)
+	}
+	// A client's own choice stands, and nothing gets hidden from it.
+	body := []byte(`{"stream":true,"stream_options":{"include_usage":false}}`)
+	if out, added := withStreamUsage(body); added || string(out) != string(body) {
+		t.Fatalf("client choice: added=%v out=%s", added, out)
 	}
 }

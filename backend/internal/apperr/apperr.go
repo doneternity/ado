@@ -47,7 +47,7 @@ func Write(w http.ResponseWriter, err error) {
 	}
 
 	body := map[string]any{
-		"error": map[string]any{"code": ae.Code, "message": ae.Message},
+		"error": map[string]any{"code": ae.Code, "message": ae.Message, "type": errorType(ae.Status)},
 	}
 	if len(ae.Extra) > 0 {
 		errMap := body["error"].(map[string]any)
@@ -59,4 +59,23 @@ func Write(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(ae.Status)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+// errorType is OpenAI's error "type" for a status, so OpenAI-compatible
+// clients classify ADO's errors the way they do OpenAI's.
+func errorType(status int) string {
+	switch {
+	case status == http.StatusUnauthorized:
+		return "authentication_error"
+	case status == http.StatusForbidden:
+		return "permission_error"
+	case status == http.StatusNotFound:
+		return "not_found_error"
+	case status == http.StatusTooManyRequests:
+		return "rate_limit_error"
+	case status >= 500:
+		return "api_error"
+	default:
+		return "invalid_request_error"
+	}
 }

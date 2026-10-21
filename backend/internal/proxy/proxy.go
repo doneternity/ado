@@ -217,10 +217,23 @@ type ForwardResult struct {
 	Usage    Usage  // token counts, when the provider reported them
 }
 
+// ForwardOptions adjusts one Forward call.
+type ForwardOptions struct {
+	// HideUsageChunk drops the usage-only stream event from what the client
+	// receives (its usage is still read): set when ADO turned on
+	// stream_options.include_usage and the client hadn't.
+	HideUsageChunk bool
+}
+
 // Forward streams the first non-failover provider response to the client.
 // tripped providers are tried last so an all-down state still gets an attempt,
 // and it stops early if the client has disconnected.
 func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string, body []byte) (ForwardResult, error) {
+	return r.ForwardWith(w, req, path, body, ForwardOptions{})
+}
+
+// ForwardWith is Forward with options.
+func (r *Registry) ForwardWith(w http.ResponseWriter, req *http.Request, path string, body []byte, opts ForwardOptions) (ForwardResult, error) {
 	chain := r.Get()
 	if len(chain) == 0 {
 		return ForwardResult{}, errors.New("no provider configured")
@@ -271,7 +284,11 @@ func (r *Registry) Forward(w http.ResponseWriter, req *http.Request, path string
 		f.resetBreaker()
 		// Keep the end of the response to read its token usage; content is not kept.
 		tail := newTailBuffer(16 << 10)
-		serr := streamResponse(w, resp, cancel, tail, swap)
+		var filter *usageChunkFilter
+		if opts.HideUsageChunk {
+			filter = &usageChunkFilter{}
+		}
+		serr := streamResponse(w, resp, cancel, tail, swap, filter)
 		return ForwardResult{Started: true, Status: resp.StatusCode, Provider: f.BaseURL, Attempts: attempts, Usage: parseUsage(tail.Bytes())}, serr
 	}
 	return ForwardResult{Attempts: attempts}, lastErr
@@ -504,16 +521,15 @@ func (f *Forwarder) setModels(list []map[string]any) []map[string]any {
 	return out
 }
 
-// withStatus returns a copy of the model list with each item's ado_status set
-// from the health tracker. It copies each map so the cached list (shared across
-// requests) is never mutated.
+// withStatus returns the model list as ADO publishes it: only publicFields
+// (providers add their own, such as prices, internal flags or which reseller
+// they are, and those stay private), owned_by only when it names a model
+// maker, and ado_status from the health tracker. It builds new maps, so the
+// cached list (shared across requests) is never mutated.
 func (r *Registry) withStatus(list []map[string]any) []map[string]any {
 	out := make([]map[string]any, len(list))
 	for i, m := range list {
-		cp := make(map[string]any, len(m)+1)
-		for k, v := range m {
-			cp[k] = v
-		}
+		cp := publicModel(m)
 		status := "available"
 		if id, _ := m["id"].(string); id != "" {
 			if s := r.health.Status(id); s != "" {
@@ -524,6 +540,59 @@ func (r *Registry) withStatus(list []map[string]any) []map[string]any {
 		out[i] = cp
 	}
 	return out
+}
+
+// publicFields are the /models fields passed on as the provider sent them.
+var publicFields = []string{
+	"id", "object", "created", "name", "display_name",
+	"context_length", "context_window", "max_output_tokens",
+	"input_modalities", "output_modalities", "effort", "reasoning", "supported_parameters",
+}
+
+// publicCapabilities are the parts of a provider's capabilities object the
+// site reads (context size, image input, reasoning).
+var publicCapabilities = []string{"contextWindow", "vision", "reasoning"}
+
+// modelMakers are owned_by values worth passing on: they name who made the
+// model, which the site uses to group models. Anything else (a reseller's own
+// name, "system", "organization-owner") becomes "ado".
+var modelMakers = []string{
+	"deepseek", "openai", "anthropic", "google", "xai", "x-ai", "z-ai", "zai", "zhipu",
+	"moonshot", "kimi", "meta", "mistral", "qwen", "alibaba", "cohere", "microsoft", "nvidia", "amazon",
+}
+
+func publicModel(m map[string]any) map[string]any {
+	cp := make(map[string]any, len(publicFields)+3)
+	for _, k := range publicFields {
+		if v, ok := m[k]; ok {
+			cp[k] = v
+		}
+	}
+	if _, ok := cp["object"]; !ok {
+		cp["object"] = "model"
+	}
+	cp["owned_by"] = "ado"
+	if owner, _ := m["owned_by"].(string); owner != "" {
+		l := strings.ToLower(owner)
+		for _, maker := range modelMakers {
+			if strings.Contains(l, maker) {
+				cp["owned_by"] = owner
+				break
+			}
+		}
+	}
+	if caps, ok := m["capabilities"].(map[string]any); ok {
+		kept := map[string]any{}
+		for _, k := range publicCapabilities {
+			if v, ok := caps[k]; ok {
+				kept[k] = v
+			}
+		}
+		if len(kept) > 0 {
+			cp["capabilities"] = kept
+		}
+	}
+	return cp
 }
 
 func isFailoverStatus(code int) bool {
@@ -541,7 +610,8 @@ const streamIdleTimeout = 120 * time.Second
 // cancels the upstream request; it fires on idle (watchdog) and on return.
 // tail, if non-nil, receives a copy of what is streamed (it keeps only the end).
 // swap, if non-nil, replaces the provider's tagged model ID in the body.
-func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer, swap *quotedSwap) error {
+// filter, if non-nil, drops the usage-only event after tail has seen it.
+func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.CancelFunc, tail *tailBuffer, swap *quotedSwap, filter *usageChunkFilter) error {
 	defer resp.Body.Close()
 	defer cancel()
 	for _, k := range forwardedResponseHeaders {
@@ -559,6 +629,16 @@ func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.C
 
 	rc := http.NewResponseController(w)
 	buf := make([]byte, 4096)
+	send := func(p []byte) error {
+		if len(p) == 0 {
+			return nil
+		}
+		if _, werr := w.Write(p); werr != nil {
+			return werr
+		}
+		_ = rc.Flush()
+		return nil
+	}
 	write := func(p []byte) error {
 		if len(p) == 0 {
 			return nil
@@ -566,11 +646,10 @@ func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.C
 		if tail != nil {
 			tail.Write(p)
 		}
-		if _, werr := w.Write(p); werr != nil {
-			return werr
+		if filter != nil {
+			p = filter.push(p)
 		}
-		_ = rc.Flush()
-		return nil
+		return send(p)
 	}
 	for {
 		n, rerr := resp.Body.Read(buf)
@@ -586,7 +665,12 @@ func streamResponse(w http.ResponseWriter, resp *http.Response, cancel context.C
 		}
 		if errors.Is(rerr, io.EOF) {
 			if swap != nil {
-				return write(swap.flush())
+				if werr := write(swap.flush()); werr != nil {
+					return werr
+				}
+			}
+			if filter != nil {
+				return send(filter.flush())
 			}
 			return nil
 		}

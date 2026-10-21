@@ -125,6 +125,8 @@ func NewRouter(d Deps) http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.CORSPublic)
+		// An address sending bad keys is cut off for a while, before the lookup.
+		r.Use(d.Limiter.LimitFailedAuth("rl:v1:badkey:ip", 50, 10*time.Minute))
 		r.Use(mw.Bearer(d.Queries))
 		// One request_log row per keyed API call (metadata only, see the middleware).
 		r.Use(mw.RequestLog(d.Queries, "/api/v1"))
@@ -136,7 +138,8 @@ func NewRouter(d Deps) http.Handler {
 		// OpenAI-compatible passthrough endpoints. They share one per-key rate
 		// limit and forward to the upstream provider with failover.
 		r.Group(func(r chi.Router) {
-			r.Use(d.Limiter.PerKeyDynamic("rl:v1:passthrough:key", d.RpmCfg.Get, time.Minute, false))
+			// Same bucket as chat: a key's per-minute limit covers all endpoints.
+			r.Use(d.Limiter.PerKeyDynamic("rl:v1:chat:key", d.RpmCfg.Get, time.Minute, false))
 			r.Post("/embeddings", d.Proxy.Passthrough("/embeddings"))
 			r.Post("/images/generations", d.Proxy.Passthrough("/images/generations"))
 			r.Post("/images/edits", d.Proxy.Passthrough("/images/edits"))

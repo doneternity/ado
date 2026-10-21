@@ -54,4 +54,34 @@ describe("reportError", () => {
     reportError("promise", { reason: "boom" });
     expect(sentBodies()[0].message).toBe('Error: {"reason":"boom"}');
   });
+
+  it("tells our own scripts from ones a browser or extension injected", async () => {
+    const { isOurScript } = await load();
+    const origin = window.location.origin;
+    expect(isOurScript(`${origin}/assets/index-abc.js`, undefined)).toBe(true);
+    // Firefox for iOS / Dark Reader report the page itself as the file.
+    expect(isOurScript(`${origin}/sign-up`, undefined)).toBe(false);
+    expect(isOurScript(undefined, `global code@${origin}/sign-up:1:11`)).toBe(false);
+    expect(isOurScript(undefined, `at x (${origin}/assets/Dashboard-abc.js:1:2)`)).toBe(true);
+    expect(isOurScript(undefined, undefined)).toBe(false);
+  });
+
+  it("doesn't report injected-script errors that reach the window", async () => {
+    const { installErrorReporting } = await load();
+    installErrorReporting();
+    const origin = window.location.origin;
+    window.dispatchEvent(new ErrorEvent("error", {
+      message: "ReferenceError: Can't find variable: DarkReader",
+      filename: `${origin}/sign-up`,
+      error: new ReferenceError("Can't find variable: DarkReader"),
+    }));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    window.dispatchEvent(new ErrorEvent("error", {
+      message: "TypeError: boom",
+      filename: `${origin}/assets/index-abc.js`,
+      error: new TypeError("boom"),
+    }));
+    expect(fetchMock).toHaveBeenCalled();
+  });
 });

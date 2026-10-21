@@ -37,15 +37,28 @@ export function reportError(kind: ErrorKind, err: unknown): void {
   }
 }
 
+// Our code only ever runs from built files under /assets/ (the CSP blocks
+// inline scripts). Anything else is a script a browser or extension injected
+// into the page (Firefox for iOS's __firefox__, Dark Reader, crypto wallets),
+// which reports the page itself as its file. Not our bug, so not reported.
+export function isOurScript(filename: string | undefined, stack: string | undefined): boolean {
+  const assets = window.location.origin + "/assets/";
+  if (filename) return filename.startsWith(assets);
+  return !!stack && stack.includes(assets);
+}
+
 // Catches errors that happen outside React rendering (event handlers, timers,
 // promises nobody awaited). Rendering errors go through RouteError.
 export function installErrorReporting(): void {
   window.addEventListener("error", (e) => {
-    // Only our own scripts: errors from browser extensions aren't our bugs.
-    if (!e.filename?.startsWith(window.location.origin)) return;
+    if (!isOurScript(e.filename, e.error instanceof Error ? e.error.stack : undefined)) return;
     reportError("error", e.error ?? e.message);
   });
-  window.addEventListener("unhandledrejection", (e) => reportError("promise", e.reason));
+  window.addEventListener("unhandledrejection", (e) => {
+    const stack = e.reason instanceof Error ? e.reason.stack : undefined;
+    if (!isOurScript(undefined, stack)) return;
+    reportError("promise", e.reason);
+  });
 }
 
 function describe(v: unknown): string {

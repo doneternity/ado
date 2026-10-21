@@ -48,6 +48,20 @@ func TestClientErrors_StoresReport(t *testing.T) {
 		t.Fatalf("oversized report: status %d, want 400", code)
 	}
 
+	// Scripts a browser or extension injects into the page (these are real
+	// reports from Firefox for iOS and Dark Reader) are accepted but dropped:
+	// their stacks never touch the site's own /assets/ files.
+	for _, injected := range []map[string]string{
+		{"kind": "error", "message": "TypeError: undefined is not an object (evaluating 'window.__firefox__.reader')", "stack": "global code@https://adoai.space/:1:19", "page": "/"},
+		{"kind": "error", "message": "ReferenceError: Can't find variable: DarkReader", "stack": "global code@https://adoai.space/sign-up:1:11", "page": "/sign-up"},
+		{"kind": "promise", "message": "Error: {}", "stack": "", "page": "/"},
+	} {
+		b, _ := json.Marshal(injected)
+		if code := post(string(b)); code != http.StatusNoContent {
+			t.Fatalf("injected script report: status %d, want 204", code)
+		}
+	}
+
 	logs, err := q.ListErrorLogs(ctx, db.ListErrorLogsParams{Limit: 10})
 	if err != nil || len(logs) != 1 {
 		t.Fatalf("ListErrorLogs: %v, %d rows (want 1)", err, len(logs))

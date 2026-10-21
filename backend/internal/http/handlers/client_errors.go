@@ -67,6 +67,16 @@ func (h *ClientErrors) Report(w http.ResponseWriter, r *http.Request) {
 	default:
 		kind = "error"
 	}
+	// The site's own code only runs from built files under /assets/ (the CSP
+	// blocks inline scripts). A script error or rejection whose stack never
+	// touches them came from something injected into the page: Firefox for
+	// iOS (__firefox__), Dark Reader, wallet extensions. Not our bug, and it
+	// mustn't set off the crash alert. Render errors always pass through our
+	// code, so they're kept.
+	if kind != "render" && !strings.Contains(req.Stack, "/assets/") {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	raw, _ := json.Marshal(map[string]string{
 		"source": "frontend",
 		"kind":   kind,

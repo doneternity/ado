@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,23 +31,67 @@ func Bind[T any](r *http.Request, dst *T, opts ...Option) error {
 	m := r.Method
 	if m == http.MethodPost || m == http.MethodPut || m == http.MethodPatch {
 		if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
-			return fmt.Errorf("Content-Type must be application/json")
+			return fmt.Errorf("the Content-Type header must be application/json")
 		}
 	}
 	data, err := io.ReadAll(io.LimitReader(r.Body, o.maxBytes+1))
 	if err != nil {
-		return fmt.Errorf("could not read request body")
+		return fmt.Errorf("could not read the request body")
 	}
 	if int64(len(data)) > o.maxBytes {
-		return fmt.Errorf("request body too large")
+		return fmt.Errorf("the request body is too large (%s at most)", Size(o.maxBytes))
 	}
 	if len(data) == 0 {
-		return fmt.Errorf("request body is empty")
+		return fmt.Errorf("the request body is empty")
 	}
 	if err := json.Unmarshal(data, dst); err != nil {
-		return fmt.Errorf("invalid JSON")
+		return errors.New(JSONError(err))
 	}
 	return nil
+}
+
+// JSONError describes a json.Unmarshal error for the client: where the
+// syntax breaks, or which field has the wrong type.
+func JSONError(err error) string {
+	var se *json.SyntaxError
+	var te *json.UnmarshalTypeError
+	switch {
+	case errors.As(err, &se):
+		return fmt.Sprintf("the request body isn't valid JSON: %s (at character %d)", se.Error(), se.Offset)
+	case errors.As(err, &te) && te.Field != "":
+		return fmt.Sprintf("%q should be %s, not %s", te.Field, jsonKind(te.Type.Kind().String()), te.Value)
+	case errors.As(err, &te):
+		return fmt.Sprintf("the request body should be a JSON object, not %s", te.Value)
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "the request body isn't valid JSON: it ends too early"
+	default:
+		return "the request body isn't valid JSON"
+	}
+}
+
+func jsonKind(goKind string) string {
+	switch goKind {
+	case "string":
+		return "a string"
+	case "bool":
+		return "true or false"
+	case "slice", "array":
+		return "a list"
+	case "map", "struct":
+		return "an object"
+	case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
+		return "a number"
+	default:
+		return "a different type"
+	}
+}
+
+// Size formats a byte limit for messages: "64 KB", "16 MB".
+func Size(n int64) string {
+	if n >= 1<<20 {
+		return fmt.Sprintf("%d MB", n>>20)
+	}
+	return fmt.Sprintf("%d KB", n>>10)
 }
 
 // Fields returns a new Validator for fluent field checks.

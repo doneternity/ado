@@ -2,6 +2,7 @@ package validate_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -85,7 +86,7 @@ func TestBind_BodyAtExactCap(t *testing.T) {
 	r.Header.Set("Content-Type", "application/json")
 	var dst testReq
 	err := validate.Bind(r, &dst)
-	if err != nil && err.Error() == "request body too large" {
+	if err != nil && strings.Contains(err.Error(), "too large") {
 		t.Fatalf("64 KB body should not be rejected as too large, got: %v", err)
 	}
 }
@@ -191,5 +192,24 @@ func TestFields_FirstErrorOnly(t *testing.T) {
 	msg := v.Err().Error()
 	if strings.Contains(msg, "b") {
 		t.Fatalf("expected only first error (about 'a'), got: %s", msg)
+	}
+}
+
+func TestJSONError_SaysWhatIsWrong(t *testing.T) {
+	type req struct {
+		Name string `json:"name"`
+		N    int    `json:"n"`
+	}
+	for body, want := range map[string]string{
+		`{"name": "x",}`: "isn't valid JSON: invalid character '}'",
+		`{"name": 5}`:    `"name" should be a string, not number`,
+		`{"n": "five"}`:  `"n" should be a number, not string`,
+		`[1]`:            "should be a JSON object, not array",
+	} {
+		var dst req
+		err := json.Unmarshal([]byte(body), &dst)
+		if got := validate.JSONError(err); !strings.Contains(got, want) {
+			t.Errorf("%s: %q, want %q", body, got, want)
+		}
 	}
 }

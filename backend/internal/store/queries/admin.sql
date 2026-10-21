@@ -74,3 +74,9 @@ WHERE revoked_at IS NULL
     last_used_at < $1
     OR (last_used_at IS NULL AND created_at < $1)
   );
+
+-- name: DatabaseSize :one
+-- The whole database (what Supabase's free-tier 500 MB limit counts) and the
+-- request log, which is nearly all of the growth.
+SELECT pg_database_size(current_database())::bigint AS total_bytes,
+       pg_total_relation_size('request_log')::bigint AS request_log_bytes;

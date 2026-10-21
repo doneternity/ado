@@ -8,6 +8,13 @@ import (
 	"github.com/ado/ado/backend/internal/store/db"
 )
 
+// DatabaseLimitBytes is Supabase's free-plan database size. Admin shows the
+// size against it, and an alert goes out at DatabaseAlertBytes.
+const (
+	DatabaseLimitBytes = 500 << 20
+	DatabaseAlertBytes = 400 << 20
+)
+
 type AdminStats struct{ q *db.Queries }
 
 func NewAdminStats(q *db.Queries) *AdminStats { return &AdminStats{q: q} }
@@ -49,6 +56,11 @@ func (h *AdminStats) Get(w http.ResponseWriter, r *http.Request) {
 		"activeProviders": activeProviders,
 		"daily":           dailyOut,
 		"topUsers":        topOut,
+	}
+	if size, err := h.q.DatabaseSize(r.Context()); err == nil {
+		out["dbBytes"] = size.TotalBytes
+		out["requestLogBytes"] = size.RequestLogBytes
+		out["dbLimitBytes"] = DatabaseLimitBytes
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)

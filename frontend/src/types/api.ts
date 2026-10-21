@@ -97,6 +97,10 @@ export type AdminStats = {
   activeProviders: number;
   daily: { day: string; total: number }[];
   topUsers: { email: string; total: number }[];
+  // Database size against the free-plan limit (absent if it couldn't be read).
+  dbBytes?: number;
+  requestLogBytes?: number;
+  dbLimitBytes?: number;
 };
 
 export type AdminQuotas = {

@@ -22,6 +22,8 @@ export function AdminOverview() {
   // necessarily today. Match today's UTC date (quota convention is UTC midnight).
   const todayUtc = new Date().toISOString().slice(0, 10);
   const requestsToday = stats?.daily?.find((d) => d.day === todayUtc)?.total ?? 0;
+  const mb = (b: number) => Math.round(b / (1 << 20));
+  const dbPct = stats?.dbBytes && stats.dbLimitBytes ? Math.round((stats.dbBytes / stats.dbLimitBytes) * 100) : null;
 
   return (
     <motion.div {...fade}>
@@ -50,6 +52,17 @@ export function AdminOverview() {
           <div className={styles.statValue}>
             {requestsToday}
           </div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>Database</div>
+          <div className={`${styles.statValue}${dbPct !== null && dbPct >= 80 ? ` ${styles.statValueWarn}` : ""}`}>
+            {stats?.dbBytes !== undefined ? `${mb(stats.dbBytes)} MB` : "—"}
+          </div>
+          {stats?.dbBytes !== undefined && stats.dbLimitBytes !== undefined && (
+            <div className={styles.statSub}>
+              {dbPct}% of {mb(stats.dbLimitBytes)} MB · request log {mb(stats.requestLogBytes ?? 0)} MB
+            </div>
+          )}
         </div>
       </div>
 

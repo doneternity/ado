@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -207,6 +208,22 @@ func main() {
 	every(ctx, time.Hour, func(ctx context.Context) {
 		handlers.ReapInactiveKeys(ctx, queries, maint)
 	})
+	// Database size against Supabase's free-plan limit: an alert once a day
+	// while it's past 80%, before writes start failing.
+	var lastSizeAlert time.Time
+	every(ctx, time.Hour, func(ctx context.Context) {
+		size, err := queries.DatabaseSize(ctx)
+		if err != nil {
+			slog.Warn("database size", "err", err)
+			return
+		}
+		if size.TotalBytes >= handlers.DatabaseAlertBytes && time.Since(lastSizeAlert) > 24*time.Hour {
+			lastSizeAlert = time.Now()
+			sendAlert(fmt.Sprintf("the database is %d MB of the free plan's %d MB (the request log is %d MB). Shorten requestLogRetentionDays in cmd/api/main.go or upgrade the Supabase plan.",
+				size.TotalBytes>>20, handlers.DatabaseLimitBytes>>20, size.RequestLogBytes>>20))
+		}
+	})
+
 	// Retention cleanup: error logs 30 days, daily usage counters and request
 	// logs 90 days, the admin audit log a year.
 	every(ctx, time.Hour, func(ctx context.Context) {

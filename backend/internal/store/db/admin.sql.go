@@ -72,6 +72,25 @@ func (q *Queries) DailyRequestCounts(ctx context.Context) ([]DailyRequestCountsR
 	return items, nil
 }
 
+const databaseSize = `-- name: DatabaseSize :one
+SELECT pg_database_size(current_database())::bigint AS total_bytes,
+       pg_total_relation_size('request_log')::bigint AS request_log_bytes
+`
+
+type DatabaseSizeRow struct {
+	TotalBytes      int64
+	RequestLogBytes int64
+}
+
+// The whole database (what Supabase's free-tier 500 MB limit counts) and the
+// request log, which is nearly all of the growth.
+func (q *Queries) DatabaseSize(ctx context.Context) (DatabaseSizeRow, error) {
+	row := q.db.QueryRow(ctx, databaseSize)
+	var i DatabaseSizeRow
+	err := row.Scan(&i.TotalBytes, &i.RequestLogBytes)
+	return i, err
+}
+
 const listUsersAdmin = `-- name: ListUsersAdmin :many
 SELECT u.id, u.email, u.display_name, u.role, u.banned, u.created_at, u.daily_quota_override, u.plan_id,
        COALESCE(SUM(du.used), 0)::int4 AS requests_today,

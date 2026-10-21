@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -15,7 +16,12 @@ import (
 	"github.com/ado/ado/backend/internal/apperr"
 )
 
-type Limiter struct{ rdb *redis.Client }
+type Limiter struct {
+	rdb *redis.Client
+	// blocked holds addresses cut off by LimitFailedAuth (IP → time.Time it
+	// ends), so a good request doesn't need a Redis read to learn it isn't.
+	blocked sync.Map
+}
 
 func NewLimiter(rdb *redis.Client) *Limiter { return &Limiter{rdb: rdb} }
 
@@ -134,6 +140,19 @@ func (l *Limiter) PerKeyDynamic(prefix string, getLimit func() int, window time.
 	}
 }
 
+// block cuts ip off until the given time, and forgets blocks that have ended
+// (there are only ever a few, so the sweep is cheap).
+func (l *Limiter) block(ip string, until time.Time) {
+	now := time.Now()
+	l.blocked.Range(func(k, v any) bool {
+		if v.(time.Time).Before(now) {
+			l.blocked.Delete(k)
+		}
+		return true
+	})
+	l.blocked.Store(ip, until)
+}
+
 // RPMUsed returns the current per-minute request count for a key ID.
 func (l *Limiter) RPMUsed(ctx context.Context, keyID string) int64 {
 	v, _ := l.rdb.Get(ctx, "rl:v1:chat:key:"+keyID).Int64()
@@ -173,8 +192,10 @@ func waitFor(d time.Duration) string {
 
 // LimitFailedAuth stops floods of bad keys from one IP: once its requests have
 // failed authentication (401) limit times within window, further requests get
-// 429 until the window ends, before any database lookup. Fails open if Redis
-// is unavailable.
+// 429 until the window ends, before any database lookup. The count is shared
+// in Redis but only touched after a 401; the block itself is remembered in
+// memory, so good requests cost no Redis command (Upstash's free plan counts
+// every one). Fails open if Redis is unavailable.
 func (l *Limiter) LimitFailedAuth(prefix string, limit int, window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,22 +203,24 @@ func (l *Limiter) LimitFailedAuth(prefix string, limit int, window time.Duration
 				next.ServeHTTP(w, r)
 				return
 			}
-			key := prefix + ":" + ClientIP(r)
-			if n, err := l.rdb.Get(r.Context(), key).Int64(); err == nil && n >= int64(limit) {
-				wait := "a few minutes"
-				if ttl, err := l.rdb.PTTL(r.Context(), key).Result(); err == nil && ttl > 0 {
-					w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(ttl.Seconds()))))
-					wait = waitFor(ttl)
+			ip := ClientIP(r)
+			if v, ok := l.blocked.Load(ip); ok {
+				if left := time.Until(v.(time.Time)); left > 0 {
+					w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(left.Seconds()))))
+					apperr.Write(w, apperr.TooMany("TOO_MANY_BAD_KEYS", fmt.Sprintf(
+						"blocked for now: your address sent %d requests with a missing or invalid API key; fix the key, then try again in %s", limit, waitFor(left))))
+					return
 				}
-				apperr.Write(w, apperr.TooMany("TOO_MANY_BAD_KEYS", fmt.Sprintf(
-					"blocked for now: your address sent %d requests with a missing or invalid API key; fix the key, then try again in %s", limit, wait)))
-				return
+				l.blocked.Delete(ip)
 			}
 			rec := &statusRecorder{ResponseWriter: w}
 			next.ServeHTTP(rec, r)
 			if rec.status == http.StatusUnauthorized {
-				if _, _, err := l.hit(context.WithoutCancel(r.Context()), key, window); err != nil {
+				n, reset, err := l.hit(context.WithoutCancel(r.Context()), prefix+":"+ip, window)
+				if err != nil {
 					slog.Warn("failed-auth counter", "err", err)
+				} else if n >= int64(limit) {
+					l.block(ip, time.Now().Add(reset))
 				}
 			}
 		})

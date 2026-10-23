@@ -744,7 +744,7 @@ func (f *Forwarder) setModels(list []map[string]any) []map[string]any {
 // withStatus returns the model list as ADO publishes it: only publicFields
 // (providers add their own, such as prices, internal flags or which reseller
 // they are, and those stay private), owned_by only when it names a model
-// maker, and ado_status from the health tracker. It builds new maps, so the
+// maker (the ID's maker first, see makerFromID), and ado_status from the health tracker. It builds new maps, so the
 // cached list (shared across requests) is never mutated.
 func (r *Registry) withStatus(list []map[string]any) []map[string]any {
 	out := make([]map[string]any, len(list))
@@ -781,6 +781,34 @@ var modelMakers = []string{
 	"moonshot", "kimi", "meta", "mistral", "qwen", "alibaba", "cohere", "microsoft", "nvidia", "amazon",
 }
 
+// idMakers name a model's maker from its ID, which beats owned_by: resellers
+// often report every model as "openai" (OpenAI's API format), and one filed
+// a Gemini model under OpenAI that way (2026-10-23). Checked in order, against
+// the ID after any "vendor/" prefix.
+var idMakers = []struct{ prefix, maker string }{
+	{"gemini", "google"}, {"gemma", "google"}, {"claude", "anthropic"},
+	{"deepseek", "deepseek"}, {"gpt", "openai"}, {"chatgpt", "openai"},
+	{"grok", "xai"}, {"glm", "z-ai"}, {"chatglm", "z-ai"}, {"kimi", "moonshot"},
+	{"moonshot", "moonshot"}, {"qwen", "qwen"}, {"llama", "meta"},
+	{"mistral", "mistral"}, {"mixtral", "mistral"}, {"codestral", "mistral"},
+}
+
+// makerFromID returns who made a model going by its ID ("gemini-3-flash" is
+// Google's), or "" when the ID doesn't say.
+func makerFromID(id string) string {
+	key := strings.ToLower(id[strings.LastIndex(id, "/")+1:])
+	for _, m := range idMakers {
+		if strings.HasPrefix(key, m.prefix) {
+			return m.maker
+		}
+	}
+	// OpenAI's reasoning models: o1, o3-mini, o4-mini.
+	if len(key) > 1 && key[0] == 'o' && key[1] >= '0' && key[1] <= '9' {
+		return "openai"
+	}
+	return ""
+}
+
 func publicModel(m map[string]any) map[string]any {
 	cp := make(map[string]any, len(publicFields)+3)
 	for _, k := range publicFields {
@@ -792,7 +820,10 @@ func publicModel(m map[string]any) map[string]any {
 		cp["object"] = "model"
 	}
 	cp["owned_by"] = "ado"
-	if owner, _ := m["owned_by"].(string); owner != "" {
+	id, _ := m["id"].(string)
+	if maker := makerFromID(id); maker != "" {
+		cp["owned_by"] = maker
+	} else if owner, _ := m["owned_by"].(string); owner != "" {
 		l := strings.ToLower(owner)
 		for _, maker := range modelMakers {
 			if strings.Contains(l, maker) {

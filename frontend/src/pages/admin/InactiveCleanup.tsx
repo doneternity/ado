@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useInactiveUsers, useDeleteInactiveUsers } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
+import { Select } from "../../components/Select";
 import styles from "./Admin.module.scss";
 
 // The backend refuses anything shorter than 150 days (MinInactiveDays).
@@ -49,14 +50,13 @@ export function InactiveCleanup() {
         so run a database backup first (GitHub → Actions → Database backup → Run workflow).
       </p>
       <div className={styles.btnRow}>
-        <select
-          className={`${styles.input} ${styles.inputSm}`}
+        <Select
+          size="sm"
+          label="Inactive for"
           value={days}
-          onChange={(e) => { setDays(Number(e.target.value)); setChecked(null); }}
-          aria-label="Inactive for"
-        >
-          {PERIODS.map((p) => <option key={p.days} value={p.days}>inactive {p.label}</option>)}
-        </select>
+          onChange={(d) => { setDays(d); setChecked(null); }}
+          options={PERIODS.map((p) => ({ value: p.days, label: `inactive ${p.label}` }))}
+        />
         <button className={styles.btnSecondary} onClick={() => setChecked(days)} disabled={isFetching}>
           {isFetching ? "Checking…" : "Find inactive accounts"}
         </button>

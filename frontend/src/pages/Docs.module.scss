@@ -152,23 +152,12 @@
     gap: 6px;
     margin-top: 28px;
 
-    span {
+    > span {
       font-size: .68rem;
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: .08em;
       color: rgba(255,255,255,0.58);
-    }
-
-    select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: var(--r-md);
-      background: var(--bg-card);
-      color: #ffffff;
-      font-family: inherit;
-      font-size: .9rem;
     }
   }
 }

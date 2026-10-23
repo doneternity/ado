@@ -10,6 +10,7 @@ import { CodeTabs } from "../components/CodeTabs";
 import type { Lang } from "../components/CodeTabs";
 import { enrichAll } from "../data/model-meta";
 import { joinNames } from "../data/catalog";
+import { Select } from "../components/Select";
 import styles from "./Docs.module.scss";
 
 const NAV = [
@@ -330,17 +331,17 @@ export function Docs() {
             {me && <Link to="/playground" className={styles.heroLink}>Playground <ArrowRight size={13} /></Link>}
           </div>
 
-          <label className={styles.mobileJump}>
+          <div className={styles.mobileJump}>
             <span>Jump to</span>
-            <select value="" onChange={e => { if (e.target.value) jump(e.target.value); }}>
-              <option value="">Choose a section</option>
-              {NAV.map(group => (
-                <optgroup key={group.group} label={group.group}>
-                  {group.links.map(link => <option key={link.id} value={link.id}>{link.label}</option>)}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+            <Select
+              full
+              label="Jump to a section"
+              placeholder="Choose a section"
+              value={null}
+              onChange={jump}
+              options={NAV.flatMap(group => group.links.map(link => ({ value: link.id, label: link.label, group: group.group })))}
+            />
+          </div>
         </header>
 
         {/* Quick start */}

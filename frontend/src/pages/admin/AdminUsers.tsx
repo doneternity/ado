@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useAdminUsers, useSetUserRole, useSetUserBanned, useAdminPlans, useSetUserPlan, useDeleteUser } from "../../api/admin";
 import { useUiStore } from "../../stores/ui-store";
 import { InactiveCleanup, MIN_INACTIVE_DAYS } from "./InactiveCleanup";
+import { Select } from "../../components/Select";
 import styles from "./Admin.module.scss";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -87,15 +88,16 @@ export function AdminUsers() {
                   }
                 </td>
                 <td>
-                  <select
-                    className={`${styles.input} ${styles.inputSm}`}
+                  <Select
+                    size="sm"
+                    label={`Plan for ${u.email}`}
                     value={u.planId}
-                    aria-label={`Plan for ${u.email}`}
-                    onChange={(e) => setPlan.mutate({ id: u.id, planId: e.target.value }, { onError: onErr("Could not change plan") })}
-                  >
-                    {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    {!plans.some((p) => p.id === u.planId) && <option value={u.planId}>{u.planId}</option>}
-                  </select>
+                    onChange={(planId) => setPlan.mutate({ id: u.id, planId }, { onError: onErr("Could not change plan") })}
+                    options={[
+                      ...plans.map((p) => ({ value: p.id, label: p.name })),
+                      ...(plans.some((p) => p.id === u.planId) ? [] : [{ value: u.planId, label: u.planId }]),
+                    ]}
+                  />
                 </td>
                 <td>{u.requestsToday}</td>
                 <td><LastActive iso={u.lastActive} /></td>

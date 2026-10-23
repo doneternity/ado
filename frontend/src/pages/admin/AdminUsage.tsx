@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { BarChart2 } from "lucide-react";
 import { useAdminStats, useAdminUsageByModel, useAdminRecentRequests } from "../../api/admin";
 import { compact } from "../../data/format";
+import { Select } from "../../components/Select";
 import styles from "./Admin.module.scss";
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.22, ease: "easeOut" as const } };
@@ -73,17 +74,18 @@ export function AdminUsage() {
 
       <div className={styles.sectionLabel} style={{ margin: "32px 0 12px", display: "flex", alignItems: "center", gap: 12 }}>
         By model
-        <select
-          className={`${styles.input} ${styles.inputSm}`}
+        <Select
+          size="sm"
+          label="Period"
           value={period}
-          onChange={(e) => setPeriod(Number(e.target.value))}
-          aria-label="Period"
-        >
-          <option value={1}>last 24 hours</option>
-          <option value={7}>last 7 days</option>
-          <option value={30}>last 30 days</option>
-          <option value={90}>last 90 days</option>
-        </select>
+          onChange={setPeriod}
+          options={[
+            { value: 1, label: "last 24 hours" },
+            { value: 7, label: "last 7 days" },
+            { value: 30, label: "last 30 days" },
+            { value: 90, label: "last 90 days" },
+          ]}
+        />
       </div>
       <div className={styles.tableWrap}>
         <table className={styles.table}>

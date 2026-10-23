@@ -20,6 +20,15 @@ const LONG_PAGES = new Set(["/docs", "/models", "/privacy", "/terms"]);
 // Pages non-admins can still open during maintenance, so an admin can sign in.
 const MAINTENANCE_ALLOWED = new Set(["/login"]);
 
+// The phone bottom bar (below 860px the header keeps only Admin and Sign out).
+const MOBILE_NAV: [string, string][] = [
+  ["/models", "Models"],
+  ["/docs", "Docs"],
+  ["/pricing", "Pricing"],
+  ["/status", "Status"],
+  ["/playground", "Play"],
+];
+
 export function Layout({ children }: { children: ReactNode }) {
   const { data: me, isLoading: meLoading } = useMe();
   const { data: maintenance = false } = useMaintenance();
@@ -106,10 +115,9 @@ export function Layout({ children }: { children: ReactNode }) {
       <main id="main-content" className={`${styles.shell}${isHero ? ` ${styles.shellHero}` : ""}`}>{children}</main>
 
       <nav className={styles.mobileBottomNav}>
-        <Link to="/models"     className={`${styles.mobileNavItem}${pathname === "/models"     ? ` ${styles.mobileNavActive}` : ""}`}>Models</Link>
-        <Link to="/docs"       className={`${styles.mobileNavItem}${pathname === "/docs"       ? ` ${styles.mobileNavActive}` : ""}`}>Docs</Link>
-        <Link to="/pricing"    className={`${styles.mobileNavItem}${pathname === "/pricing"    ? ` ${styles.mobileNavActive}` : ""}`}>Pricing</Link>
-        <Link to="/playground" className={`${styles.mobileNavItem}${pathname === "/playground" ? ` ${styles.mobileNavActive}` : ""}`}>Play</Link>
+        {MOBILE_NAV.map(([to, label]) => (
+          <Link key={to} to={to} className={`${styles.mobileNavItem}${pathname === to ? ` ${styles.mobileNavActive}` : ""}`}>{label}</Link>
+        ))}
         <Link to={me ? "/dashboard" : "/sign-up"} className={`${styles.mobileNavItem} ${styles.mobileNavCta}`}>
           {me ? "Dash" : "Sign up"}
         </Link>

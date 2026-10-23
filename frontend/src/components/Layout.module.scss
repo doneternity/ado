@@ -184,6 +184,9 @@
   transition: color var(--t-fast);
   min-height: 52px;
 
+  // Six items share the bar; the smallest phones get tighter lettering.
+  @media (max-width: 360px) { font-size: .6rem; letter-spacing: .02em; padding: 14px 2px; }
+
   &:hover { color: var(--black); }
 }
 

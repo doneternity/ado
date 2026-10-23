@@ -1,4 +1,4 @@
-import { enrichAll, fmtCtx, mergeModel, prettyName, providerOf } from "./model-meta";
+import { enrichAll, fmtCtx, fmtTokens, mergeModel, prettyName, providerOf } from "./model-meta";
 import type { LiveModel } from "./model-meta";
 
 // Shapes copied from DeepSeek's real /models response.
@@ -90,9 +90,28 @@ describe("model metadata", () => {
     expect(kimi.description).toMatch(/Moonshot AI/);
   });
 
-  it("trusts a known owner over the ID, and the ID over an unknown owner", () => {
+  it("trusts the ID over the owner, and a known owner over an ID that says nothing", () => {
+    // A reseller reported this Gemini model as owned by "openai" (2026-10-23).
+    expect(providerOf({ id: "gemini-3.6-flash", owned_by: "openai" })).toBe("gemini");
+    expect(providerOf({ id: "some-model", owned_by: "Moonshot" })).toBe("moonshot");
     expect(providerOf({ id: "kimi-k2", owned_by: "Moonshot" })).toBe("moonshot");
     expect(providerOf({ id: "glm-5", owned_by: "organization-owner" })).toBe("zai");
     expect(providerOf({ id: "mystery", owned_by: "system" })).toBe("other");
+  });
+
+  it("formats token counts compactly", () => {
+    expect(fmtTokens(1048576)).toBe("1M");
+    expect(fmtTokens(1000000)).toBe("1M");
+    expect(fmtTokens(393216)).toBe("384K");
+    expect(fmtTokens(65535)).toBe("64K");
+    expect(fmtTokens(65536)).toBe("64K");
+    expect(fmtCtx(200000)).toBe("200K tokens");
+  });
+
+  it("describes Gemini models it doesn't list by ID", () => {
+    const m = mergeModel({ id: "gemini-3.6-flash", owned_by: "openai", context_length: 1000000, max_output_tokens: 65536 });
+    expect(m.provider).toBe("gemini");
+    expect(m.description).toMatch(/fast Gemini model/);
+    expect(m.maxOutputTokens).toBe(65536);
   });
 });

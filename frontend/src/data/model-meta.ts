@@ -12,6 +12,7 @@ export type LiveModel = {
   // context size
   context_length?: number;
   context_window?: number;
+  max_output_tokens?: number;
   // who serves it
   provider?: string;
   owned_by?: string;
@@ -29,6 +30,9 @@ export type EnrichedModel = ModelDef & {
   // reasoning effort levels the provider says the model takes, if any
   effortLevels?: string[];
   effortDefault?: string;
+  // raw token counts, for compact "1M context" style labels
+  contextTokens?: number;
+  maxOutputTokens?: number;
 };
 
 const LONG_CONTEXT = 500_000;
@@ -57,14 +61,17 @@ export function providerFromLabel(label: string): ModelProvider {
   return "other";
 }
 
-// Who serves a live model: the provider's own owner field when it names a
-// known company, otherwise the fallback or a guess from the model ID (owners
-// like "system" or "organization-owner" say nothing).
+// Who made a live model. The ID decides when it names a family ("gemini-…"):
+// resellers often report every model as owned by "openai" (OpenAI's API
+// format), which once filed a Gemini model under OpenAI. The owner field is
+// only used for IDs that say nothing, and owners like "system" say nothing either.
 export function providerOf(live: Pick<LiveModel, "id" | "provider" | "owned_by">, fallback?: ModelProvider): ModelProvider {
+  const fromId = inferProvider(live.id);
+  if (fromId !== "other") return fromId;
   const owner = live.provider ?? live.owned_by;
   const fromOwner = owner ? providerFromLabel(owner) : "other";
   if (fromOwner !== "other") return fromOwner;
-  return fallback ?? inferProvider(live.id);
+  return fallback ?? "other";
 }
 
 type FamilyInfo = Pick<ModelDef, "description" | "capabilities" | "speed">;
@@ -87,6 +94,11 @@ export function familyInfo(id: string): FamilyInfo | undefined {
       speed,
     };
   }
+  if (/^gemini/.test(key)) {
+    if (/pro/.test(key)) return { description: "Google's Gemini Pro model for harder reasoning, coding and long documents.", capabilities: ["Streaming"], speed: 2 };
+    if (light) return { description: "A fast Gemini model from Google for everyday, high-volume tasks.", capabilities: ["Streaming"], speed: 1 };
+    return { description: "Google's Gemini model for chat, coding and long documents.", capabilities: ["Streaming"], speed };
+  }
   if (/^(kimi|moonshot)/.test(key)) {
     if (/vision|-vl\b/.test(key)) {
       return { description: "Moonshot AI's Kimi vision model, for questions about images as well as text.", capabilities: ["Streaming", "Vision"], speed };
@@ -102,11 +114,17 @@ export function familyInfo(id: string): FamilyInfo | undefined {
 // 131072 -> "128K", 1048576 -> "1M" (binary sizes, as model cards quote them);
 // 200000 -> "200K", 1000000 -> "1M" (decimal sizes).
 export function fmtCtx(n: number): string {
-  const fmt = (v: number, unit: string, digits = 1) => `${+v.toFixed(digits)}${unit} tokens`;
+  return n >= 1_000 ? `${fmtTokens(n)} tokens` : `${n} tokens`;
+}
+
+// The number part alone: 1048576 -> "1M", 393216 -> "384K", 65535 -> "64K".
+export function fmtTokens(n: number): string {
+  const fmt = (v: number, unit: string, digits = 1) => `${+v.toFixed(digits)}${unit}`;
   // Two decimals for millions, so 1,050,000 reads "1.05M", not a rounded-up "1.1M".
   if (n >= 1_000_000) return fmt(n % 1_048_576 === 0 ? n / 1_048_576 : n / 1_000_000, "M", 2);
-  if (n >= 1_000) return fmt(n % 1_024 === 0 ? n / 1_024 : n / 1_000, "K");
-  return `${n} tokens`;
+  // 65535 is a 64K limit minus one, not "65.5K".
+  if (n >= 1_000) return fmt((n + 1) % 1_024 === 0 || n % 1_024 === 0 ? Math.round(n / 1_024) : n / 1_000, "K");
+  return String(n);
 }
 
 // "DeepSeek-V4.1-Flash" -> "DeepSeek V4.1 Flash"; "deepseek-flash" -> "Deepseek Flash".
@@ -150,6 +168,8 @@ export function mergeModel(live: LiveModel, curated?: ModelDef): EnrichedModel {
     adoStatus: live.ado_status ?? "available",
     effortLevels: live.effort?.supported_levels?.length ? live.effort.supported_levels : undefined,
     effortDefault: live.effort?.default_level,
+    contextTokens: ctxTokens,
+    maxOutputTokens: live.max_output_tokens,
   };
 }
 

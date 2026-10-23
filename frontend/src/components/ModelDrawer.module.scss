@@ -1,0 +1,285 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  animation: fadeIn .18s ease-out;
+
+  // Phones: a bottom sheet.
+  @media (max-width: 640px) { align-items: flex-end; }
+}
+
+.drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  height: 100%;
+  background: #0b0b10;
+  border-left: 1px solid rgba(255,255,255,0.1);
+  box-shadow: -24px 0 80px rgba(0,0,0,0.6);
+  color: #ffffff;
+  animation: slideIn .24s cubic-bezier(.2,.8,.2,1);
+
+  @media (max-width: 640px) {
+    width: 100%;
+    height: auto;
+    max-height: 90dvh;
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px 18px 0 0;
+    animation-name: sheetIn;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  // A thin line in the provider's colour along the top.
+  box-shadow: inset 0 2px 0 rgba(var(--maker), .55);
+
+  @media (max-width: 640px) { border-radius: 18px 18px 0 0; }
+}
+
+.maker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .8rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.75);
+}
+
+.close {
+  display: inline-flex;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  &:hover { background: rgba(255,255,255,0.06); color: #ffffff; }
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overscroll-behavior: contain;
+
+  // The column scrolls; its parts keep their height instead of squeezing.
+  > * { flex-shrink: 0; }
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tag {
+  display: block;
+  margin-bottom: 6px;
+  font-size: .66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--accent);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.desc {
+  margin: -6px 0 0;
+  font-size: .88rem;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.68);
+}
+
+.idRow { display: flex; }
+
+.specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin: 0;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: rgba(255,255,255,0.07);
+}
+
+.spec {
+  padding: 12px 14px;
+  background: #0f0f15;
+
+  // A lone cell on the last row (Effort, after Context and Max output) takes the whole row.
+  &:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  dt {
+    font-size: .62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 4px;
+  }
+  dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    color: rgba(255,255,255,0.8);
+    strong { color: #ffffff; font-weight: 700; }
+  }
+}
+
+.hint {
+  margin: 0;
+  font-size: .76rem;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.58);
+
+  code {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    padding: .1em .35em;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.85);
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: rgba(255,255,255,0.6);
+}
+
+.toggle { display: flex; gap: 4px; }
+
+.toggleBtn {
+  padding: 4px 11px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: rgba(255,255,255,0.65);
+  font-family: inherit;
+  font-size: .72rem;
+  cursor: pointer;
+  &:hover { color: #ffffff; }
+}
+
+.toggleOn {
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.06);
+}
+
+.rate {
+  margin: 0;
+  font-size: .85rem;
+  color: rgba(255,255,255,0.7);
+  strong { font-size: 1.1rem; }
+}
+
+.rate_good { color: rgba(74,222,128,0.95); }
+.rate_fair { color: rgba(250,204,21,0.95); }
+.rate_poor { color: rgba(248,113,113,0.95); }
+.rate_none { color: rgba(255,255,255,0.5); }
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  color: rgba(255,255,255,0.5);
+}
+
+.skeleton {
+  height: 60px;
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.04);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255,255,255,0.07);
+  background: #0b0b10;
+}
+
+.primary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: var(--r-pill);
+  background: #ffffff;
+  color: #050508;
+  font-size: .88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity var(--t-fast);
+  &:hover { opacity: .88; }
+}
+
+.secondary {
+  padding: 11px 18px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #ffffff;
+  font-size: .88rem;
+  text-decoration: none;
+  transition: border-color var(--t-fast);
+  &:hover { border-color: rgba(255,255,255,0.4); }
+}
+
+// CSS modules rename animation names, so keyframes live here.
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sheetIn { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay, .drawer { animation: none; }
+}

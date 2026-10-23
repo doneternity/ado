@@ -16,6 +16,19 @@ export const PROVIDER_NAME: Record<ModelProvider, string> = {
   other:    "Other",
 };
 
+// An accent per provider as "r, g, b", for rgba() in badges. Plain colours
+// only, never a company's logo.
+export const PROVIDER_COLOR: Record<ModelProvider, string> = {
+  claude:   "160, 145, 255",
+  gemini:   "70, 170, 255",
+  deepseek: "5, 196, 139",
+  openai:   "16, 163, 127",
+  xai:      "29, 155, 240",
+  zai:      "130, 160, 255",
+  moonshot: "255, 185, 90",
+  other:    "200, 200, 210",
+};
+
 export type ProviderSummary = {
   provider: ModelProvider;
   name: string;

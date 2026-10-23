@@ -20,10 +20,15 @@ const publicModelsQuery = {
   queryKey: publicModelsKey,
   queryFn: async (): Promise<LiveModel[]> => {
     const r = await fetch((import.meta.env.VITE_API_BASE_URL ?? "") + "/api/models");
-    const d = (await r.json()) as { data?: LiveModel[] };
+    const d = (await r.json().catch(() => ({}))) as { data?: LiveModel[]; error?: { code?: string; message?: string } };
+    // ADO says why (rate limited, maintenance); pages that only need names
+    // treat a failure as an empty list.
+    if (!r.ok) throw new ApiError(r.status, d.error?.code ?? "MODELS_UNAVAILABLE", d.error?.message ?? "");
     return d.data ?? [];
   },
   staleTime: 5 * 60_000,
+  // A network blip gets one more try; ADO's own refusal (429, 503) won't change in a second.
+  retry: (n: number, err: Error) => !(err instanceof ApiError) && n < 1,
 };
 
 const toIds = (ms: LiveModel[]) => ms.map((m) => m.id);
@@ -35,8 +40,8 @@ export function usePublicModels() {
 }
 
 // The full live entries (names, context sizes, status), for enrichAll.
-export function useLiveModels() {
-  return useQuery(publicModelsQuery);
+export function useLiveModels(opts?: { refetchInterval?: number }) {
+  return useQuery({ ...publicModelsQuery, ...opts });
 }
 
 // The live catalogue as marketing copy needs it: how many models, from which

@@ -1,20 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useLiveModels } from "../api/queries";
+import { useStatusHistory } from "../api/status-history";
+import type { History, Series } from "../api/status-history";
 import { enrichAll } from "../data/model-meta";
 import styles from "./UptimeHistory.module.scss";
 
-type Series = { id?: string; rate: number | null; series: (number | null)[] };
-type History = {
-  range: "24h" | "7d";
-  bucketMinutes: number;
-  buckets: string[];
-  overall: Series;
-  models: Series[];
-};
-
-const RANGES = [
+export const RANGES = [
   { id: "24h", label: "24 hours", phrase: "the last 24 hours" },
   { id: "7d", label: "7 days", phrase: "the last 7 days" },
 ] as const;
@@ -47,7 +39,7 @@ export function slotLabel(startIso: string, minutes: number, range: History["ran
 
 // A row of slots. Hovering a slot (or tapping it, or moving along with the
 // arrow keys) shows a tooltip with its time and success rate.
-function Strip({ s, h, label }: { s: Series; h: History; label: string }) {
+export function Strip({ s, h, label }: { s: Series; h: History; label: string }) {
   const [active, setActive] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const tipId = useId();
@@ -130,16 +122,7 @@ function Strip({ s, h, label }: { s: Series; h: History; label: string }) {
 // counted, since they say nothing about the model.
 export function UptimeHistory() {
   const [range, setRange] = useState<"24h" | "7d">("24h");
-  const { data, isError, isLoading } = useQuery({
-    queryKey: ["status-history", range],
-    queryFn: async (): Promise<History> => {
-      const r = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ""}/api/status/history?range=${range}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return (await r.json()) as History;
-    },
-    staleTime: 60_000,
-    refetchInterval: 5 * 60_000,
-  });
+  const { data, isError, isLoading } = useStatusHistory(range);
   const { data: live } = useLiveModels();
   const names = new Map(enrichAll(live ?? []).map(m => [m.id, m.name]));
   const phrase = RANGES.find(r => r.id === range)!.phrase;

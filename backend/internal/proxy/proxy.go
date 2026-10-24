@@ -775,9 +775,11 @@ var publicCapabilities = []string{"contextWindow", "vision", "reasoning"}
 
 // modelMakers are owned_by values worth passing on: they name who made the
 // model, which the site uses to group models. Anything else (a reseller's own
-// name, "system", "organization-owner") becomes "ado".
+// name, "system", "organization-owner") becomes "ado". "openai" isn't one:
+// resellers put it on every model (a MiniMax model on 2026-10-24), and OpenAI's
+// own models are known by ID.
 var modelMakers = []string{
-	"deepseek", "openai", "anthropic", "google", "xai", "x-ai", "z-ai", "zai", "zhipu",
+	"deepseek", "minimax", "anthropic", "google", "xai", "x-ai", "z-ai", "zai", "zhipu",
 	"moonshot", "kimi", "meta", "mistral", "qwen", "alibaba", "cohere", "microsoft", "nvidia", "amazon",
 }
 
@@ -789,7 +791,7 @@ var idMakers = []struct{ prefix, maker string }{
 	{"gemini", "google"}, {"gemma", "google"}, {"claude", "anthropic"},
 	{"deepseek", "deepseek"}, {"gpt", "openai"}, {"chatgpt", "openai"},
 	{"grok", "xai"}, {"glm", "z-ai"}, {"chatglm", "z-ai"}, {"kimi", "moonshot"},
-	{"moonshot", "moonshot"}, {"qwen", "qwen"}, {"llama", "meta"},
+	{"moonshot", "moonshot"}, {"minimax", "minimax"}, {"qwen", "qwen"}, {"llama", "meta"},
 	{"mistral", "mistral"}, {"mixtral", "mistral"}, {"codestral", "mistral"},
 }
 

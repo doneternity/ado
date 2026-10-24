@@ -78,7 +78,7 @@ func TestMakerFromID(t *testing.T) {
 		"gemini-3.6-flash": "google", "models/gemini-2.5-pro": "google", "claude-opus-4-7": "anthropic",
 		"deepseek-flash": "deepseek", "gpt-4o": "openai", "o3-mini": "openai", "o3": "openai",
 		"glm-5.3": "z-ai", "kimi-k2": "moonshot", "qwen/qwen3.5-397b-a17b": "qwen",
-		"meta-llama/llama-3.3-70b": "meta", "mystery": "", "omni-x": "", "o": "",
+		"meta-llama/llama-3.3-70b": "meta", "minimax-m2.7": "minimax", "mystery": "", "omni-x": "", "o": "",
 	} {
 		if got := makerFromID(id); got != want {
 			t.Errorf("makerFromID(%q) = %q, want %q", id, got, want)
@@ -86,5 +86,9 @@ func TestMakerFromID(t *testing.T) {
 	}
 	if m := publicModel(map[string]any{"id": "gemini-3.6-flash", "owned_by": "openai"}); m["owned_by"] != "google" {
 		t.Fatalf("owned_by = %v, want google", m["owned_by"])
+	}
+	// Resellers put "openai" on everything, so it isn't passed on for an ID that doesn't say.
+	if m := publicModel(map[string]any{"id": "mystery-model", "owned_by": "openai"}); m["owned_by"] != "ado" {
+		t.Fatalf("owned_by = %v, want ado", m["owned_by"])
 	}
 }

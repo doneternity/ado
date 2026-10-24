@@ -108,6 +108,17 @@ describe("model code snippets", () => {
     expect(screen.getByText("384K")).toBeInTheDocument(); // max output
   });
 
+  it("puts the Other group last, however many models it has", async () => {
+    modelsReply.body = { data: [
+      { id: "nemotron-3-ultra-550b-a55b", owned_by: "openai" },
+      { id: "mystery-model", owned_by: "openai" },
+      { id: "glm-4.7-flash", owned_by: "z-ai" },
+    ] };
+    renderPage();
+    await screen.findByRole("region", { name: /Other/ });
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.id).filter(Boolean)).toEqual(["group-zai", "group-other"]);
+  });
+
   it("filters by capability and offers to clear filters when nothing matches", async () => {
     modelsReply.body = { data: [
       { id: "deepseek-flash", owned_by: "deepseek", input_modalities: ["text", "image"] },

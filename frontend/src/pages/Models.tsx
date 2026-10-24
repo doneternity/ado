@@ -24,8 +24,8 @@ const CAP_SLUG: Record<Capability, string> = {
 
 type Group = { provider: ModelProvider; name: string; models: EnrichedModel[] };
 
-// Models grouped by maker, the biggest group first. Within a group the
-// catalogue order holds, except that models that are down go last.
+// Models grouped by maker, the biggest group first and "Other" always last.
+// Within a group the catalogue order holds, except that models that are down go last.
 function groupByMaker(models: EnrichedModel[]): Group[] {
   const groups = new Map<ModelProvider, EnrichedModel[]>();
   for (const m of models) groups.set(m.provider, [...(groups.get(m.provider) ?? []), m]);
@@ -35,7 +35,10 @@ function groupByMaker(models: EnrichedModel[]): Group[] {
       name: PROVIDER_NAME[provider],
       models: [...ms.filter((m) => m.adoStatus !== "down"), ...ms.filter((m) => m.adoStatus === "down")],
     }))
-    .sort((a, b) => b.models.length - a.models.length || a.name.localeCompare(b.name));
+    .sort((a, b) =>
+      Number(a.provider === "other") - Number(b.provider === "other") ||
+      b.models.length - a.models.length ||
+      a.name.localeCompare(b.name));
 }
 
 // A provider is fine when all its models are up, down when none are.

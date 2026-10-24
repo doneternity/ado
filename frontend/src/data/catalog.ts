@@ -13,6 +13,7 @@ export const PROVIDER_NAME: Record<ModelProvider, string> = {
   xai:      "xAI",
   zai:      "Z.ai",
   moonshot: "Moonshot AI",
+  minimax:  "MiniMax",
   other:    "Other",
 };
 
@@ -26,6 +27,7 @@ export const PROVIDER_COLOR: Record<ModelProvider, string> = {
   xai:      "29, 155, 240",
   zai:      "130, 160, 255",
   moonshot: "255, 185, 90",
+  minimax:  "255, 110, 140",
   other:    "200, 200, 210",
 };
 

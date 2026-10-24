@@ -93,6 +93,11 @@ describe("model metadata", () => {
   it("trusts the ID over the owner, and a known owner over an ID that says nothing", () => {
     // A reseller reported this Gemini model as owned by "openai" (2026-10-23).
     expect(providerOf({ id: "gemini-3.6-flash", owned_by: "openai" })).toBe("gemini");
+    // ...and a MiniMax one (2026-10-24). "openai" as an owner says nothing.
+    expect(providerOf({ id: "minimax-m2.7", owned_by: "openai" })).toBe("minimax");
+    expect(providerOf({ id: "mystery-model", owned_by: "openai" })).toBe("other");
+    expect(providerOf({ id: "nemotron-3-ultra-550b-a55b", owned_by: "openai" })).toBe("other");
+    expect(providerOf({ id: "gpt-4o", owned_by: "openai" })).toBe("openai");
     expect(providerOf({ id: "some-model", owned_by: "Moonshot" })).toBe("moonshot");
     expect(providerOf({ id: "kimi-k2", owned_by: "Moonshot" })).toBe("moonshot");
     expect(providerOf({ id: "glm-5", owned_by: "organization-owner" })).toBe("zai");
@@ -113,5 +118,17 @@ describe("model metadata", () => {
     expect(m.provider).toBe("gemini");
     expect(m.description).toMatch(/fast Gemini model/);
     expect(m.maxOutputTokens).toBe(65536);
+  });
+
+  it("writes parameter counts in capitals", () => {
+    expect(prettyName("nemotron-3-ultra-550b-a55b")).toBe("Nemotron 3 Ultra 550B A55B");
+    expect(prettyName("qwen3.5-397b-a17b")).toBe("Qwen3.5 397B A17B");
+  });
+
+  it("names and describes MiniMax models", () => {
+    const m = mergeModel({ id: "minimax-m3.1-flash", owned_by: "openai", context_length: 1000000, max_output_tokens: 524288 });
+    expect(m.name).toBe("MiniMax M3.1 Flash");
+    expect(m.provider).toBe("minimax");
+    expect(m.description).toMatch(/faster MiniMax model/);
   });
 });

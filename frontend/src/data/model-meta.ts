@@ -46,6 +46,7 @@ export function inferProvider(id: string): ModelProvider {
   if (/grok|xai/i.test(key)) return "xai";
   if (/glm|zhipu/i.test(key)) return "zai";
   if (/kimi|moonshot/i.test(key)) return "moonshot";
+  if (/minimax/i.test(key)) return "minimax";
   return "other";
 }
 
@@ -58,6 +59,7 @@ export function providerFromLabel(label: string): ModelProvider {
   if (l.includes("xai") || l.includes("grok")) return "xai";
   if (l.includes("z-ai") || l.includes("z.ai") || l.includes("zai") || l.includes("zhipu")) return "zai";
   if (l.includes("moonshot") || l.includes("kimi")) return "moonshot";
+  if (l.includes("minimax")) return "minimax";
   return "other";
 }
 
@@ -70,7 +72,9 @@ export function providerOf(live: Pick<LiveModel, "id" | "provider" | "owned_by">
   if (fromId !== "other") return fromId;
   const owner = live.provider ?? live.owned_by;
   const fromOwner = owner ? providerFromLabel(owner) : "other";
-  if (fromOwner !== "other") return fromOwner;
+  // "openai" is what resellers put on everything, so it says nothing (OpenAI's
+  // own models are known by ID); a MiniMax model was filed under it on 2026-10-24.
+  if (fromOwner !== "other" && fromOwner !== "openai") return fromOwner;
   return fallback ?? "other";
 }
 
@@ -98,6 +102,13 @@ export function familyInfo(id: string): FamilyInfo | undefined {
     if (/pro/.test(key)) return { description: "Google's Gemini Pro model for harder reasoning, coding and long documents.", capabilities: ["Streaming"], speed: 2 };
     if (light) return { description: "A fast Gemini model from Google for everyday, high-volume tasks.", capabilities: ["Streaming"], speed: 1 };
     return { description: "Google's Gemini model for chat, coding and long documents.", capabilities: ["Streaming"], speed };
+  }
+  if (/^minimax/.test(key)) {
+    return {
+      description: light ? "A faster MiniMax model for everyday chat and coding." : "MiniMax's model for chat, coding and agent tasks.",
+      capabilities: ["Streaming"],
+      speed,
+    };
   }
   if (/^(kimi|moonshot)/.test(key)) {
     if (/vision|-vl\b/.test(key)) {
@@ -135,6 +146,8 @@ export function prettyName(raw: string): string {
     .replace(/[-_]+/g, " ")
     .replace(/\b([a-z])/g, (c) => c.toUpperCase())
     .replace(/\b(Glm|Gpt)\b/g, (w) => w.toUpperCase()) // "glm-5.3" -> "GLM 5.3"
+    .replace(/\bMinimax\b/g, "MiniMax")
+    .replace(/\b(A?\d+(?:\.\d+)?)b\b/gi, "$1B")              // "550b a55b" -> "550B A55B" (parameter counts)
     .replace(/(\d)v\b/g, "$1V")                       // "4.5v" -> "4.5V"
     .trim();
 }

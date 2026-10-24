@@ -1,4 +1,4 @@
-export type ModelProvider = "claude" | "gemini" | "deepseek" | "openai" | "xai" | "zai" | "moonshot" | "other";
+export type ModelProvider = "claude" | "gemini" | "deepseek" | "openai" | "xai" | "zai" | "moonshot" | "minimax" | "other";
 export type Capability = "Vision" | "Tools" | "Streaming" | "Reasoning" | "Long context";
 
 export interface ModelDef {

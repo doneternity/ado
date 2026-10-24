@@ -16,7 +16,9 @@ type ProviderKey = ModelProvider;
 
 const PROVIDER_LABELS = PROVIDER_NAME;
 
-const PROVIDER_ORDER: ProviderKey[] = ["gemini", "deepseek", "openai", "claude", "xai", "zai", "moonshot", "other"];
+const PROVIDER_ORDER: ProviderKey[] = ["gemini", "deepseek", "openai", "claude", "xai", "zai", "moonshot", "minimax", "other"];
+// Position in PROVIDER_ORDER; a provider missing from it goes last.
+const orderOf = (pk: ProviderKey) => (PROVIDER_ORDER.includes(pk) ? PROVIDER_ORDER.indexOf(pk) : PROVIDER_ORDER.length);
 
 type ProviderStatus = "operational" | "degraded" | "down" | "unknown";
 
@@ -67,8 +69,8 @@ function buildRows(models: LiveModel[]): ProviderRow[] {
     if (!grouped.has(pk)) grouped.set(pk, []);
     grouped.get(pk)!.push(m);
   }
-  return PROVIDER_ORDER
-    .filter(pk => grouped.has(pk))
+  return [...grouped.keys()]
+    .sort((a, b) => orderOf(a) - orderOf(b))
     .map(pk => ({
       key:    pk,
       label:  PROVIDER_LABELS[pk],
